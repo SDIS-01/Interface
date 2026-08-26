@@ -170,6 +170,13 @@ td input,td select{
   width:100%;padding:4px 6px;border:1px solid transparent;border-radius:4px;background:transparent;
 }
 td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
+td textarea.auto{width:100%;padding:4px 6px;border:1px solid transparent;border-radius:4px;
+  background:transparent;font:inherit;line-height:1.35;resize:none;overflow:hidden;
+  min-height:24px;display:block;}
+td textarea.auto:hover{border-color:var(--trait);background:#fff;}
+td textarea.auto:focus{outline:2px solid var(--bleu);outline-offset:-1px;background:#fff;}
+tr.ligne-repli td{vertical-align:middle;}
+.ligne-repli{height:auto;}
 .col-etroite{width:112px;}
 .col-mini{width:74px;}
 .col-chevron{width:22px;text-align:center;padding-left:4px;padding-right:0;}
@@ -909,12 +916,19 @@ function editeur(tableId,ligne,colId,opts){
       '<option value="1"'+(v?" selected":"")+'>Oui</option><option value="0"'+(v===false?" selected":"")+'>Non</option></select>';
   if(opts.multi)
     return '<textarea class="edit" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
+  if(opts.auto)
+    return '<textarea class="edit auto" rows="1" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
   if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
     return '<input class="edit" type="number" step="any" data-k="num" '+attr+' value="'+esc(v==null?"":v)+'">';
   return '<input class="edit" type="text" data-k="txt" '+attr+' value="'+esc(txt(v))+'">';
 }
 
 function brancherEditeurs(){
+  const ajuster=el=>{ el.style.height="auto"; el.style.height=(el.scrollHeight+2)+"px"; };
+  document.querySelectorAll("textarea.auto").forEach(el=>{
+    ajuster(el);
+    el.oninput=()=>ajuster(el);
+  });
   document.querySelectorAll(".edit").forEach(el=>{
     el.onchange=async()=>{
       const {t,r,c,k}=el.dataset;
@@ -1159,7 +1173,7 @@ function vueActions(p){
         const detail=(c.colCommentaire||c.colPJ);
         return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
           (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
-          '<td>'+editeur(t,r,c.colLibelle)+'</td>'+
+          '<td>'+editeur(t,r,c.colLibelle,{auto:true})+'</td>'+
           '<td><input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
             '" data-t="'+t+'" data-r="'+r.id+'" data-c="'+c.colAvancement+'"></td>'+
           '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
@@ -1240,7 +1254,7 @@ function vueTaches(p){
           const detail=!!c.colTacheCommentaire;
           return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
             (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
-            '<td>'+editeur(c.tblTache,r,c.colTacheLibelle)+'</td>'+
+            '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
             '<td>'+(c.colTacheAvancement?'<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+
               (a==null?"":a)+'" data-t="'+c.tblTache+'" data-r="'+r.id+'" data-c="'+c.colTacheAvancement+'">':'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+

@@ -687,22 +687,33 @@ function lieAuProjet(ligne,colLien,p){
   return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
 }
 
+function dateDepuisTexte(s){
+  const m=String(s||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? Date.UTC(+m[3],+m[2]-1,+m[1])/1000 : null;
+}
+
 function jalonsDe(p){
   const c=S.cfg, out=[];
   if(c.tblJalon && c.colJalLien)
-    S.data.jalons.filter(j=>lieAuProjet(j,c.colJalLien,p)).forEach(j=>out.push({
-      id:j.id, table:c.tblJalon, genre:"Jalon",
-      date:j[c.colJalDate],
-      libelle:lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle)
-    }));
+    S.data.jalons.filter(j=>lieAuProjet(j,c.colJalLien,p)).forEach(j=>{
+      const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
+      out.push({
+        id:j.id, table:c.tblJalon, genre:"Jalon",
+        date:Number(j[c.colJalDate])||dateDepuisTexte(lib),
+        libelle:lib
+      });
+    });
   if(c.tblInstance && c.colInsLien)
-    S.data.instances.filter(j=>lieAuProjet(j,c.colInsLien,p)).forEach(j=>out.push({
-      id:j.id, table:c.tblInstance, genre:"Instance",
-      date:j[c.colInsDate],
-      libelle:lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle),
-      type:c.colInsType?lire(c.tblInstance,j,c.colInsType):"",
-      rapporteur:c.colInsRapporteur?lire(c.tblInstance,j,c.colInsRapporteur):""
-    }));
+    S.data.instances.filter(j=>lieAuProjet(j,c.colInsLien,p)).forEach(j=>{
+      const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
+      out.push({
+        id:j.id, table:c.tblInstance, genre:"Instance",
+        date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
+        libelle:lib,
+        type:c.colInsType?lire(c.tblInstance,j,c.colInsType):"",
+        rapporteur:c.colInsRapporteur?lire(c.tblInstance,j,c.colInsRapporteur):""
+      });
+    });
   return out.sort((a,b)=>{
     const da=Number(a.date)||null, db=Number(b.date)||null;
     if(da===null && db===null) return 0;

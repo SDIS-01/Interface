@@ -65,6 +65,10 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   outline:2px solid var(--bleu);outline-offset:-1px;border-color:var(--bleu);
 }
 .filtres{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.filtre-date{grid-column:1/-1;display:flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--gris);white-space:nowrap;}
+.filtre-date input{flex:1;min-width:0;padding:5px 6px;border:1px solid var(--trait);
+  border-radius:var(--rayon);background:#fff;font-size:11.5px;}
 .liste{flex:1;overflow-y:auto;}
 .ligne-projet{
   display:flex;align-items:flex-start;gap:9px;padding:9px 11px;
@@ -79,7 +83,14 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   line-height:1.35;white-space:normal;overflow-wrap:anywhere;}
 .ligne-projet .titre span{display:block;color:var(--gris);font-size:11px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.compteur{padding:7px 11px;color:var(--gris);font-size:11px;border-bottom:1px solid var(--trait);}
+.compteur{padding:7px 11px;color:var(--gris);font-size:11px;border-bottom:1px solid var(--trait);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:31px;}
+.btn-raz{
+  background:none;border:none;color:var(--bleu);font-size:11px;font-weight:bold;
+  padding:2px 4px;border-radius:4px;text-decoration:underline;
+}
+.btn-raz:hover{background:var(--bleu-clair);}
+.btn-raz[hidden]{display:none;}
 
 /* ---------- Pastilles ---------- */
 .pastille{
@@ -251,9 +262,26 @@ td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
           <option value="afaire">À faire</option>
           <option value="interrompu">Interrompus</option>
         </select>
+        <select id="f-avct">
+          <option value="">Tout avancement</option>
+          <option value="0">0 % — à faire</option>
+          <option value="1-49">1 à 49 %</option>
+          <option value="50-99">50 à 99 %</option>
+          <option value="100">100 % — terminé</option>
+          <option value="sans">Non renseigné</option>
+        </select>
+        <div class="filtre-date">
+          <span>Échéance du</span>
+          <input id="f-ech-du" type="date" aria-label="Échéance à partir du">
+          <span>au</span>
+          <input id="f-ech-au" type="date" aria-label="Échéance jusqu'au">
+        </div>
       </div>
     </div>
-    <div class="compteur" id="compteur">Chargement…</div>
+    <div class="compteur">
+      <span id="compteur-texte">Chargement…</span>
+      <button class="btn-raz" id="btn-raz" hidden>Réinitialiser les filtres</button>
+    </div>
     <div class="liste" id="liste"></div>
   </aside>
 
@@ -576,6 +604,9 @@ async function supprimer(tableId,rowId){
    6. Rendu — liste des projets
    ======================================================================= */
 
+const SELECTS_FILTRE=["#f-groupement","#f-porteur","#f-priorite","#f-etat","#f-avct"];
+const DATES_FILTRE=["#f-ech-du","#f-ech-au"];
+
 function remplirFiltres(){
   const c=S.cfg, ps=projets();
   const uniq=(f)=>[...new Set(ps.map(f).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
@@ -592,17 +623,32 @@ function remplirFiltres(){
 function projetsFiltres(){
   const c=S.cfg;
   const q=$("#q").value.trim().toLowerCase();
-  const g=$("#f-groupement").value, po=$("#f-porteur").value, pr=$("#f-priorite").value, et=$("#f-etat").value;
+  const g=$("#f-groupement").value, po=$("#f-porteur").value, pr=$("#f-priorite").value;
+  const et=$("#f-etat").value, av=$("#f-avct").value;
+  const ecDu=isoVersDate($("#f-ech-du").value), ecAu=isoVersDate($("#f-ech-au").value);
   return projets().filter(p=>{
     if(g && lire(c.tblMain,p,c.colGroupement)!==g) return false;
     if(po && lire(c.tblMain,p,c.colPorteur)!==po) return false;
     if(pr && lire(c.tblMain,p,c.colPriorite)!==pr) return false;
+    const a=pct(p[c.colAvancement]), i=interrompu(p);
     if(et){
-      const a=pct(p[c.colAvancement]), i=interrompu(p);
       if(et==="interrompu" && !i) return false;
       if(et==="termine" && (i||a!==100)) return false;
       if(et==="afaire" && (i||(a||0)!==0)) return false;
       if(et==="encours" && (i||!a||a>=100)) return false;
+    }
+    if(av){
+      if(av==="sans" && a!==null) return false;
+      if(av==="0" && a!==0) return false;
+      if(av==="1-49" && !(a!==null&&a>=1&&a<=49)) return false;
+      if(av==="50-99" && !(a!==null&&a>=50&&a<=99)) return false;
+      if(av==="100" && a!==100) return false;
+    }
+    if(ecDu!==null || ecAu!==null){
+      const e=Number(p[c.colEch])||null;
+      if(!e) return false;
+      if(ecDu!==null && e<ecDu) return false;
+      if(ecAu!==null && e>ecAu) return false;
     }
     if(q){
       const foin=[c.colLibelle,c.colPorteur,c.colGroupement,c.colCommentaire,c.colProjKey]
@@ -613,9 +659,21 @@ function projetsFiltres(){
   });
 }
 
+function filtresActifs(){
+  return !!$("#q").value.trim() || SELECTS_FILTRE.some(s=>$(s).value) || DATES_FILTRE.some(s=>$(s).value);
+}
+
+function reinitialiserFiltres(){
+  $("#q").value="";
+  SELECTS_FILTRE.concat(DATES_FILTRE).forEach(s=>$(s).value="");
+  rendreListe();
+  $("#q").focus();
+}
+
 function rendreListe(){
   const c=S.cfg, liste=projetsFiltres(), el=$("#liste");
-  $("#compteur").textContent = liste.length+" projet"+(liste.length>1?"s":"")+" sur "+projets().length;
+  $("#compteur-texte").textContent = liste.length+" projet"+(liste.length>1?"s":"")+" sur "+projets().length;
+  $("#btn-raz").hidden = !filtresActifs();
   if(!liste.length){
     el.innerHTML='<div class="vide"><b>Aucun projet</b>Modifiez la recherche ou les filtres.</div>';
     return;
@@ -1055,7 +1113,7 @@ async function tout(){
     if(S.projetSel) S.projetSel=S.data.main.find(r=>r.id===S.projetSel.id)||null;
     rendreListe(); rendreProjet();
   }catch(e){
-    $("#compteur").textContent="Erreur de lecture";
+    $("#compteur-texte").textContent="Erreur de lecture";
     $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Lecture impossible</b>'+
       esc(e.message)+'<br>Vérifiez les réglages et le niveau d\'accès du widget.</div></div>';
   }
@@ -1079,7 +1137,8 @@ async function demarrer(){
 }
 
 $("#q").oninput=rendreListe;
-["#f-groupement","#f-porteur","#f-priorite","#f-etat"].forEach(s=>$(s).onchange=rendreListe);
+SELECTS_FILTRE.concat(DATES_FILTRE).forEach(s=>$(s).onchange=rendreListe);
+$("#btn-raz").onclick=reinitialiserFiltres;
 $("#btn-actualiser").onclick=tout;
 $("#btn-reglages").onclick=()=>{ rendreReglages(); $("#voile").classList.add("ouvert"); };
 $("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");

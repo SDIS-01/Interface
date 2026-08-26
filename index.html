@@ -109,6 +109,9 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .p-Termine{background:#eaf2dc;color:#5f7a2a;}
 .p-Interrompu{background:#e9eaec;color:#595959;}
 .p-neutre{background:#eef1f5;color:#4b5462;}
+.p-jalon{background:var(--bleu-clair);color:var(--bleu);}
+.p-instance{background:#fdeadb;color:#b4611f;}
+.jnl .pastille{flex:0 0 auto;align-self:flex-start;}
 
 /* ---------- En-tête projet ---------- */
 .entete{
@@ -352,13 +355,12 @@ const DEF = {
   colCommentaire:"Commentaire", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
   colInstance:"Passage_Instance_Concatener",
-  colJalonDate:"ID_Projet_Action_AV_Instance_Date",
-  colJalonLib:"ID_Projet_Action_AV_Instance_Instance",
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"",
+  tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"",
   btnLibelle:"", btnUrl:""
 };
 
@@ -373,7 +375,6 @@ const CHAMPS_REGLAGES = [
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colInstance","Passage en instance"],
-    ["colJalonDate","Jalon — date"],["colJalonLib","Jalon — libellé"],
     ["colJournalTexte","Journal de bord (colonne texte)"]
   ]},
   {bloc:"Table des tâches", tableKey:"tblTache", champs:[
@@ -385,15 +386,18 @@ const CHAMPS_REGLAGES = [
     ["colJnlLien","Lien vers le projet"],["colJnlDate","Date"],["colJnlTexte","Commentaire"],
     ["colJnlAuteur","Collaborateur"],["colJnlNature","Nature / origine"]
   ]},
-  {bloc:"Table des jalons (passages en instance)", tableKey:"tblJalon", champs:[
-    ["colJalLien","Lien vers le projet"],["colJalDate","Date"],["colJalLibelle","Instance / libellé"]
+  {bloc:"Table des jalons", tableKey:"tblJalon", champs:[
+    ["colJalLien","Lien vers le projet"],["colJalDate","Date"],["colJalLibelle","Libellé du jalon"]
+  ]},
+  {bloc:"Table des instances", tableKey:"tblInstance", champs:[
+    ["colInsLien","Lien vers le projet"],["colInsDate","Date"],["colInsLibelle","Libellé de l'instance"]
   ]}
 ];
 
 const S = {
   cfg:Object.assign({},DEF),
   meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
-  data:{main:[],taches:[],journal:[],jalons:[]},
+  data:{main:[],taches:[],journal:[],jalons:[],instances:[]},
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
   onglet:"synthese",
@@ -554,13 +558,15 @@ async function charger(){
   S.data.taches   = c.tblTache   ? enLignes(await grist.docApi.fetchTable(c.tblTache))   : [];
   S.data.journal  = c.tblJournal ? enLignes(await grist.docApi.fetchTable(c.tblJournal)) : [];
   S.data.jalons   = c.tblJalon   ? enLignes(await grist.docApi.fetchTable(c.tblJalon))   : [];
+  S.data.instances= c.tblInstance? enLignes(await grist.docApi.fetchTable(c.tblInstance)): [];
 
   // libellés des colonnes de type Référence utilisées à l'écran
   const aResoudre=[
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
     [c.tblJournal,["colJnlAuteur","colJnlNature"]],
-    [c.tblJalon,["colJalLibelle"]]
+    [c.tblJalon,["colJalLibelle"]],
+    [c.tblInstance,["colInsLibelle"]]
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
@@ -628,22 +634,26 @@ function journalDe(p){
     return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
   }).sort((a,b)=>(Number(b[c.colJnlDate])||0)-(Number(a[c.colJnlDate])||0));
 }
+function lieAuProjet(ligne,colLien,p){
+  const v=ligne[colLien];
+  const l=estListe(v)?v.slice(1):[v];
+  const cle=cleProjet(p);
+  return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
+}
+
 function jalonsDe(p){
-  const c=S.cfg;
-  if(c.tblJalon && c.colJalLien){
-    const cle=cleProjet(p);
-    return S.data.jalons.filter(j=>{
-      const v=j[c.colJalLien];
-      const l=estListe(v)?v.slice(1):[v];
-      return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
-    }).map(j=>({
-      id:j.id, date:j[c.colJalDate], libelle:lire(c.tblJalon,j,c.colJalLibelle), enTable:true
-    })).sort((a,b)=>(Number(a.date)||0)-(Number(b.date)||0));
-  }
-  const d=valListe(p[c.colJalonDate]), l=valListe(p[c.colJalonLib]);
-  const n=Math.max(d.length,l.length), out=[];
-  for(let i=0;i<n;i++) out.push({date:d[i]!==undefined?d[i]:null, libelle:txt(l[i]!==undefined?l[i]:""), enTable:false});
-  return out.filter(x=>x.date||x.libelle).sort((a,b)=>(Number(a.date)||0)-(Number(b.date)||0));
+  const c=S.cfg, out=[];
+  if(c.tblJalon && c.colJalLien)
+    S.data.jalons.filter(j=>lieAuProjet(j,c.colJalLien,p)).forEach(j=>out.push({
+      id:j.id, table:c.tblJalon, genre:"Jalon",
+      date:j[c.colJalDate], libelle:lire(c.tblJalon,j,c.colJalLibelle)
+    }));
+  if(c.tblInstance && c.colInsLien)
+    S.data.instances.filter(j=>lieAuProjet(j,c.colInsLien,p)).forEach(j=>out.push({
+      id:j.id, table:c.tblInstance, genre:"Instance",
+      date:j[c.colInsDate], libelle:lire(c.tblInstance,j,c.colInsLibelle)
+    }));
+  return out.sort((a,b)=>(Number(a.date)||Infinity)-(Number(b.date)||Infinity));
 }
 
 /* =======================================================================
@@ -954,7 +964,16 @@ function blocInstance(p){
     ? brut.slice(1).map(x=>txt(x)).filter(Boolean)
     : String(lire(c.tblMain,p,c.colInstance)||"").split(/\s*,\s*/).map(s=>s.trim()).filter(Boolean);
   if(!items.length) return '<div class="fige">—</div>';
-  return '<div class="fige liste-instance">'+items.map(i=>'<span>'+esc(i)+'</span>').join("")+'</div>';
+
+  const cle=s=>{
+    const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    return m ? Date.UTC(+m[3],+m[2]-1,+m[1]) : Infinity;   // sans date reconnue : en fin de liste
+  };
+  const tries=items.map((s,i)=>({s,i,d:cle(s)}))
+    .sort((a,b)=> a.d-b.d || a.i-b.i)
+    .map(o=>o.s);
+
+  return '<div class="fige liste-instance">'+tries.map(i=>'<span>'+esc(i)+'</span>').join("")+'</div>';
 }
 
 function vueSynthese(p){
@@ -1116,52 +1135,68 @@ function vueTaches(p){
   });
 }
 
-/* --- Jalons --- */
+/* --- Jalons et instances --- */
+function carteAjout(cfgTable,cfgLien,cfgDate,cfgLib,prefixe,titre,libelleChamp,bouton){
+  const c=S.cfg;
+  if(!c[cfgTable] || !c[cfgLien])
+    return '<div class="carte"><h2>'+titre+'</h2>'+
+      '<p style="color:var(--gris);font-size:11.5px;margin:0">Indiquez la table correspondante '+
+      'dans les réglages pour pouvoir en ajouter.</p></div>';
+  return '<div class="carte"><h2>'+titre+'</h2><div class="grille">'+
+    '<div class="champ"><label>Date</label><input id="'+prefixe+'-date" type="date" value="'+
+      new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="champ"><label>'+libelleChamp+'</label>'+
+      champVierge(c[cfgTable],c[cfgLib],prefixe+"-libelle")+'</div>'+
+    '</div><div style="margin-top:10px"><button class="btn" id="'+prefixe+'-ajouter">'+bouton+'</button></div></div>';
+}
+
+function brancherAjout(p,cfgTable,cfgLien,cfgDate,cfgLib,prefixe,alerte){
+  const c=S.cfg;
+  const b=$("#"+prefixe+"-ajouter");
+  if(!b) return;
+  b.onclick=async()=>{
+    const lib=valeurChamp(prefixe+"-libelle",c[cfgTable],c[cfgLib]);
+    if(!lib){ toast(alerte,true); return; }
+    const info=infoCol(c[cfgTable],c[cfgLien]);
+    const champs={[c[cfgLib]]:lib};
+    if(c[cfgDate]) champs[c[cfgDate]]=isoVersDate($("#"+prefixe+"-date").value);
+    if(info && info.type.startsWith("Ref:")) champs[c[cfgLien]]=p.id;
+    else if(info && info.type.startsWith("RefList:")) champs[c[cfgLien]]=["L",p.id];
+    else champs[c[cfgLien]]=p[c.colProjKey];
+    await ajouter(c[cfgTable],champs);
+    await charger(); rendreProjet();
+  };
+}
+
 function vueJalons(p){
   const c=S.cfg, js=jalonsDe(p);
-  const enTable = !!(c.tblJalon && c.colJalLien);
+  const rien=!c.tblJalon && !c.tblInstance;
 
-  const liste = js.length
+  const historique = js.length
     ? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
+        '<span class="pastille '+(j.genre==="Jalon"?"p-jalon":"p-instance")+'">'+j.genre+'</span>'+
         '<span class="texte">'+esc(j.libelle)+'</span>'+
-        (j.enTable?'<button class="btn-sup" data-supjal="'+j.id+'" title="Supprimer le jalon">✕</button>':'')+
-        '</div>').join("")
-    : '<div class="vide"><b>Aucun jalon</b>'+
-      (enTable?"Le premier passage en instance s'ajoute ci-dessus."
-             :"Renseignez la table des jalons dans les réglages pour pouvoir en ajouter.")+'</div>';
+        '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
+        'title="Supprimer">✕</button></div>').join("")
+    : '<div class="vide"><b>Rien à afficher</b>'+
+      (rien?"Renseignez les tables des jalons et des instances dans les réglages."
+           :"Le premier jalon ou la première instance s'ajoute ci-dessus.")+'</div>';
 
-  const saisie = enTable
-    ? '<div class="carte"><h2>Ajouter un jalon</h2><div class="grille">'+
-        '<div class="champ"><label>Date</label><input id="jl-date" type="date" value="'+
-          new Date().toISOString().slice(0,10)+'"></div>'+
-        '<div class="champ"><label>Instance</label>'+
-          champVierge(c.tblJalon,c.colJalLibelle,"jl-libelle")+'</div>'+
-      '</div><div style="margin-top:10px"><button class="btn" id="jl-ajouter">Ajouter le jalon</button></div></div>'
-    : '<div class="carte"><h2>Ajouter un jalon</h2><p style="color:var(--gris);font-size:11.5px;margin:0">'+
-      'Les jalons affichés proviennent des colonnes de la table principale et sont en lecture seule. '+
-      'Indiquez la table des jalons dans les réglages pour pouvoir en ajouter.</p></div>';
+  $("#corps").innerHTML =
+    carteAjout("tblJalon","colJalLien","colJalDate","colJalLibelle","jl",
+               "Ajouter un jalon","Libellé du jalon","Ajouter le jalon")+
+    carteAjout("tblInstance","colInsLien","colInsDate","colInsLibelle","in",
+               "Ajouter une instance","Libellé de l'instance","Ajouter l'instance")+
+    '<div class="carte"><h2>Historique</h2>'+historique+'</div>';
 
-  $("#corps").innerHTML = saisie + '<div class="carte"><h2>Passages en instance</h2>'+liste+'</div>';
+  brancherAjout(p,"tblJalon","colJalLien","colJalDate","colJalLibelle","jl","Indiquez le libellé du jalon avant d'ajouter.");
+  brancherAjout(p,"tblInstance","colInsLien","colInsDate","colInsLibelle","in","Indiquez le libellé de l'instance avant d'ajouter.");
 
-  if(enTable){
-    $("#jl-ajouter").onclick=async()=>{
-      const lib=valeurChamp("jl-libelle",c.tblJalon,c.colJalLibelle);
-      if(!lib){ toast("Indiquez l'instance avant d'ajouter.",true); return; }
-      const info=infoCol(c.tblJalon,c.colJalLien);
-      const champs={[c.colJalLibelle]:lib};
-      if(c.colJalDate) champs[c.colJalDate]=isoVersDate($("#jl-date").value);
-      if(info && info.type.startsWith("Ref:")) champs[c.colJalLien]=p.id;
-      else if(info && info.type.startsWith("RefList:")) champs[c.colJalLien]=["L",p.id];
-      else champs[c.colJalLien]=p[c.colProjKey];
-      await ajouter(c.tblJalon,champs);
-      await charger(); rendreProjet();
-    };
-    document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
-      if(!confirm("Supprimer définitivement ce jalon du document Grist ?")) return;
-      await supprimer(c.tblJalon,Number(b.dataset.supjal));
-      await charger(); rendreProjet();
-    });
-  }
+  document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Supprimer définitivement cette ligne du document Grist ?")) return;
+    await supprimer(b.dataset.tbl,Number(b.dataset.supjal));
+    await charger(); rendreProjet();
+  });
 }
 
 /* --- Planning --- */

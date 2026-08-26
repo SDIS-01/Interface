@@ -1344,27 +1344,36 @@ const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",lib
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
+function ligneHisto(j){
+  return '<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
+    (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
+    '<span class="texte">'+esc(j.libelle)+
+    (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
+    '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
+    'title="Supprimer">✕</button></div>';
+}
+
+function carteHisto(titre,entrees,configuree,vide){
+  return '<div class="carte"><h2>'+titre+'</h2>'+
+    (entrees.length ? entrees.map(ligneHisto).join("")
+      : '<div class="vide"><b>Rien à afficher</b>'+
+        (configuree?vide:"Indiquez la table correspondante dans les réglages.")+'</div>')+
+    '</div>';
+}
+
 function vueJalons(p){
   const c=S.cfg, js=jalonsDe(p);
-  const rien=!c.tblJalon && !c.tblInstance;
-
-  const historique = js.length
-    ? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
-        '<span class="pastille '+(j.genre==="Jalon"?"p-jalon":"p-instance")+'">'+j.genre+'</span>'+
-        (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
-        '<span class="texte">'+esc(j.libelle)+
-        (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
-        '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
-        'title="Supprimer">✕</button></div>').join("")
-    : '<div class="vide"><b>Rien à afficher</b>'+
-      (rien?"Renseignez les tables des jalons et des instances dans les réglages."
-           :"Le premier jalon ou la première instance s'ajoute ci-dessus.")+'</div>';
+  const jalons=js.filter(j=>j.genre==="Jalon");
+  const instances=js.filter(j=>j.genre==="Instance");
 
   $("#corps").innerHTML =
     carteAjout("jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
+    carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
+               "Le premier jalon s'ajoute ci-dessus.")+
     carteAjout("in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
                "Libellé de l'instance","Ajouter l'instance")+
-    '<div class="carte"><h2>Historique</h2>'+historique+'</div>';
+    carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
+               "La première instance s'ajoute ci-dessus.");
 
   brancherAjout(p,"jl",CLES_JALON,[],"Indiquez le libellé du jalon avant d'ajouter.");
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");

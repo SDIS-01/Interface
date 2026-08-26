@@ -48,7 +48,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 /* ---------- Structure ---------- */
 .layout{flex:1;display:flex;min-height:0;}
 .panneau{
-  flex:0 0 306px;background:#fff;border-right:1px solid var(--trait);
+  flex:0 0 290px;width:290px;max-width:32%;
+  background:#fff;border-right:1px solid var(--trait);
   display:flex;flex-direction:column;min-height:0;
 }
 .contenu{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
@@ -66,14 +67,16 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .filtres{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
 .liste{flex:1;overflow-y:auto;}
 .ligne-projet{
-  display:flex;align-items:center;gap:9px;padding:9px 11px;
+  display:flex;align-items:flex-start;gap:9px;padding:9px 11px;
   border-bottom:1px solid #eef1f5;cursor:pointer;
 }
 .ligne-projet:hover{background:var(--bleu-survol);}
 .ligne-projet.actif{background:var(--bleu-clair);box-shadow:inset 3px 0 0 var(--bleu);}
+.ligne-projet>svg{flex:0 0 auto;margin-top:1px;}
+.ligne-projet .pastille{flex:0 0 auto;margin-top:3px;}
 .ligne-projet .titre{flex:1;min-width:0;}
 .ligne-projet .titre b{display:block;font-weight:bold;font-size:12.5px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  line-height:1.35;white-space:normal;overflow-wrap:anywhere;}
 .ligne-projet .titre span{display:block;color:var(--gris);font-size:11px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .compteur{padding:7px 11px;color:var(--gris);font-size:11px;border-bottom:1px solid var(--trait);}

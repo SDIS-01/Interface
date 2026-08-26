@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console Projets — SDIS de l'Ain</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+:root{
+  --bleu:#002395;
+  --bleu-clair:#e8ecf7;
+  --bleu-survol:#f2f5fc;
+  --encre:#1c2330;
+  --gris:#6b7484;
+  --trait:#dde2ea;
+  --fond:#f5f6f8;
+  --vert:#9BBB59;
+  --jaune:#FFCC00;
+  --orange:#F79646;
+  --rouge:#C0504D;
+  --interrompu:#595959;
+  --rayon:6px;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{
+  font-family:Tahoma,Verdana,Geneva,sans-serif;
+  font-size:13px;color:var(--encre);background:var(--fond);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+
+/* ---------- Barre supérieure ---------- */
+.topbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  background:var(--bleu);color:#fff;padding:0 14px;height:46px;
+}
+.topbar .marque{font-weight:bold;letter-spacing:.04em;font-size:14px;}
+.topbar .sous{opacity:.72;font-size:11px;}
+.topbar .spacer{flex:1;}
+.btn-top{
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+  color:#fff;border-radius:var(--rayon);padding:5px 11px;
+}
+.btn-top:hover{background:rgba(255,255,255,.22);}
+
+/* ---------- Structure ---------- */
+.layout{flex:1;display:flex;min-height:0;}
+.panneau{
+  flex:0 0 306px;background:#fff;border-right:1px solid var(--trait);
+  display:flex;flex-direction:column;min-height:0;
+}
+.contenu{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+
+/* ---------- Liste des projets ---------- */
+.recherche{padding:10px;border-bottom:1px solid var(--trait);}
+.recherche input,.recherche select{
+  width:100%;padding:7px 9px;border:1px solid var(--trait);
+  border-radius:var(--rayon);background:#fff;
+}
+.recherche input:focus,.recherche select:focus,
+.champ input:focus,.champ select:focus,.champ textarea:focus{
+  outline:2px solid var(--bleu);outline-offset:-1px;border-color:var(--bleu);
+}
+.filtres{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.liste{flex:1;overflow-y:auto;}
+.ligne-projet{
+  display:flex;align-items:center;gap:9px;padding:9px 11px;
+  border-bottom:1px solid #eef1f5;cursor:pointer;
+}
+.ligne-projet:hover{background:var(--bleu-survol);}
+.ligne-projet.actif{background:var(--bleu-clair);box-shadow:inset 3px 0 0 var(--bleu);}
+.ligne-projet .titre{flex:1;min-width:0;}
+.ligne-projet .titre b{display:block;font-weight:bold;font-size:12.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ligne-projet .titre span{display:block;color:var(--gris);font-size:11px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.compteur{padding:7px 11px;color:var(--gris);font-size:11px;border-bottom:1px solid var(--trait);}
+
+/* ---------- Pastilles ---------- */
+.pastille{
+  display:inline-block;padding:2px 8px;border-radius:11px;
+  font-size:11px;font-weight:bold;white-space:nowrap;
+}
+.p-P1{background:#f7e4e3;color:#C0504D;}
+.p-P2{background:#fdeadb;color:#b4611f;}
+.p-P3{background:#fdf4d6;color:#8a6d00;}
+.p-Termine{background:#eaf2dc;color:#5f7a2a;}
+.p-Interrompu{background:#e9eaec;color:#595959;}
+.p-neutre{background:#eef1f5;color:#4b5462;}
+
+/* ---------- En-tête projet ---------- */
+.entete{
+  background:#fff;border-bottom:1px solid var(--trait);padding:14px 18px 0;
+}
+.entete h1{margin:0 0 4px;font-size:18px;color:var(--bleu);line-height:1.25;}
+.entete .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  color:var(--gris);font-size:11.5px;margin-bottom:12px;}
+.entete-haut{display:flex;gap:16px;align-items:flex-start;}
+.entete-haut .txt{flex:1;min-width:0;}
+
+/* ---------- Onglets ---------- */
+.onglets{display:flex;gap:2px;}
+.onglet{
+  background:none;border:none;border-bottom:3px solid transparent;
+  padding:9px 13px;color:var(--gris);font-weight:bold;font-size:12.5px;
+}
+.onglet:hover{color:var(--encre);}
+.onglet.actif{color:var(--bleu);border-bottom-color:var(--bleu);}
+.onglet .n{
+  display:inline-block;background:#eef1f5;color:#4b5462;border-radius:9px;
+  padding:0 6px;margin-left:5px;font-size:10.5px;
+}
+.onglet.actif .n{background:var(--bleu-clair);color:var(--bleu);}
+
+/* ---------- Corps ---------- */
+.corps{flex:1;overflow-y:auto;padding:16px 18px 40px;}
+.carte{
+  background:#fff;border:1px solid var(--trait);border-radius:var(--rayon);
+  padding:14px 16px;margin-bottom:14px;
+}
+.carte h2{margin:0 0 12px;font-size:13px;color:var(--bleu);
+  text-transform:uppercase;letter-spacing:.06em;}
+.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+.champ{display:flex;flex-direction:column;gap:4px;}
+.champ label{font-size:11px;color:var(--gris);font-weight:bold;}
+.champ input,.champ select,.champ textarea{
+  padding:6px 8px;border:1px solid var(--trait);border-radius:4px;background:#fff;width:100%;
+}
+.champ textarea{resize:vertical;min-height:74px;line-height:1.5;}
+.champ .fige{padding:6px 8px;background:#f7f8fa;border:1px solid var(--trait);
+  border-radius:4px;color:var(--gris);min-height:30px;}
+.pleine{grid-column:1/-1;}
+
+/* ---------- Tableaux ---------- */
+table{width:100%;border-collapse:collapse;}
+th{
+  text-align:left;font-size:11px;color:var(--gris);text-transform:uppercase;
+  letter-spacing:.05em;padding:6px 8px;border-bottom:2px solid var(--trait);
+}
+td{padding:5px 8px;border-bottom:1px solid #eef1f5;vertical-align:middle;}
+tbody tr:hover{background:var(--bleu-survol);}
+td input,td select{
+  width:100%;padding:4px 6px;border:1px solid transparent;border-radius:4px;background:transparent;
+}
+td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
+.col-etroite{width:112px;}
+.col-mini{width:74px;}
+.vide{padding:26px;text-align:center;color:var(--gris);}
+.vide b{display:block;color:var(--encre);margin-bottom:5px;}
+
+/* ---------- Boutons ---------- */
+.btn{
+  background:var(--bleu);color:#fff;border:none;border-radius:var(--rayon);
+  padding:7px 13px;font-weight:bold;
+}
+.btn:hover{background:#001a6e;}
+.btn-2{background:#fff;color:var(--bleu);border:1px solid var(--bleu);}
+.btn-2:hover{background:var(--bleu-clair);}
+.btn-sup{background:none;border:none;color:var(--gris);padding:2px 6px;font-size:14px;}
+.btn-sup:hover{color:var(--rouge);}
+.barre-actions{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+
+/* ---------- Planning ---------- */
+.planning{overflow-x:auto;}
+.pl-grille{position:relative;min-width:620px;}
+.pl-mois{display:flex;border-bottom:1px solid var(--trait);margin-left:230px;}
+.pl-mois div{flex:1;text-align:center;font-size:10.5px;color:var(--gris);
+  padding:4px 0;border-left:1px solid #eef1f5;}
+.pl-ligne{display:flex;align-items:center;height:29px;border-bottom:1px solid #f4f6f9;}
+.pl-nom{flex:0 0 230px;padding-right:12px;font-size:11.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pl-piste{flex:1;position:relative;height:100%;}
+.pl-barre{
+  position:absolute;top:7px;height:15px;border-radius:3px;
+  background:#e9edf3;overflow:hidden;
+}
+.pl-remplie{height:100%;}
+.pl-etiq{position:absolute;top:7px;height:15px;line-height:15px;
+  font-size:10px;color:var(--gris);padding-left:5px;}
+
+/* ---------- Journal ---------- */
+.jnl{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid #eef1f5;}
+.jnl .date{flex:0 0 82px;color:var(--bleu);font-weight:bold;font-size:11.5px;}
+.jnl .texte{flex:1;white-space:pre-wrap;line-height:1.5;}
+.jnl .auteur{color:var(--gris);font-size:11px;}
+
+/* ---------- Jalons ---------- */
+.jalon{display:flex;gap:11px;align-items:baseline;padding:7px 0;border-bottom:1px solid #eef1f5;}
+.jalon .date{flex:0 0 82px;color:var(--bleu);font-weight:bold;font-size:11.5px;}
+
+/* ---------- Réglages ---------- */
+.voile{
+  position:fixed;inset:0;background:rgba(12,18,32,.5);display:none;
+  align-items:center;justify-content:center;z-index:50;padding:20px;
+}
+.voile.ouvert{display:flex;}
+.modale{
+  background:#fff;border-radius:8px;width:min(880px,100%);max-height:88vh;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.modale header{background:var(--bleu);color:#fff;padding:12px 16px;font-weight:bold;}
+.modale .corps-modale{padding:16px;overflow-y:auto;}
+.modale footer{padding:12px 16px;border-top:1px solid var(--trait);
+  display:flex;justify-content:flex-end;gap:8px;background:#fafbfc;}
+.bloc-reglage{margin-bottom:18px;}
+.bloc-reglage h3{margin:0 0 4px;font-size:12.5px;color:var(--bleu);}
+.bloc-reglage p{margin:0 0 10px;color:var(--gris);font-size:11.5px;}
+
+/* ---------- Divers ---------- */
+.toast{
+  position:fixed;bottom:16px;right:16px;background:var(--encre);color:#fff;
+  padding:9px 14px;border-radius:var(--rayon);opacity:0;transform:translateY(8px);
+  transition:.2s;pointer-events:none;z-index:60;font-size:12px;
+}
+.toast.vu{opacity:1;transform:none;}
+.toast.err{background:var(--rouge);}
+.accueil{display:flex;align-items:center;justify-content:center;height:100%;
+  color:var(--gris);text-align:center;padding:30px;}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="marque">CONSOLE PROJETS</div>
+    <div class="sous">Suivi des projets et actions — SDIS de l'Ain</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn-top" id="btn-actualiser">Actualiser</button>
+  <button class="btn-top" id="btn-reglages">Réglages</button>
+</div>
+
+<div class="layout">
+  <aside class="panneau">
+    <div class="recherche">
+      <input id="q" type="search" placeholder="Rechercher un projet…" autocomplete="off">
+      <div class="filtres">
+        <select id="f-groupement"><option value="">Tous groupements</option></select>
+        <select id="f-porteur"><option value="">Tous porteurs</option></select>
+        <select id="f-priorite"><option value="">Toutes priorités</option></select>
+        <select id="f-etat">
+          <option value="">Tous états</option>
+          <option value="encours">En cours</option>
+          <option value="termine">Terminés</option>
+          <option value="afaire">À faire</option>
+          <option value="interrompu">Interrompus</option>
+        </select>
+      </div>
+    </div>
+    <div class="compteur" id="compteur">Chargement…</div>
+    <div class="liste" id="liste"></div>
+  </aside>
+
+  <main class="contenu">
+    <div id="entete"></div>
+    <div class="corps" id="corps">
+      <div class="accueil">Sélectionnez un projet dans la liste de gauche.</div>
+    </div>
+  </main>
+</div>
+
+<div class="voile" id="voile">
+  <div class="modale">
+    <header>Réglages — correspondance des tables et des colonnes</header>
+    <div class="corps-modale" id="corps-reglages"></div>
+    <footer>
+      <button class="btn-2" id="btn-annuler">Annuler</button>
+      <button class="btn" id="btn-enregistrer">Enregistrer les réglages</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* =======================================================================
+   1. Configuration : quelles tables, quelles colonnes
+   ======================================================================= */
+
+const DEF = {
+  tblMain:"", colProjKey:"ID_Projet_Action_AV", colActKey:"ID_Action_MEO",
+  colNature:"Nature", colLibelle:"", colGroupement:"Groupement", colPorteur:"Porteur",
+  colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
+  colCommentaire:"Commentaire", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
+  colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
+  colInstance:"Passage_Instance_Concatener",
+  colJalonDate:"ID_Projet_Action_AV_Instance_Date",
+  colJalonLib:"ID_Projet_Action_AV_Instance_Instance",
+  colJournalTexte:"Journal_bord",
+  tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
+  colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"",
+  tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:""
+};
+
+const CHAMPS_REGLAGES = [
+  {bloc:"Table principale (une ligne = un projet ou une action)", tableKey:"tblMain", champs:[
+    ["colLibelle","Libellé du projet / de l'action"],
+    ["colNature","Nature (AV, PEPS, MEO)"],
+    ["colProjKey","Identifiant du projet parent"],
+    ["colActKey","Identifiant de l'action"],
+    ["colGroupement","Groupement"],["colPorteur","Porteur"],["colPriorite","Priorité"],
+    ["colAvancement","Avancement"],["colStatut","Statut"],["colCommentaire","Commentaire"],
+    ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
+    ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
+    ["colInstance","Passage en instance"],
+    ["colJalonDate","Jalon — date"],["colJalonLib","Jalon — libellé"],
+    ["colJournalTexte","Journal de bord (colonne texte)"]
+  ]},
+  {bloc:"Table des tâches", tableKey:"tblTache", champs:[
+    ["colTacheLien","Lien vers l'action"],["colTacheLibelle","Libellé de la tâche"],
+    ["colTacheDebut","Date de début"],["colTacheFin","Date de fin"],
+    ["colTacheAvancement","Avancement"],["colTachePorteur","Porteur"],["colTacheStatut","Statut"]
+  ]},
+  {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
+    ["colJnlLien","Lien vers le projet"],["colJnlDate","Date"],["colJnlTexte","Commentaire"],
+    ["colJnlAuteur","Collaborateur"],["colJnlNature","Nature / origine"]
+  ]}
+];
+
+const S = {
+  cfg:Object.assign({},DEF),
+  meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
+  data:{main:[],taches:[],journal:[]},
+  refLabels:{},               // "Table.colId" -> {rowId:libellé}
+  projetSel:null,
+  onglet:"synthese",
+  fraction:false,             // avancement stocké en 0–1 ?
+  pret:false
+};
+
+/* =======================================================================
+   2. Utilitaires
+   ======================================================================= */
+
+const $ = s => document.querySelector(s);
+const esc = v => String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function toast(msg,err){
+  const t=$("#toast"); t.textContent=msg; t.className="toast vu"+(err?" err":"");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.className="toast",2200);
+}
+
+function estListe(v){ return Array.isArray(v) && v[0]==="L"; }
+function valListe(v){ return estListe(v) ? v.slice(1) : (v==null||v==="" ? [] : [v]); }
+
+function txt(v){
+  if(v==null) return "";
+  if(estListe(v)) return v.slice(1).join(", ");
+  if(typeof v==="object") return "";
+  return String(v);
+}
+
+/* --- dates : Grist stocke des secondes epoch (UTC) --- */
+function dateVersISO(v){
+  if(v==null||v==="") return "";
+  if(typeof v!=="number") return "";
+  const d=new Date(v*1000);
+  return d.toISOString().slice(0,10);
+}
+function dateVersFR(v){
+  const iso=dateVersISO(v);
+  if(!iso) return "";
+  const [a,m,j]=iso.split("-");
+  return j+"/"+m+"/"+a;
+}
+function isoVersDate(iso){
+  if(!iso) return null;
+  const [a,m,j]=iso.split("-").map(Number);
+  return Date.UTC(a,m-1,j)/1000;
+}
+
+/* --- avancement --- */
+function pct(v){
+  if(v==null||v==="") return null;
+  const n=Number(v);
+  if(isNaN(n)) return null;
+  return S.fraction ? Math.round(n*100) : Math.round(n);
+}
+function pctVersStock(p){ return S.fraction ? p/100 : p; }
+
+function couleurAvct(p,interrompu){
+  if(interrompu) return "var(--interrompu)";
+  if(p==null) return "#c9d0da";
+  if(p>=100) return "var(--vert)";
+  if(p>=50) return "var(--jaune)";
+  if(p>=1) return "var(--orange)";
+  return "var(--rouge)";
+}
+
+function donut(p,taille,interrompu){
+  const t=taille||30, r=t/2-3, c=2*Math.PI*r, v=Math.max(0,Math.min(100,p==null?0:p));
+  return '<svg width="'+t+'" height="'+t+'" viewBox="0 0 '+t+' '+t+'" aria-hidden="true">'+
+    '<circle cx="'+t/2+'" cy="'+t/2+'" r="'+r+'" fill="none" stroke="#e9edf3" stroke-width="5"/>'+
+    '<circle cx="'+t/2+'" cy="'+t/2+'" r="'+r+'" fill="none" stroke="'+couleurAvct(p,interrompu)+'" stroke-width="5"'+
+    ' stroke-dasharray="'+(c*v/100)+' '+c+'" stroke-linecap="round" transform="rotate(-90 '+t/2+' '+t/2+')"/>'+
+    '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="'+(t*0.3)+'"'+
+    ' font-family="Tahoma" fill="#1c2330">'+(p==null?"–":v)+'</text></svg>';
+}
+
+function pastillePriorite(v){
+  const s=txt(v).trim();
+  if(!s) return "";
+  const cl = /^P1/i.test(s)?"p-P1" : /^P2/i.test(s)?"p-P2" : /^P3/i.test(s)?"p-P3"
+    : /termin/i.test(s)?"p-Termine" : /interromp/i.test(s)?"p-Interrompu" : "p-neutre";
+  return '<span class="pastille '+cl+'">'+esc(s)+'</span>';
+}
+
+/* =======================================================================
+   3. Lecture du document
+   ======================================================================= */
+
+function colonnesDe(tableId){ return S.meta.cols[tableId]||[]; }
+function infoCol(tableId,colId){ return colonnesDe(tableId).find(c=>c.colId===colId)||null; }
+
+async function chargerMeta(){
+  const tables = await grist.docApi.fetchTable("_grist_Tables");
+  const cols   = await grist.docApi.fetchTable("_grist_Tables_column");
+
+  const refVersTable={}, visibles={};
+  tables.id.forEach((ref,i)=>{ refVersTable[ref]=tables.tableId[i]; });
+  cols.id.forEach((ref,i)=>{ visibles[ref]={tableId:refVersTable[cols.parentId[i]],colId:cols.colId[i]}; });
+
+  S.meta.tables = tables.tableId.filter(t=>t && !t.startsWith("_grist") && !t.startsWith("GristSummary")).sort();
+  S.meta.cols={};
+  cols.id.forEach((ref,i)=>{
+    const tableId=refVersTable[cols.parentId[i]];
+    const colId=cols.colId[i];
+    if(!tableId||!colId||colId.startsWith("gristHelper_")||colId==="manualSort") return;
+    const type=String(cols.type[i]||"");
+    let choices=[];
+    try{ const o=JSON.parse(cols.widgetOptions[i]||"{}"); if(Array.isArray(o.choices)) choices=o.choices; }catch(e){}
+    const m=type.match(/^(Ref|RefList):(.+)$/);
+    const vis = cols.visibleCol ? visibles[cols.visibleCol[i]] : null;
+    (S.meta.cols[tableId] = S.meta.cols[tableId]||[]).push({
+      colId, label:cols.label[i]||colId, type, choices,
+      refTable: m?m[2]:null,
+      refDisplay: (m && vis && vis.tableId===m[2]) ? vis.colId : null
+    });
+  });
+}
+
+async function libellesRef(tableId,colId){
+  const cle=tableId+"."+colId;
+  if(S.refLabels[cle]) return S.refLabels[cle];
+  const t=await grist.docApi.fetchTable(tableId);
+  const map={};
+  t.id.forEach((id,i)=>{ map[id]= t[colId]!==undefined ? txt(t[colId][i]) : String(id); });
+  S.refLabels[cle]=map;
+  return map;
+}
+
+function enLignes(t){
+  const lignes=[];
+  const cles=Object.keys(t).filter(k=>k!=="id");
+  t.id.forEach((id,i)=>{ const o={id}; cles.forEach(k=>o[k]=t[k][i]); lignes.push(o); });
+  return lignes;
+}
+
+async function charger(){
+  const c=S.cfg;
+  if(!c.tblMain) return;
+  S.data.main = enLignes(await grist.docApi.fetchTable(c.tblMain));
+
+  // avancement : 0–1 ou 0–100 ?
+  const vals=S.data.main.map(r=>Number(r[c.colAvancement])).filter(v=>!isNaN(v)&&v!==null);
+  S.fraction = vals.length>0 && Math.max.apply(null,vals)<=1;
+
+  S.data.taches   = c.tblTache   ? enLignes(await grist.docApi.fetchTable(c.tblTache))   : [];
+  S.data.journal  = c.tblJournal ? enLignes(await grist.docApi.fetchTable(c.tblJournal)) : [];
+
+  // libellés des colonnes de type Référence utilisées à l'écran
+  for(const k of ["colPorteur","colGroupement","colPriorite","colStatut","colNature"]){
+    const info=infoCol(c.tblMain,c[k]);
+    if(info && info.refTable && info.refDisplay) await libellesRef(info.refTable,info.refDisplay);
+  }
+}
+
+/* --- accès aux valeurs, en résolvant les références --- */
+function lire(tableId,ligne,colId){
+  if(!colId||!ligne) return "";
+  const v=ligne[colId];
+  const info=infoCol(tableId,colId);
+  if(info && info.refTable && info.refDisplay){
+    const map=S.refLabels[info.refTable+"."+info.refDisplay];
+    if(map){
+      if(estListe(v)) return v.slice(1).map(id=>map[id]||id).join(", ");
+      if(v) return map[v]||String(v);
+      return "";
+    }
+  }
+  return txt(v);
+}
+
+/* =======================================================================
+   4. Regroupement projets / actions / tâches / journal
+   ======================================================================= */
+
+function natureDe(r){ return lire(S.cfg.tblMain,r,S.cfg.colNature).toUpperCase().trim(); }
+function estProjet(r){ const n=natureDe(r); return n==="AV"||n==="PEPS"; }
+function estAction(r){ return natureDe(r)==="MEO"; }
+function cleProjet(r){ return txt(r[S.cfg.colProjKey]); }
+
+function interrompu(r){
+  return !!(r[S.cfg.colSuspension] || r[S.cfg.colAbandon]);
+}
+
+function projets(){
+  return S.data.main.filter(estProjet).sort((a,b)=>
+    lire(S.cfg.tblMain,a,S.cfg.colLibelle).localeCompare(lire(S.cfg.tblMain,b,S.cfg.colLibelle),"fr"));
+}
+function actionsDe(p){
+  const k=cleProjet(p);
+  return S.data.main.filter(r=>estAction(r)&&cleProjet(r)===k);
+}
+function tachesDe(action){
+  const c=S.cfg;
+  if(!c.tblTache||!c.colTacheLien) return [];
+  const cle=txt(action[c.colActKey]);
+  return S.data.taches.filter(t=>{
+    const v=t[c.colTacheLien];
+    const l=estListe(v)?v.slice(1):[v];
+    return l.some(x=>String(x)===String(action.id) || (cle && String(x)===cle));
+  });
+}
+function journalDe(p){
+  const c=S.cfg;
+  if(!c.tblJournal||!c.colJnlLien) return [];
+  const cle=cleProjet(p);
+  return S.data.journal.filter(j=>{
+    const v=j[c.colJnlLien];
+    const l=estListe(v)?v.slice(1):[v];
+    return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
+  }).sort((a,b)=>(Number(b[c.colJnlDate])||0)-(Number(a[c.colJnlDate])||0));
+}
+function jalonsDe(p){
+  const c=S.cfg;
+  const d=valListe(p[c.colJalonDate]), l=valListe(p[c.colJalonLib]);
+  const n=Math.max(d.length,l.length), out=[];
+  for(let i=0;i<n;i++) out.push({date:d[i]!==undefined?d[i]:null, libelle:l[i]!==undefined?l[i]:""});
+  return out.filter(x=>x.date||x.libelle).sort((a,b)=>(Number(a.date)||0)-(Number(b.date)||0));
+}
+
+/* =======================================================================
+   5. Écriture
+   ======================================================================= */
+
+async function maj(tableId,rowId,colId,valeur){
+  try{
+    await grist.docApi.applyUserActions([["UpdateRecord",tableId,rowId,{[colId]:valeur}]]);
+    toast("Modification enregistrée");
+  }catch(e){ toast("Échec de l'enregistrement : "+e.message,true); }
+}
+async function ajouter(tableId,champs){
+  try{
+    const r=await grist.docApi.applyUserActions([["AddRecord",tableId,null,champs]]);
+    toast("Ligne ajoutée");
+    return r.retValues?r.retValues[0]:null;
+  }catch(e){ toast("Échec de l'ajout : "+e.message,true); return null; }
+}
+async function supprimer(tableId,rowId){
+  try{
+    await grist.docApi.applyUserActions([["RemoveRecord",tableId,rowId]]);
+    toast("Ligne supprimée");
+  }catch(e){ toast("Échec de la suppression : "+e.message,true); }
+}
+
+/* =======================================================================
+   6. Rendu — liste des projets
+   ======================================================================= */
+
+function remplirFiltres(){
+  const c=S.cfg, ps=projets();
+  const uniq=(f)=>[...new Set(ps.map(f).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+  const set=(sel,vals,libelle)=>{
+    const el=$(sel), garde=el.value;
+    el.innerHTML='<option value="">'+libelle+'</option>'+vals.map(v=>'<option>'+esc(v)+'</option>').join("");
+    el.value=garde;
+  };
+  set("#f-groupement",uniq(p=>lire(c.tblMain,p,c.colGroupement)),"Tous groupements");
+  set("#f-porteur",uniq(p=>lire(c.tblMain,p,c.colPorteur)),"Tous porteurs");
+  set("#f-priorite",uniq(p=>lire(c.tblMain,p,c.colPriorite)),"Toutes priorités");
+}
+
+function projetsFiltres(){
+  const c=S.cfg;
+  const q=$("#q").value.trim().toLowerCase();
+  const g=$("#f-groupement").value, po=$("#f-porteur").value, pr=$("#f-priorite").value, et=$("#f-etat").value;
+  return projets().filter(p=>{
+    if(g && lire(c.tblMain,p,c.colGroupement)!==g) return false;
+    if(po && lire(c.tblMain,p,c.colPorteur)!==po) return false;
+    if(pr && lire(c.tblMain,p,c.colPriorite)!==pr) return false;
+    if(et){
+      const a=pct(p[c.colAvancement]), i=interrompu(p);
+      if(et==="interrompu" && !i) return false;
+      if(et==="termine" && (i||a!==100)) return false;
+      if(et==="afaire" && (i||(a||0)!==0)) return false;
+      if(et==="encours" && (i||!a||a>=100)) return false;
+    }
+    if(q){
+      const foin=[c.colLibelle,c.colPorteur,c.colGroupement,c.colCommentaire,c.colProjKey]
+        .map(k=>lire(c.tblMain,p,k)).join(" ").toLowerCase();
+      if(!foin.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function rendreListe(){
+  const c=S.cfg, liste=projetsFiltres(), el=$("#liste");
+  $("#compteur").textContent = liste.length+" projet"+(liste.length>1?"s":"")+" sur "+projets().length;
+  if(!liste.length){
+    el.innerHTML='<div class="vide"><b>Aucun projet</b>Modifiez la recherche ou les filtres.</div>';
+    return;
+  }
+  el.innerHTML = liste.map(p=>{
+    const a=pct(p[c.colAvancement]), i=interrompu(p);
+    const nbA=actionsDe(p).length;
+    return '<div class="ligne-projet'+(S.projetSel&&S.projetSel.id===p.id?" actif":"")+'" data-id="'+p.id+'">'+
+      donut(a,30,i)+
+      '<div class="titre"><b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
+      '<span>'+esc(lire(c.tblMain,p,c.colGroupement))+(nbA?' · '+nbA+' action'+(nbA>1?'s':''):'')+'</span></div>'+
+      pastillePriorite(lire(c.tblMain,p,c.colPriorite))+'</div>';
+  }).join("");
+  el.querySelectorAll(".ligne-projet").forEach(d=>d.onclick=()=>{
+    S.projetSel=S.data.main.find(r=>r.id===Number(d.dataset.id));
+    rendreListe(); rendreProjet();
+  });
+}
+
+/* =======================================================================
+   7. Rendu — fiche projet
+   ======================================================================= */
+
+const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
+               ["jalons","Jalons"],["planning","Planning"],["journal","Journal de bord"]];
+
+function rendreProjet(){
+  const p=S.projetSel, c=S.cfg;
+  if(!p){
+    $("#entete").innerHTML="";
+    $("#corps").innerHTML='<div class="accueil">Sélectionnez un projet dans la liste de gauche.</div>';
+    return;
+  }
+  const a=pct(p[c.colAvancement]), i=interrompu(p);
+  const acts=actionsDe(p);
+  const nb={actions:acts.length, taches:acts.reduce((n,x)=>n+tachesDe(x).length,0),
+            jalons:jalonsDe(p).length, journal:journalDe(p).length};
+
+  $("#entete").innerHTML=
+    '<div class="entete-haut">'+donut(a,54,i)+
+    '<div class="txt"><h1>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</h1>'+
+    '<div class="meta">'+
+      (lire(c.tblMain,p,c.colGroupement)?'<span>'+esc(lire(c.tblMain,p,c.colGroupement))+'</span>':'')+
+      (lire(c.tblMain,p,c.colPorteur)?'<span>· Porteur : '+esc(lire(c.tblMain,p,c.colPorteur))+'</span>':'')+
+      (i?'<span class="pastille p-Interrompu">Interrompu</span>':'')+
+      pastillePriorite(lire(c.tblMain,p,c.colPriorite))+
+    '</div></div></div>'+
+    '<div class="onglets">'+ONGLETS.map(([k,l])=>
+      '<button class="onglet'+(S.onglet===k?" actif":"")+'" data-o="'+k+'">'+l+
+      (nb[k]!==undefined?'<span class="n">'+nb[k]+'</span>':'')+'</button>').join("")+'</div>';
+
+  $("#entete").querySelectorAll(".onglet").forEach(b=>b.onclick=()=>{
+    S.onglet=b.dataset.o; rendreProjet();
+  });
+
+  ({synthese:vueSynthese, actions:vueActions, taches:vueTaches,
+    jalons:vueJalons, planning:vuePlanning, journal:vueJournal})[S.onglet](p);
+}
+
+/* --- éditeur de champ générique --- */
+function editeur(tableId,ligne,colId,opts){
+  opts=opts||{};
+  if(!colId) return '<div class="fige">Colonne non paramétrée</div>';
+  const info=infoCol(tableId,colId);
+  const v=ligne[colId];
+  const attr='data-t="'+tableId+'" data-r="'+ligne.id+'" data-c="'+colId+'"';
+  if(!info) return '<div class="fige">'+esc(txt(v))+'</div>';
+  if(info.type.startsWith("RefList")||info.type.startsWith("ChoiceList")||info.type.startsWith("Attachments"))
+    return '<div class="fige">'+esc(lire(tableId,ligne,colId))+'</div>';
+  if(info.type.startsWith("Ref:")){
+    const map=S.refLabels[info.refTable+"."+info.refDisplay];
+    if(!map) return '<div class="fige">'+esc(lire(tableId,ligne,colId))+'</div>';
+    const ids=Object.keys(map).sort((x,y)=>String(map[x]).localeCompare(String(map[y]),"fr"));
+    return '<select class="edit" data-k="ref" '+attr+'><option value="0"></option>'+
+      ids.map(id=>'<option value="'+id+'"'+(String(v)===id?" selected":"")+'>'+esc(map[id])+'</option>').join("")+'</select>';
+  }
+  if(info.type.startsWith("Date"))
+    return '<input class="edit" type="date" data-k="date" '+attr+' value="'+dateVersISO(v)+'">';
+  if(info.type==="Choice")
+    return '<select class="edit" data-k="txt" '+attr+'><option value=""></option>'+
+      info.choices.map(o=>'<option'+(String(v)===o?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
+  if(info.type==="Bool")
+    return '<select class="edit" data-k="bool" '+attr+'><option value="">–</option>'+
+      '<option value="1"'+(v?" selected":"")+'>Oui</option><option value="0"'+(v===false?" selected":"")+'>Non</option></select>';
+  if(opts.multi)
+    return '<textarea class="edit" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
+  if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
+    return '<input class="edit" type="number" step="any" data-k="num" '+attr+' value="'+esc(v==null?"":v)+'">';
+  return '<input class="edit" type="text" data-k="txt" '+attr+' value="'+esc(txt(v))+'">';
+}
+
+function brancherEditeurs(){
+  document.querySelectorAll(".edit").forEach(el=>{
+    el.onchange=async()=>{
+      const {t,r,c,k}=el.dataset;
+      let v=el.value;
+      if(k==="date") v=isoVersDate(v);
+      else if(k==="num") v=v===""?null:Number(v);
+      else if(k==="ref") v=Number(v)||0;
+      else if(k==="bool") v=v===""?null:v==="1";
+      await maj(t,Number(r),c,v);
+      await charger(); rendreListe(); rendreProjet();
+    };
+  });
+  document.querySelectorAll(".edit-avct").forEach(el=>{
+    el.onchange=async()=>{
+      const {t,r,c}=el.dataset;
+      const p=Math.max(0,Math.min(100,Number(el.value)||0));
+      await maj(t,Number(r),c,pctVersStock(p));
+      await charger(); rendreListe(); rendreProjet();
+    };
+  });
+}
+
+/* --- Synthèse --- */
+function vueSynthese(p){
+  const c=S.cfg, t=c.tblMain;
+  const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
+  const a=pct(p[c.colAvancement]);
+  $("#corps").innerHTML=
+    '<div class="carte"><h2>Identité du projet</h2><div class="grille">'+
+      ch("Libellé",editeur(t,p,c.colLibelle))+
+      ch("Groupement",editeur(t,p,c.colGroupement))+
+      ch("Porteur",editeur(t,p,c.colPorteur))+
+      ch("Priorité",editeur(t,p,c.colPriorite))+
+      ch("Statut",editeur(t,p,c.colStatut))+
+      ch("Avancement (%)",'<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+
+        (a==null?"":a)+'" data-t="'+t+'" data-r="'+p.id+'" data-c="'+c.colAvancement+'">')+
+    '</div></div>'+
+    '<div class="carte"><h2>Calendrier</h2><div class="grille">'+
+      ch("Date de début",editeur(t,p,c.colDebut))+
+      ch("Échéance prévue",editeur(t,p,c.colEch))+
+      ch("Date de fin",editeur(t,p,c.colFin))+
+      ch("Date de suspension",editeur(t,p,c.colSuspension))+
+      ch("Date d'abandon",editeur(t,p,c.colAbandon))+
+    '</div></div>'+
+    '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
+      ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
+      (c.colInstance?ch("Passage en instance",'<div class="fige">'+
+        esc(lire(t,p,c.colInstance)||"—")+'</div>',true):"")+
+    '</div></div>';
+  brancherEditeurs();
+}
+
+/* --- Actions --- */
+function vueActions(p){
+  const c=S.cfg, t=c.tblMain, acts=actionsDe(p);
+  let html='<div class="barre-actions"><button class="btn" id="add-action">+ Ajouter une action</button>'+
+    '<span style="color:var(--gris)">Les modifications sont enregistrées dans Grist à la sortie du champ.</span></div>';
+  if(!acts.length){
+    html+='<div class="carte"><div class="vide"><b>Aucune action pour ce projet</b>'+
+      'Créez la première action de mise en œuvre.</div></div>';
+  }else{
+    html+='<div class="carte"><table><thead><tr>'+
+      '<th>Action</th><th class="col-mini">Avct</th><th class="col-etroite">Porteur</th>'+
+      '<th class="col-etroite">Début</th><th class="col-etroite">Échéance</th>'+
+      '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
+      acts.map(r=>{
+        const a=pct(r[c.colAvancement]);
+        return '<tr><td>'+editeur(t,r,c.colLibelle)+'</td>'+
+          '<td><input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
+            '" data-t="'+t+'" data-r="'+r.id+'" data-c="'+c.colAvancement+'"></td>'+
+          '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
+          '<td>'+editeur(t,r,c.colDebut)+'</td>'+
+          '<td>'+editeur(t,r,c.colEch)+'</td>'+
+          '<td>'+editeur(t,r,c.colFin)+'</td>'+
+          '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>';
+      }).join("")+'</tbody></table></div>';
+  }
+  $("#corps").innerHTML=html;
+  brancherEditeurs();
+  $("#add-action").onclick=async()=>{
+    const lib=prompt("Libellé de la nouvelle action :");
+    if(!lib) return;
+    const champs={[c.colLibelle]:lib};
+    const infoN=infoCol(t,c.colNature);
+    champs[c.colNature] = (infoN&&infoN.type.startsWith("Ref:")) ? p[c.colNature] : "MEO";
+    if(c.colProjKey) champs[c.colProjKey]=p[c.colProjKey];
+    await ajouter(t,champs);
+    await charger(); rendreListe(); rendreProjet();
+  };
+  document.querySelectorAll("[data-sup]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Supprimer définitivement cette action du document Grist ?")) return;
+    await supprimer(t,Number(b.dataset.sup));
+    await charger(); rendreListe(); rendreProjet();
+  });
+}
+
+/* --- Tâches --- */
+function vueTaches(p){
+  const c=S.cfg, acts=actionsDe(p);
+  if(!c.tblTache){
+    $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Table des tâches non paramétrée</b>'+
+      'Ouvrez les réglages pour indiquer la table des tâches et sa colonne de liaison.</div></div>';
+    return;
+  }
+  let html="";
+  acts.forEach(act=>{
+    const ts=tachesDe(act);
+    html+='<div class="carte"><h2>'+esc(lire(c.tblMain,act,c.colLibelle)||"(action sans libellé)")+'</h2>';
+    if(!ts.length){
+      html+='<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>';
+    }else{
+      html+='<table><thead><tr><th>Tâche</th><th class="col-mini">Avct</th>'+
+        '<th class="col-etroite">Porteur</th><th class="col-etroite">Début</th>'+
+        '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
+        ts.map(r=>{
+          const a=pct(r[c.colTacheAvancement]);
+          return '<tr><td>'+editeur(c.tblTache,r,c.colTacheLibelle)+'</td>'+
+            '<td>'+(c.colTacheAvancement?'<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+
+              (a==null?"":a)+'" data-t="'+c.tblTache+'" data-r="'+r.id+'" data-c="'+c.colTacheAvancement+'">':'')+'</td>'+
+            '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
+            '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
+            '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+
+            '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>';
+        }).join("")+'</tbody></table>';
+    }
+    html+='<div style="margin-top:10px"><button class="btn-2" data-addt="'+act.id+'">+ Ajouter une tâche</button></div></div>';
+  });
+  $("#corps").innerHTML = html || '<div class="carte"><div class="vide"><b>Aucune action</b>'+
+    'Créez d\'abord une action dans l\'onglet Actions.</div></div>';
+  brancherEditeurs();
+  document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
+    const lib=prompt("Libellé de la nouvelle tâche :");
+    if(!lib) return;
+    const act=S.data.main.find(r=>r.id===Number(b.dataset.addt));
+    const info=infoCol(c.tblTache,c.colTacheLien);
+    const champs={[c.colTacheLibelle]:lib};
+    if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
+    else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
+    else champs[c.colTacheLien]=act[c.colActKey];
+    await ajouter(c.tblTache,champs);
+    await charger(); rendreProjet();
+  });
+  document.querySelectorAll("[data-supt]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Supprimer définitivement cette tâche du document Grist ?")) return;
+    await supprimer(c.tblTache,Number(b.dataset.supt));
+    await charger(); rendreProjet();
+  });
+}
+
+/* --- Jalons --- */
+function vueJalons(p){
+  const js=jalonsDe(p);
+  $("#corps").innerHTML='<div class="carte"><h2>Passages en instance</h2>'+
+    (js.length
+      ? js.map(j=>'<div class="jalon"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
+          '<span>'+esc(txt(j.libelle))+'</span></div>').join("")
+      : '<div class="vide"><b>Aucun jalon</b>Les jalons se saisissent dans la table dédiée du document.</div>')+
+    '</div>';
+}
+
+/* --- Planning --- */
+function vuePlanning(p){
+  const c=S.cfg;
+  const lignes=[{r:p,niv:0}];
+  actionsDe(p).forEach(a=>{
+    lignes.push({r:a,niv:1});
+    tachesDe(a).forEach(t=>lignes.push({r:t,niv:2,tache:true}));
+  });
+  const bornes=(o)=>{
+    const t=o.tache?c.tblTache:c.tblMain;
+    const d=Number(o.tache?o.r[c.colTacheDebut]:o.r[c.colDebut])||null;
+    const f=Number(o.tache?o.r[c.colTacheFin]:(o.r[c.colFin]||o.r[c.colEch]))||null;
+    return {d,f,t};
+  };
+  const toutes=lignes.map(bornes).filter(b=>b.d||b.f);
+  if(!toutes.length){
+    $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Pas de dates à afficher</b>'+
+      'Renseignez les dates de début et d\'échéance des actions.</div></div>';
+    return;
+  }
+  const min=Math.min(...toutes.map(b=>b.d||b.f)), max=Math.max(...toutes.map(b=>b.f||b.d));
+  const etendue=Math.max(max-min,86400*30);
+  const dMin=new Date(min*1000), dMax=new Date(max*1000);
+  const mois=[]; const cur=new Date(Date.UTC(dMin.getUTCFullYear(),dMin.getUTCMonth(),1));
+  while(cur<=dMax){ mois.push(new Date(cur)); cur.setUTCMonth(cur.getUTCMonth()+1); }
+  const noms=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+
+  const rangs=lignes.map(o=>{
+    const b=bornes(o), r=o.r, tache=o.tache;
+    const av=pct(tache?r[c.colTacheAvancement]:r[c.colAvancement]);
+    const inter=!tache&&interrompu(r);
+    const lib=tache?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle);
+    if(!b.d&&!b.f) return '<div class="pl-ligne"><div class="pl-nom" style="padding-left:'+(o.niv*14)+'px">'+
+      esc(lib)+'</div><div class="pl-piste"><div class="pl-etiq">dates non renseignées</div></div></div>';
+    const deb=b.d||b.f, fin=b.f||b.d;
+    const g=((deb-min)/etendue)*100, w=Math.max(((fin-deb)/etendue)*100,1.2);
+    return '<div class="pl-ligne"><div class="pl-nom" style="padding-left:'+(o.niv*14)+'px'+
+      (o.niv===0?';font-weight:bold':'')+'">'+esc(lib)+'</div>'+
+      '<div class="pl-piste"><div class="pl-barre" style="left:'+g+'%;width:'+w+'%" '+
+      'title="'+esc(dateVersFR(deb)+" → "+dateVersFR(fin))+'">'+
+      '<div class="pl-remplie" style="width:'+(av==null?0:av)+'%;background:'+couleurAvct(av,inter)+'"></div>'+
+      '</div></div></div>';
+  }).join("");
+
+  $("#corps").innerHTML='<div class="carte"><h2>Planning du projet</h2><div class="planning"><div class="pl-grille">'+
+    '<div class="pl-mois">'+mois.map(m=>'<div>'+noms[m.getUTCMonth()]+' '+String(m.getUTCFullYear()).slice(2)+'</div>').join("")+'</div>'+
+    rangs+'</div></div>'+
+    '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gris)">'+
+    [["var(--vert)","Terminé"],["var(--jaune)","50 à 99 %"],["var(--orange)","1 à 49 %"],
+     ["var(--rouge)","À faire"],["var(--interrompu)","Interrompu"]]
+      .map(([c2,l])=>'<span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;'+
+        'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
+    '</div></div>';
+}
+
+/* --- Journal de bord --- */
+function vueJournal(p){
+  const c=S.cfg;
+  if(!c.tblJournal||!c.colJnlLien){
+    const t=c.tblMain;
+    $("#corps").innerHTML='<div class="carte"><h2>Journal de bord</h2>'+
+      '<div class="champ">'+editeur(t,p,c.colJournalTexte,{multi:true})+'</div>'+
+      '<p style="color:var(--gris);font-size:11.5px;margin:10px 0 0">Pour un journal daté ligne à ligne, '+
+      'paramétrez la table du journal dans les réglages.</p></div>';
+    brancherEditeurs();
+    return;
+  }
+  const js=journalDe(p);
+  $("#corps").innerHTML=
+    '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille">'+
+      '<div class="champ"><label>Date</label><input id="j-date" type="date" value="'+
+        new Date().toISOString().slice(0,10)+'"></div>'+
+      (c.colJnlAuteur?'<div class="champ"><label>Collaborateur</label><input id="j-auteur" type="text"></div>':'')+
+      '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte"></textarea></div>'+
+    '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
+    '<div class="carte"><h2>Historique</h2>'+
+      (js.length? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
+        '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
+        (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
+          esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
+        '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")
+      : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
+    '</div>';
+  $("#j-ajouter").onclick=async()=>{
+    const texte=$("#j-texte").value.trim();
+    if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }
+    const info=infoCol(c.tblJournal,c.colJnlLien);
+    const champs={[c.colJnlTexte]:texte};
+    if(c.colJnlDate) champs[c.colJnlDate]=isoVersDate($("#j-date").value);
+    if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=$("#j-auteur").value;
+    if(info && info.type.startsWith("Ref:")) champs[c.colJnlLien]=p.id;
+    else if(info && info.type.startsWith("RefList:")) champs[c.colJnlLien]=["L",p.id];
+    else champs[c.colJnlLien]=p[c.colProjKey];
+    await ajouter(c.tblJournal,champs);
+    await charger(); rendreProjet();
+  };
+  document.querySelectorAll("[data-supj]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Supprimer définitivement cette entrée du journal ?")) return;
+    await supprimer(c.tblJournal,Number(b.dataset.supj));
+    await charger(); rendreProjet();
+  });
+}
+
+/* =======================================================================
+   8. Réglages
+   ======================================================================= */
+
+function optionsColonnes(tableId,valeur){
+  return '<option value=""></option>'+colonnesDe(tableId).map(c=>
+    '<option value="'+esc(c.colId)+'"'+(c.colId===valeur?" selected":"")+'>'+
+    esc(c.label)+' ('+esc(c.colId)+')</option>').join("");
+}
+
+function rendreReglages(){
+  const c=S.cfg;
+  $("#corps-reglages").innerHTML = CHAMPS_REGLAGES.map(bloc=>{
+    const tid=c[bloc.tableKey];
+    return '<div class="bloc-reglage"><h3>'+bloc.bloc+'</h3>'+
+      '<div class="champ" style="max-width:340px;margin-bottom:10px"><label>Table</label>'+
+      '<select data-cfg="'+bloc.tableKey+'" data-table-de="'+bloc.tableKey+'"><option value=""></option>'+
+      S.meta.tables.map(t=>'<option'+(t===tid?" selected":"")+'>'+esc(t)+'</option>').join("")+'</select></div>'+
+      '<div class="grille">'+bloc.champs.map(([k,l])=>
+        '<div class="champ"><label>'+l+'</label><select data-cfg="'+k+'" data-pour="'+bloc.tableKey+'">'+
+        optionsColonnes(tid,c[k])+'</select></div>').join("")+'</div></div>';
+  }).join("");
+
+  $("#corps-reglages").querySelectorAll("[data-table-de]").forEach(sel=>{
+    sel.onchange=()=>{
+      const cle=sel.dataset.tableDe;
+      S.cfg[cle]=sel.value;
+      $("#corps-reglages").querySelectorAll('[data-pour="'+cle+'"]').forEach(s=>{
+        s.innerHTML=optionsColonnes(sel.value,S.cfg[s.dataset.cfg]);
+      });
+    };
+  });
+}
+
+async function enregistrerReglages(){
+  $("#corps-reglages").querySelectorAll("[data-cfg]").forEach(el=>{ S.cfg[el.dataset.cfg]=el.value; });
+  try{ await grist.widgetApi.setOptions({cfg:S.cfg}); }catch(e){}
+  $("#voile").classList.remove("ouvert");
+  await tout();
+  toast("Réglages enregistrés");
+}
+
+/* =======================================================================
+   9. Démarrage
+   ======================================================================= */
+
+function devineDefauts(){
+  const c=S.cfg;
+  if(!c.tblMain){
+    const cand=S.meta.tables.find(t=>colonnesDe(t).some(x=>x.colId===DEF.colProjKey));
+    if(cand) c.tblMain=cand;
+  }
+  if(c.tblMain){
+    const ids=colonnesDe(c.tblMain).map(x=>x.colId);
+    Object.keys(DEF).forEach(k=>{
+      if(k.startsWith("col") && !c[k] && ids.includes(DEF[k])) c[k]=DEF[k];
+    });
+    if(!c.colLibelle){
+      const pref=["Libelle","Libellé","Libelle_Action","Titre","Projet_Action","Nom","Intitule"];
+      c.colLibelle = pref.find(p=>ids.includes(p)) || ids.find(i=>/libell|titre|nom|action/i.test(i)) || "";
+    }
+  }
+  if(!c.tblTache){
+    const t=S.meta.tables.find(x=>/tache|tâche/i.test(x));
+    if(t) c.tblTache=t;
+  }
+  if(c.tblTache){
+    const ids=colonnesDe(c.tblTache).map(x=>x.colId);
+    if(!c.colTacheLibelle) c.colTacheLibelle=ids.find(i=>/libell|titre|nom|tache/i.test(i))||"";
+    if(!c.colTacheLien)    c.colTacheLien   =ids.find(i=>/action|parent|lien/i.test(i))||"";
+    if(!c.colTacheDebut)   c.colTacheDebut  =ids.find(i=>/debut|début/i.test(i))||"";
+    if(!c.colTacheFin)     c.colTacheFin    =ids.find(i=>/fin|ech/i.test(i))||"";
+    if(!c.colTacheAvancement) c.colTacheAvancement=ids.find(i=>/avanc/i.test(i))||"";
+    if(!c.colTachePorteur) c.colTachePorteur=ids.find(i=>/porteur|responsable/i.test(i))||"";
+  }
+}
+
+async function tout(){
+  try{
+    await charger();
+    remplirFiltres();
+    if(S.projetSel) S.projetSel=S.data.main.find(r=>r.id===S.projetSel.id)||null;
+    rendreListe(); rendreProjet();
+  }catch(e){
+    $("#compteur").textContent="Erreur de lecture";
+    $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Lecture impossible</b>'+
+      esc(e.message)+'<br>Vérifiez les réglages et le niveau d\'accès du widget.</div></div>';
+  }
+}
+
+let minuteur=null;
+function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,600); }
+
+async function demarrer(){
+  grist.ready({requiredAccess:"full"});
+  try{
+    const o=await grist.widgetApi.getOptions();
+    if(o && o.cfg) S.cfg=Object.assign({},DEF,o.cfg);
+  }catch(e){}
+  await chargerMeta();
+  devineDefauts();
+  await tout();
+  if(!S.cfg.tblMain){ rendreReglages(); $("#voile").classList.add("ouvert"); }
+  try{ grist.onRecords(()=>{ if(S.pret) rechargerBientot(); }); }catch(e){}
+  S.pret=true;
+}
+
+$("#q").oninput=rendreListe;
+["#f-groupement","#f-porteur","#f-priorite","#f-etat"].forEach(s=>$(s).onchange=rendreListe);
+$("#btn-actualiser").onclick=tout;
+$("#btn-reglages").onclick=()=>{ rendreReglages(); $("#voile").classList.add("ouvert"); };
+$("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");
+$("#btn-enregistrer").onclick=enregistrerReglages;
+$("#voile").onclick=e=>{ if(e.target===$("#voile")) $("#voile").classList.remove("ouvert"); };
+
+demarrer();
+</script>
+</body>
+</html>

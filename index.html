@@ -111,6 +111,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .p-neutre{background:#eef1f5;color:#4b5462;}
 .p-jalon{background:var(--bleu-clair);color:var(--bleu);}
 .p-instance{background:#fdeadb;color:#b4611f;}
+.p-nature{background:#eef1f5;color:#4b5462;max-width:150px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
 
 /* ---------- En-tête projet ---------- */
@@ -177,6 +179,9 @@ td input,td select{
 td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
 .col-etroite{width:112px;}
 .col-mini{width:74px;}
+.col-chevron{width:22px;text-align:center;padding-left:4px;padding-right:0;}
+.ligne-repli{cursor:pointer;}
+.chevron{color:var(--bleu);font-size:11px;user-select:none;}
 .ligne-com td{padding:0 8px 9px;border-bottom:1px solid var(--trait);}
 .ligne-com label{display:block;font-size:10.5px;color:var(--gris);font-weight:bold;
   text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
@@ -425,6 +430,7 @@ const S = {
   planningAction:"",
   fActions:{q:"",porteur:"",avct:""},
   fTaches:{q:"",porteur:"",avct:""},
+  ouverts:{},
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
 };
@@ -1013,6 +1019,22 @@ function blocPJ(tableId,ligne,colId){
     '<label class="pj-ajout">Ajouter un fichier <input type="file" class="pj-input" multiple></label></div>';
 }
 
+function brancherRepli(){
+  document.querySelectorAll("[data-repli]").forEach(tr=>{
+    tr.onclick=(e)=>{
+      if(e.target.closest("input,select,textarea,.btn-sup")) return;  // on n'ouvre pas en éditant
+      const cle=tr.dataset.repli;
+      const sous=document.querySelector('[data-sous="'+CSS.escape(cle)+'"]');
+      if(!sous) return;
+      const ouvert=!S.ouverts[cle];
+      S.ouverts[cle]=ouvert;
+      sous.style.display=ouvert?"":"none";
+      const ch=tr.querySelector(".chevron");
+      if(ch) ch.textContent=ouvert?"▾":"▸";
+    };
+  });
+}
+
 function brancherPJ(){
   document.querySelectorAll(".pj-chip").forEach(b=>b.onclick=async()=>{
     try{
@@ -1106,12 +1128,17 @@ function vueActions(p){
       '</div></div>';
   }else{
     html+='<div class="carte"><table><thead><tr>'+
+      '<th class="col-chevron"></th>'+
       '<th>Action</th><th class="col-mini">Avct</th><th class="col-etroite">Porteur</th>'+
       '<th class="col-etroite">Début</th><th class="col-etroite">Échéance</th>'+
       '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
       acts.map(r=>{
         const a=pct(r[c.colAvancement]);
-        return '<tr><td>'+editeur(t,r,c.colLibelle)+'</td>'+
+        const cle=t+":"+r.id, ouvert=!!S.ouverts[cle];
+        const detail=(c.colCommentaire||c.colPJ);
+        return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
+          (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
+          '<td>'+editeur(t,r,c.colLibelle)+'</td>'+
           '<td><input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
             '" data-t="'+t+'" data-r="'+r.id+'" data-c="'+c.colAvancement+'"></td>'+
           '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
@@ -1119,8 +1146,9 @@ function vueActions(p){
           '<td>'+editeur(t,r,c.colEch)+'</td>'+
           '<td>'+editeur(t,r,c.colFin)+'</td>'+
           '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>'+
-          (c.colCommentaire||c.colPJ
-            ? '<tr class="ligne-com"><td colspan="7"><div class="sous-ligne">'+
+          (detail
+            ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
+              '><td colspan="8"><div class="sous-ligne">'+
               (c.colCommentaire?'<div class="sl-com"><label>Commentaire</label>'+
                 editeur(t,r,c.colCommentaire,{multi:true})+'</div>':'')+
               (c.colPJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
@@ -1132,6 +1160,7 @@ function vueActions(p){
   $("#corps").innerHTML=html;
   brancherEditeurs();
   brancherPJ();
+  brancherRepli();
   brancherFiltres("fa",S.fActions,()=>vueActions(p));
   $("#add-action").onclick=async()=>{
     const lib=prompt("Libellé de la nouvelle action :");
@@ -1180,20 +1209,26 @@ function vueTaches(p){
     if(!ts.length){
       html+='<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>';
     }else{
-      html+='<table><thead><tr><th>Tâche</th><th class="col-mini">Avct</th>'+
+      html+='<table><thead><tr><th class="col-chevron"></th>'+
+        '<th>Tâche</th><th class="col-mini">Avct</th>'+
         '<th class="col-etroite">Porteur</th><th class="col-etroite">Début</th>'+
         '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
         ts.map(r=>{
           const a=pct(r[c.colTacheAvancement]);
-          return '<tr><td>'+editeur(c.tblTache,r,c.colTacheLibelle)+'</td>'+
+          const cle=c.tblTache+":"+r.id, ouvert=!!S.ouverts[cle];
+          const detail=!!c.colTacheCommentaire;
+          return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
+            (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
+            '<td>'+editeur(c.tblTache,r,c.colTacheLibelle)+'</td>'+
             '<td>'+(c.colTacheAvancement?'<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+
               (a==null?"":a)+'" data-t="'+c.tblTache+'" data-r="'+r.id+'" data-c="'+c.colTacheAvancement+'">':'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+
             '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>'+
-            (c.colTacheCommentaire
-              ? '<tr class="ligne-com"><td colspan="6"><label>Commentaire</label>'+
+            (detail
+              ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
+                '><td colspan="7"><label>Commentaire</label>'+
                 editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true})+'</td></tr>'
               : '');
         }).join("")+'</tbody></table>';
@@ -1206,6 +1241,7 @@ function vueTaches(p){
     : (actif && !retenues) ? '<div class="carte"><div class="vide"><b>Aucune tâche ne correspond</b>'+
       'Modifiez la recherche ou les filtres.</div></div>' : "");
   brancherEditeurs();
+  brancherRepli();
   brancherFiltres("ft",S.fTaches,()=>vueTaches(p));
   document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
     const lib=prompt("Libellé de la nouvelle tâche :");
@@ -1431,6 +1467,8 @@ function vueJournal(p){
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '<div class="carte"><h2>Historique</h2>'+
       (js.length? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
+        (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
+          ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
         '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
         (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
           esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+

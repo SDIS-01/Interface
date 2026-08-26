@@ -113,6 +113,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   color:var(--gris);font-size:11.5px;margin-bottom:12px;}
 .entete-haut{display:flex;gap:16px;align-items:flex-start;}
 .entete-haut .txt{flex:1;min-width:0;}
+.btn-perso{margin-left:auto;flex:0 0 auto;text-decoration:none;display:inline-block;
+  white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis;}
 
 /* ---------- Onglets ---------- */
 .onglets{display:flex;gap:2px;}
@@ -336,7 +338,8 @@ const DEF = {
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"",
-  tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:""
+  tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
+  btnLibelle:"", btnUrl:""
 };
 
 const CHAMPS_REGLAGES = [
@@ -712,6 +715,21 @@ function rendreListe(){
 const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
                ["jalons","Jalons"],["planning","Planning"],["journal","Journal de bord"]];
 
+function urlSure(u){
+  const s=String(u||"").trim();
+  if(!s) return "";
+  if(/^https?:\/\//i.test(s)) return s;
+  if(/^[a-z]+:/i.test(s)) return "";        // on écarte javascript:, data:, etc.
+  return "https://"+s;
+}
+
+function boutonPerso(){
+  const c=S.cfg, u=urlSure(c.btnUrl);
+  if(!c.btnLibelle || !u) return "";
+  return '<a class="btn btn-perso" href="'+esc(u)+'" target="_blank" rel="noopener">'+
+    esc(c.btnLibelle)+'</a>';
+}
+
 function rendreProjet(){
   const p=S.projetSel, c=S.cfg;
   if(!p){
@@ -732,7 +750,7 @@ function rendreProjet(){
       (lire(c.tblMain,p,c.colPorteur)?'<span>· Porteur : '+esc(lire(c.tblMain,p,c.colPorteur))+'</span>':'')+
       (i?'<span class="pastille p-Interrompu">Interrompu</span>':'')+
       pastillePriorite(lire(c.tblMain,p,c.colPriorite))+
-    '</div></div></div>'+
+    '</div></div>'+boutonPerso()+'</div>'+
     '<div class="onglets">'+ONGLETS.map(([k,l])=>
       '<button class="onglet'+(S.onglet===k?" actif":"")+'" data-o="'+k+'">'+l+
       (nb[k]!==undefined?'<span class="n">'+nb[k]+'</span>':'')+'</button>').join("")+'</div>';
@@ -1118,7 +1136,15 @@ function rendreReglages(){
       '<div class="grille">'+bloc.champs.map(([k,l])=>
         '<div class="champ"><label>'+l+'</label><select data-cfg="'+k+'" data-pour="'+bloc.tableKey+'">'+
         optionsColonnes(tid,c[k])+'</select></div>').join("")+'</div></div>';
-  }).join("");
+  }).join("") +
+  '<div class="bloc-reglage"><h3>Bouton personnalisé</h3>'+
+  '<p>Ce bouton s\'affiche en haut à droite de la fiche projet. Laissez vide pour le masquer.</p>'+
+  '<div class="grille">'+
+    '<div class="champ"><label>Nom du bouton</label>'+
+    '<input type="text" data-cfg="btnLibelle" value="'+esc(c.btnLibelle)+'" placeholder="Ex. : Dossier partagé"></div>'+
+    '<div class="champ"><label>Adresse (URL)</label>'+
+    '<input type="text" data-cfg="btnUrl" value="'+esc(c.btnUrl)+'" placeholder="https://…"></div>'+
+  '</div></div>';
 
   $("#corps-reglages").querySelectorAll("[data-table-de]").forEach(sel=>{
     sel.onchange=()=>{

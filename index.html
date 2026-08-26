@@ -146,6 +146,9 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .champ .fige{padding:6px 8px;background:#f7f8fa;border:1px solid var(--trait);
   border-radius:4px;color:var(--gris);min-height:30px;}
 .pleine{grid-column:1/-1;}
+.liste-instance{display:flex;flex-direction:column;gap:0;color:var(--encre);}
+.liste-instance span{padding:5px 0;border-bottom:1px solid #eef1f5;}
+.liste-instance span:last-child{border-bottom:none;}
 
 /* ---------- Tableaux ---------- */
 table{width:100%;border-collapse:collapse;}
@@ -178,11 +181,19 @@ td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
 
 /* ---------- Planning ---------- */
 .planning{overflow-x:auto;}
-.pl-grille{position:relative;min-width:620px;}
+.pl-grille{position:relative;min-width:680px;}
+.pl-controle{margin-bottom:10px;font-size:12px;}
+.pl-controle label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
 .pl-mois{display:flex;border-bottom:1px solid var(--trait);margin-left:230px;}
 .pl-mois div{flex:1;text-align:center;font-size:10.5px;color:var(--gris);
-  padding:4px 0;border-left:1px solid #eef1f5;}
-.pl-ligne{display:flex;align-items:center;height:29px;border-bottom:1px solid #f4f6f9;}
+  padding:4px 0;border-left:1px solid #eef1f5;min-width:0;overflow:hidden;}
+.pl-mois div.fin-annee{border-right:1px solid var(--trait);}
+.pl-fond{position:absolute;left:230px;right:0;top:23px;bottom:0;display:flex;pointer-events:none;}
+.pl-fond div{flex:1;border-left:1px solid #f1f4f8;}
+.pl-fond div.fin-annee{border-right:1px solid #e4e9f0;}
+.pl-auj{position:absolute;top:23px;bottom:0;width:0;border-left:1px dashed var(--bleu);
+  opacity:.45;pointer-events:none;}
+.pl-ligne{display:flex;align-items:center;height:29px;border-bottom:1px solid #f4f6f9;position:relative;}
 .pl-nom{flex:0 0 230px;padding-right:12px;font-size:11.5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pl-piste{flex:1;position:relative;height:100%;}
@@ -360,6 +371,7 @@ const S = {
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
   onglet:"synthese",
+  planningTaches:false,
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
 };
@@ -789,6 +801,16 @@ function brancherEditeurs(){
 }
 
 /* --- Synthèse --- */
+function blocInstance(p){
+  const c=S.cfg;
+  const brut=p[c.colInstance];
+  const items = estListe(brut)
+    ? brut.slice(1).map(x=>txt(x)).filter(Boolean)
+    : String(lire(c.tblMain,p,c.colInstance)||"").split(/\s*,\s*/).map(s=>s.trim()).filter(Boolean);
+  if(!items.length) return '<div class="fige">—</div>';
+  return '<div class="fige liste-instance">'+items.map(i=>'<span>'+esc(i)+'</span>').join("")+'</div>';
+}
+
 function vueSynthese(p){
   const c=S.cfg, t=c.tblMain;
   const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
@@ -812,8 +834,7 @@ function vueSynthese(p){
     '</div></div>'+
     '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
-      (c.colInstance?ch("Passage en instance",'<div class="fige">'+
-        esc(lire(t,p,c.colInstance)||"—")+'</div>',true):"")+
+      (c.colInstance?ch("Passage en instance",blocInstance(p),true):"")+
     '</div></div>';
   brancherEditeurs();
 }
@@ -927,58 +948,105 @@ function vueJalons(p){
 }
 
 /* --- Planning --- */
+function periodesPlanning(minAn,maxAn){
+  const an=new Date().getUTCFullYear();
+  const per=[];
+  for(let y=minAn;y<=maxAn;y++){
+    if(y===an||y===an+1){
+      for(let t=0;t<4;t++) per.push({
+        debut:Date.UTC(y,t*3,1)/1000, fin:Date.UTC(y,t*3+3,1)/1000,
+        label:"T"+(t+1)+" "+y, fin_annee:t===3
+      });
+    }else{
+      per.push({debut:Date.UTC(y,0,1)/1000, fin:Date.UTC(y+1,0,1)/1000, label:String(y), fin_annee:true});
+    }
+  }
+  return per;
+}
+
+function posPlanning(per,ts){
+  if(!per.length) return 0;
+  if(ts<=per[0].debut) return 0;
+  if(ts>=per[per.length-1].fin) return per.length;
+  for(let i=0;i<per.length;i++){
+    if(ts>=per[i].debut && ts<per[i].fin) return i+(ts-per[i].debut)/(per[i].fin-per[i].debut);
+  }
+  return per.length;
+}
+
 function vuePlanning(p){
   const c=S.cfg;
+  const avecTaches=S.planningTaches;
   const lignes=[{r:p,niv:0}];
   actionsDe(p).forEach(a=>{
     lignes.push({r:a,niv:1});
-    tachesDe(a).forEach(t=>lignes.push({r:t,niv:2,tache:true}));
+    if(avecTaches) tachesDe(a).forEach(t=>lignes.push({r:t,niv:2,tache:true}));
   });
   const bornes=(o)=>{
-    const t=o.tache?c.tblTache:c.tblMain;
     const d=Number(o.tache?o.r[c.colTacheDebut]:o.r[c.colDebut])||null;
     const f=Number(o.tache?o.r[c.colTacheFin]:(o.r[c.colFin]||o.r[c.colEch]))||null;
-    return {d,f,t};
+    return {d,f};
   };
+  const controle='<div class="pl-controle"><label><input type="checkbox" id="pl-taches"'+
+    (avecTaches?" checked":"")+'> Afficher les tâches</label></div>';
+
   const toutes=lignes.map(bornes).filter(b=>b.d||b.f);
   if(!toutes.length){
-    $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Pas de dates à afficher</b>'+
+    $("#corps").innerHTML='<div class="carte"><h2>Planning du projet</h2>'+controle+
+      '<div class="vide"><b>Pas de dates à afficher</b>'+
       'Renseignez les dates de début et d\'échéance des actions.</div></div>';
+    brancherPlanning(p);
     return;
   }
+
+  const anCourante=new Date().getUTCFullYear();
   const min=Math.min(...toutes.map(b=>b.d||b.f)), max=Math.max(...toutes.map(b=>b.f||b.d));
-  const etendue=Math.max(max-min,86400*30);
-  const dMin=new Date(min*1000), dMax=new Date(max*1000);
-  const mois=[]; const cur=new Date(Date.UTC(dMin.getUTCFullYear(),dMin.getUTCMonth(),1));
-  while(cur<=dMax){ mois.push(new Date(cur)); cur.setUTCMonth(cur.getUTCMonth()+1); }
-  const noms=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+  const minAn=Math.min(new Date(min*1000).getUTCFullYear(),anCourante);
+  const maxAn=Math.max(new Date(max*1000).getUTCFullYear(),anCourante+1);
+  const per=periodesPlanning(minAn,maxAn);
+  const pos=ts=>posPlanning(per,ts)/per.length*100;
+
+  const entete='<div class="pl-mois">'+per.map(x=>
+    '<div'+(x.fin_annee?' class="fin-annee"':'')+'>'+x.label+'</div>').join("")+'</div>';
+  const fond='<div class="pl-fond">'+per.map(x=>
+    '<div'+(x.fin_annee?' class="fin-annee"':'')+'></div>').join("")+'</div>';
+
+  const auj=Math.floor(Date.now()/1000);
+  const marqueur=(auj>=per[0].debut && auj<=per[per.length-1].fin)
+    ? '<div class="pl-auj" style="left:'+pos(auj)+'%" title="Aujourd\'hui"></div>' : '';
 
   const rangs=lignes.map(o=>{
     const b=bornes(o), r=o.r, tache=o.tache;
     const av=pct(tache?r[c.colTacheAvancement]:r[c.colAvancement]);
     const inter=!tache&&interrompu(r);
     const lib=tache?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle);
-    if(!b.d&&!b.f) return '<div class="pl-ligne"><div class="pl-nom" style="padding-left:'+(o.niv*14)+'px">'+
-      esc(lib)+'</div><div class="pl-piste"><div class="pl-etiq">dates non renseignées</div></div></div>';
+    const nom='<div class="pl-nom" style="padding-left:'+(o.niv*14)+'px'+
+      (o.niv===0?';font-weight:bold':'')+'" title="'+esc(lib)+'">'+esc(lib)+'</div>';
+    if(!b.d&&!b.f)
+      return '<div class="pl-ligne">'+nom+'<div class="pl-piste"><div class="pl-etiq">dates non renseignées</div></div></div>';
     const deb=b.d||b.f, fin=b.f||b.d;
-    const g=((deb-min)/etendue)*100, w=Math.max(((fin-deb)/etendue)*100,1.2);
-    return '<div class="pl-ligne"><div class="pl-nom" style="padding-left:'+(o.niv*14)+'px'+
-      (o.niv===0?';font-weight:bold':'')+'">'+esc(lib)+'</div>'+
+    const g=pos(deb), w=Math.max(pos(fin)-g,0.4);
+    return '<div class="pl-ligne">'+nom+
       '<div class="pl-piste"><div class="pl-barre" style="left:'+g+'%;width:'+w+'%" '+
       'title="'+esc(dateVersFR(deb)+" → "+dateVersFR(fin))+'">'+
       '<div class="pl-remplie" style="width:'+(av==null?0:av)+'%;background:'+couleurAvct(av,inter)+'"></div>'+
       '</div></div></div>';
   }).join("");
 
-  $("#corps").innerHTML='<div class="carte"><h2>Planning du projet</h2><div class="planning"><div class="pl-grille">'+
-    '<div class="pl-mois">'+mois.map(m=>'<div>'+noms[m.getUTCMonth()]+' '+String(m.getUTCFullYear()).slice(2)+'</div>').join("")+'</div>'+
-    rangs+'</div></div>'+
+  $("#corps").innerHTML='<div class="carte"><h2>Planning du projet</h2>'+controle+
+    '<div class="planning"><div class="pl-grille">'+entete+fond+marqueur+rangs+'</div></div>'+
     '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gris)">'+
     [["var(--vert)","Terminé"],["var(--jaune)","50 à 99 %"],["var(--orange)","1 à 49 %"],
      ["var(--rouge)","À faire"],["var(--interrompu)","Interrompu"]]
       .map(([c2,l])=>'<span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;'+
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     '</div></div>';
+  brancherPlanning(p);
+}
+
+function brancherPlanning(p){
+  const cb=$("#pl-taches");
+  if(cb) cb.onchange=()=>{ S.planningTaches=cb.checked; vuePlanning(p); };
 }
 
 /* --- Journal de bord --- */

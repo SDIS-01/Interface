@@ -177,6 +177,25 @@ td input,td select{
 td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
 .col-etroite{width:112px;}
 .col-mini{width:74px;}
+.ligne-com td{padding:0 8px 9px;border-bottom:1px solid var(--trait);}
+.ligne-com label{display:block;font-size:10.5px;color:var(--gris);font-weight:bold;
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+.ligne-com textarea{width:100%;min-height:44px;padding:6px 8px;line-height:1.45;
+  border:1px solid var(--trait);border-radius:4px;background:#fff;resize:vertical;}
+tbody tr.ligne-com:hover{background:transparent;}
+.sous-ligne{display:flex;gap:14px;align-items:flex-start;}
+.sl-com{flex:2;min-width:0;}
+.sl-pj{flex:1;min-width:190px;}
+.pj-bloc{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+.pj-liste{display:flex;flex-wrap:wrap;gap:6px;}
+.pj-chip{background:var(--bleu-clair);color:var(--bleu);border:none;border-radius:4px;
+  padding:4px 9px;font-size:11.5px;max-width:230px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;}
+.pj-chip:hover{background:#d7e0f5;text-decoration:underline;}
+.pj-vide{color:var(--gris);font-size:11.5px;}
+.pj-ajout{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--bleu);
+  font-weight:bold;cursor:pointer;text-transform:none;letter-spacing:normal;}
+.pj-ajout input{font-weight:normal;color:var(--gris);max-width:210px;}
 .vide{padding:26px;text-align:center;color:var(--gris);}
 .vide b{display:block;color:var(--encre);margin-bottom:5px;}
 
@@ -354,10 +373,10 @@ const DEF = {
   colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
   colCommentaire:"Commentaire", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
-  colInstance:"Passage_Instance_Concatener",
+  colPJ:"Pièce_Jointe",
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
-  colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"",
+  colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"",
@@ -374,13 +393,14 @@ const CHAMPS_REGLAGES = [
     ["colAvancement","Avancement"],["colStatut","Statut"],["colCommentaire","Commentaire"],
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
-    ["colInstance","Passage en instance"],
+    ["colPJ","Pièces jointes"],
     ["colJournalTexte","Journal de bord (colonne texte)"]
   ]},
   {bloc:"Table des tâches", tableKey:"tblTache", champs:[
     ["colTacheLien","Lien vers l'action"],["colTacheLibelle","Libellé de la tâche"],
     ["colTacheDebut","Date de début"],["colTacheFin","Date de fin"],
-    ["colTacheAvancement","Avancement"],["colTachePorteur","Porteur"],["colTacheStatut","Statut"]
+    ["colTacheAvancement","Avancement"],["colTachePorteur","Porteur"],["colTacheStatut","Statut"],
+    ["colTacheCommentaire","Commentaire"]
   ]},
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
     ["colJnlLien","Lien vers le projet"],["colJnlDate","Date"],["colJnlTexte","Commentaire"],
@@ -559,6 +579,7 @@ async function charger(){
   S.data.journal  = c.tblJournal ? enLignes(await grist.docApi.fetchTable(c.tblJournal)) : [];
   S.data.jalons   = c.tblJalon   ? enLignes(await grist.docApi.fetchTable(c.tblJalon))   : [];
   S.data.instances= c.tblInstance? enLignes(await grist.docApi.fetchTable(c.tblInstance)): [];
+  await chargerPJ();
 
   // libellés des colonnes de type Référence utilisées à l'écran
   const aResoudre=[
@@ -653,7 +674,13 @@ function jalonsDe(p){
       id:j.id, table:c.tblInstance, genre:"Instance",
       date:j[c.colInsDate], libelle:lire(c.tblInstance,j,c.colInsLibelle)
     }));
-  return out.sort((a,b)=>(Number(a.date)||Infinity)-(Number(b.date)||Infinity));
+  return out.sort((a,b)=>{
+    const da=Number(a.date)||null, db=Number(b.date)||null;
+    if(da===null && db===null) return 0;
+    if(da===null) return 1;          // sans date : en fin de liste
+    if(db===null) return -1;
+    return da-db;                    // du plus ancien au plus récent
+  });
 }
 
 /* =======================================================================
@@ -956,26 +983,76 @@ function valeurChamp(id,tableId,colId){
   return v;
 }
 
-/* --- Synthèse --- */
-function blocInstance(p){
-  const c=S.cfg;
-  const brut=p[c.colInstance];
-  const items = estListe(brut)
-    ? brut.slice(1).map(x=>txt(x)).filter(Boolean)
-    : String(lire(c.tblMain,p,c.colInstance)||"").split(/\s*,\s*/).map(s=>s.trim()).filter(Boolean);
-  if(!items.length) return '<div class="fige">—</div>';
-
-  const cle=s=>{
-    const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    return m ? Date.UTC(+m[3],+m[2]-1,+m[1]) : Infinity;   // sans date reconnue : en fin de liste
-  };
-  const tries=items.map((s,i)=>({s,i,d:cle(s)}))
-    .sort((a,b)=> a.d-b.d || a.i-b.i)
-    .map(o=>o.s);
-
-  return '<div class="fige liste-instance">'+tries.map(i=>'<span>'+esc(i)+'</span>').join("")+'</div>';
+async function chargerPJ(){
+  S.pj={};
+  try{
+    const t=await grist.docApi.fetchTable("_grist_Attachments");
+    t.id.forEach((id,i)=>{ S.pj[id]={nom:t.fileName?t.fileName[i]:("pièce "+id)}; });
+  }catch(e){ /* colonne non lisible : on affichera l'identifiant */ }
 }
 
+function ligneDe(tableId,rowId){
+  const c=S.cfg;
+  const source = tableId===c.tblMain ? S.data.main
+    : tableId===c.tblTache ? S.data.taches
+    : tableId===c.tblJournal ? S.data.journal
+    : tableId===c.tblJalon ? S.data.jalons
+    : tableId===c.tblInstance ? S.data.instances : [];
+  return source.find(r=>r.id===Number(rowId))||null;
+}
+
+function blocPJ(tableId,ligne,colId){
+  if(!colId) return "";
+  const ids=valListe(ligne[colId]).map(Number).filter(Boolean);
+  const chips = ids.length
+    ? ids.map(id=>'<button type="button" class="pj-chip" data-pj="'+id+'">'+
+        esc((S.pj[id]&&S.pj[id].nom)||("pièce "+id))+'</button>').join("")
+    : '<span class="pj-vide">Aucune pièce jointe</span>';
+  return '<div class="pj-bloc" data-t="'+esc(tableId)+'" data-r="'+ligne.id+'" data-c="'+esc(colId)+'">'+
+    '<div class="pj-liste">'+chips+'</div>'+
+    '<label class="pj-ajout">Ajouter un fichier <input type="file" class="pj-input" multiple></label></div>';
+}
+
+function brancherPJ(){
+  document.querySelectorAll(".pj-chip").forEach(b=>b.onclick=async()=>{
+    try{
+      const tk=await grist.docApi.getAccessToken({readOnly:true});
+      window.open(tk.baseUrl+"/attachments/"+b.dataset.pj+"/download?auth="+tk.token,"_blank","noopener");
+    }catch(e){ toast("Ouverture impossible : "+e.message,true); }
+  });
+
+  document.querySelectorAll(".pj-input").forEach(inp=>inp.onchange=async()=>{
+    const bloc=inp.closest(".pj-bloc");
+    const tableId=bloc.dataset.t, rowId=Number(bloc.dataset.r), colId=bloc.dataset.c;
+    if(!inp.files.length) return;
+    try{
+      toast("Envoi en cours…");
+      const tk=await grist.docApi.getAccessToken({readOnly:false});
+      const nouveaux=[];
+      for(const f of inp.files){
+        const fd=new FormData();
+        fd.append("upload",f,f.name);
+        const rep=await fetch(tk.baseUrl+"/attachments?auth="+tk.token,{
+          method:"POST", body:fd, headers:{"X-Requested-With":"XMLHttpRequest"}
+        });
+        if(!rep.ok) throw new Error(rep.status+" "+rep.statusText);
+        const res=await rep.json();
+        (Array.isArray(res)?res:[res]).forEach(x=>nouveaux.push(Number(x)));
+      }
+      const ligne=ligneDe(tableId,rowId);
+      const actuels=ligne?valListe(ligne[colId]).map(Number).filter(Boolean):[];
+      await grist.docApi.applyUserActions([["UpdateRecord",tableId,rowId,
+        {[colId]:["L"].concat(actuels,nouveaux)}]]);
+      toast(nouveaux.length>1?"Pièces jointes ajoutées":"Pièce jointe ajoutée");
+      await charger(); rendreProjet();
+    }catch(e){
+      toast("Envoi impossible : "+e.message,true);
+      inp.value="";
+    }
+  });
+}
+
+/* --- Synthèse --- */
 function vueSynthese(p){
   const c=S.cfg, t=c.tblMain;
   const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
@@ -999,9 +1076,10 @@ function vueSynthese(p){
     '</div></div>'+
     '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
-      (c.colInstance?ch("Passage en instance",blocInstance(p),true):"")+
-    '</div></div>';
+    '</div></div>'+
+    (c.colPJ?'<div class="carte"><h2>Pièces jointes</h2>'+blocPJ(t,p,c.colPJ)+'</div>':"");
   brancherEditeurs();
+  brancherPJ();
 }
 
 /* --- Actions --- */
@@ -1040,11 +1118,20 @@ function vueActions(p){
           '<td>'+editeur(t,r,c.colDebut)+'</td>'+
           '<td>'+editeur(t,r,c.colEch)+'</td>'+
           '<td>'+editeur(t,r,c.colFin)+'</td>'+
-          '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>';
+          '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>'+
+          (c.colCommentaire||c.colPJ
+            ? '<tr class="ligne-com"><td colspan="7"><div class="sous-ligne">'+
+              (c.colCommentaire?'<div class="sl-com"><label>Commentaire</label>'+
+                editeur(t,r,c.colCommentaire,{multi:true})+'</div>':'')+
+              (c.colPJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
+                blocPJ(t,r,c.colPJ)+'</div>':'')+
+              '</div></td></tr>'
+            : '');
       }).join("")+'</tbody></table></div>';
   }
   $("#corps").innerHTML=html;
   brancherEditeurs();
+  brancherPJ();
   brancherFiltres("fa",S.fActions,()=>vueActions(p));
   $("#add-action").onclick=async()=>{
     const lib=prompt("Libellé de la nouvelle action :");
@@ -1104,7 +1191,11 @@ function vueTaches(p){
             '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+
-            '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>';
+            '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>'+
+            (c.colTacheCommentaire
+              ? '<tr class="ligne-com"><td colspan="6"><label>Commentaire</label>'+
+                editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true})+'</td></tr>'
+              : '');
         }).join("")+'</tbody></table>';
     }
     html+='<div style="margin-top:10px"><button class="btn-2" data-addt="'+act.id+'">+ Ajouter une tâche</button></div></div>';
@@ -1449,6 +1540,7 @@ function devineDefauts(){
     if(!c.colTacheFin)     c.colTacheFin    =ids.find(i=>/fin|ech/i.test(i))||"";
     if(!c.colTacheAvancement) c.colTacheAvancement=ids.find(i=>/avanc/i.test(i))||"";
     if(!c.colTachePorteur) c.colTachePorteur=ids.find(i=>/porteur|responsable/i.test(i))||"";
+    if(!c.colTacheCommentaire) c.colTacheCommentaire=ids.find(i=>/comment/i.test(i))||"";
   }
 }
 

@@ -42,14 +42,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   flex:0 0 auto;display:flex;align-items:center;gap:14px;
   background:var(--bleu);color:#fff;padding:0 14px;height:46px;
 }
-.topbar .marque{font-weight:bold;letter-spacing:.04em;font-size:14px;}
-.topbar .sous{opacity:.72;font-size:11px;}
-.topbar .spacer{flex:1;}
-.btn-top{
-  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
-  color:#fff;border-radius:var(--rayon);padding:5px 11px;
-}
-.btn-top:hover{background:rgba(255,255,255,.22);}
+.topbar .marque{font-weight:bold;letter-spacing:.02em;font-size:14px;}
 
 /* ---------- Structure ---------- */
 .layout{flex:1;display:flex;min-height:0;}
@@ -309,13 +302,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 <body>
 
 <div class="topbar">
-  <div>
-    <div class="marque">CONSOLE PROJETS</div>
-    <div class="sous">Suivi des projets et actions — SDIS de l'Ain</div>
-  </div>
-  <div class="spacer"></div>
-  <button class="btn-top" id="btn-actualiser">Actualiser</button>
-  <button class="btn-top" id="btn-reglages">Réglages</button>
+  <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
 </div>
 
 <div class="layout">
@@ -1673,7 +1660,10 @@ let minuteur=null;
 function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,600); }
 
 async function demarrer(){
-  grist.ready({requiredAccess:"full"});
+  grist.ready({
+    requiredAccess:"full",
+    onEditOptions:()=>{ rendreReglages(); $("#voile").classList.add("ouvert"); }
+  });
   try{
     const o=await grist.widgetApi.getOptions();
     if(o && o.cfg) S.cfg=Object.assign({},DEF,o.cfg);
@@ -1689,8 +1679,6 @@ async function demarrer(){
 $("#q").oninput=rendreListe;
 SELECTS_FILTRE.concat(DATES_FILTRE).forEach(s=>$(s).onchange=rendreListe);
 $("#btn-raz").onclick=reinitialiserFiltres;
-$("#btn-actualiser").onclick=tout;
-$("#btn-reglages").onclick=()=>{ rendreReglages(); $("#voile").classList.add("ouvert"); };
 $("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");
 $("#btn-enregistrer").onclick=enregistrerReglages;
 $("#voile").onclick=e=>{ if(e.target===$("#voile")) $("#voile").classList.remove("ouvert"); };

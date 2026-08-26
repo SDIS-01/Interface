@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Projets et Actions — SDIS de l'Ain</title>
+<title>Console Projets — SDIS de l'Ain</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
 :root{
@@ -228,6 +228,18 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-controle label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
 .pl-controle select{padding:6px 8px;border:1px solid var(--trait);border-radius:var(--rayon);
   background:#fff;max-width:340px;}
+.pl-select{position:relative;}
+.pl-select-btn{padding:6px 10px;border:1px solid var(--trait);border-radius:var(--rayon);
+  background:#fff;color:var(--encre);min-width:210px;text-align:left;}
+.pl-select-btn:hover{border-color:var(--bleu);}
+.pl-select-panneau{position:absolute;z-index:5;top:calc(100% + 4px);left:0;background:#fff;
+  border:1px solid var(--trait);border-radius:var(--rayon);box-shadow:0 6px 18px rgba(20,28,45,.14);
+  padding:8px;min-width:330px;max-width:460px;max-height:260px;overflow-y:auto;}
+.pl-select-panneau label{display:flex;align-items:flex-start;gap:7px;padding:4px 5px;
+  border-radius:4px;cursor:pointer;font-size:12px;line-height:1.35;}
+.pl-select-panneau label:hover{background:var(--bleu-survol);}
+.pl-select-panneau .pl-tout{font-weight:bold;border-bottom:1px solid var(--trait);
+  margin-bottom:4px;padding-bottom:6px;}
 .pl-mois{display:flex;border-bottom:1px solid var(--trait);margin-left:230px;}
 .pl-mois div{flex:1;text-align:center;font-size:10.5px;color:#3a4150;font-weight:normal;
   padding:4px 0;border-left:1px solid #eef1f5;min-width:0;overflow:hidden;}
@@ -433,7 +445,8 @@ const S = {
   projetSel:null,
   onglet:"synthese",
   planningTaches:false,
-  planningAction:"",
+  planningActions:[],
+  plPanneau:false,
   fActions:{q:"",porteur:"",avct:""},
   fTaches:{q:"",porteur:"",avct:""},
   ouverts:{},
@@ -1382,9 +1395,10 @@ function vuePlanning(p){
   const c=S.cfg;
   const avecTaches=S.planningTaches;
   const actions=actionsDe(p);
-  if(S.planningAction && !actions.some(a=>String(a.id)===String(S.planningAction))) S.planningAction="";
-  const retenues=S.planningAction
-    ? actions.filter(a=>String(a.id)===String(S.planningAction))
+  const valides=actions.map(a=>String(a.id));
+  S.planningActions=S.planningActions.filter(id=>valides.includes(id));
+  const retenues=S.planningActions.length
+    ? actions.filter(a=>S.planningActions.includes(String(a.id)))
     : actions;
 
   const lignes=[{r:p,niv:0}];
@@ -1397,10 +1411,20 @@ function vuePlanning(p){
     const f=Number(o.tache?o.r[c.colTacheFin]:(o.r[c.colFin]||o.r[c.colEch]))||null;
     return {d,f};
   };
+  const n=S.planningActions.length;
+  const etiquette = n===0 ? "Toutes les actions"
+    : n===1 ? "1 action sélectionnée" : n+" actions sélectionnées";
   const controle='<div class="pl-controle">'+
-    '<select id="pl-action"><option value="">Toutes les actions</option>'+
-      actions.map(a=>'<option value="'+a.id+'"'+(String(S.planningAction)===String(a.id)?" selected":"")+'>'+
-        esc(lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)")+'</option>').join("")+'</select>'+
+    '<div class="pl-select" id="pl-actions-wrap">'+
+      '<button type="button" class="pl-select-btn" id="pl-actions-btn">'+etiquette+' ▾</button>'+
+      '<div class="pl-select-panneau" id="pl-actions-panneau"'+(S.plPanneau?'':' hidden')+'>'+
+        '<label class="pl-tout"><input type="checkbox" id="pl-actions-tout"'+
+          (n===0?" checked":"")+'> Toutes les actions</label>'+
+        actions.map(a=>'<label><input type="checkbox" class="pl-act" value="'+a.id+'"'+
+          (S.planningActions.includes(String(a.id))?" checked":"")+'> '+
+          esc(lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)")+'</label>').join("")+
+      '</div>'+
+    '</div>'+
     '<label><input type="checkbox" id="pl-taches"'+(avecTaches?" checked":"")+'> Afficher les tâches</label>'+
     '</div>';
 
@@ -1463,8 +1487,22 @@ function vuePlanning(p){
 function brancherPlanning(p){
   const cb=$("#pl-taches");
   if(cb) cb.onchange=()=>{ S.planningTaches=cb.checked; vuePlanning(p); };
-  const sa=$("#pl-action");
-  if(sa) sa.onchange=()=>{ S.planningAction=sa.value; vuePlanning(p); };
+
+  const btn=$("#pl-actions-btn");
+  if(btn) btn.onclick=()=>{
+    S.plPanneau=!S.plPanneau;
+    $("#pl-actions-panneau").hidden=!S.plPanneau;
+  };
+  const tout=$("#pl-actions-tout");
+  if(tout) tout.onchange=()=>{ S.planningActions=[]; S.plPanneau=true; vuePlanning(p); };
+  document.querySelectorAll(".pl-act").forEach(el=>el.onchange=()=>{
+    const id=el.value;
+    S.planningActions = el.checked
+      ? S.planningActions.concat([id])
+      : S.planningActions.filter(x=>x!==id);
+    S.plPanneau=true;
+    vuePlanning(p);
+  });
 }
 
 /* --- Journal de bord --- */
@@ -1645,6 +1683,15 @@ $("#btn-reglages").onclick=()=>{ rendreReglages(); $("#voile").classList.add("ou
 $("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");
 $("#btn-enregistrer").onclick=enregistrerReglages;
 $("#voile").onclick=e=>{ if(e.target===$("#voile")) $("#voile").classList.remove("ouvert"); };
+
+document.addEventListener("click",e=>{
+  const w=$("#pl-actions-wrap");
+  if(S.plPanneau && w && !w.contains(e.target)){
+    S.plPanneau=false;
+    const pan=$("#pl-actions-panneau");
+    if(pan) pan.hidden=true;
+  }
+});
 
 demarrer();
 </script>

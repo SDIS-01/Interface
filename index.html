@@ -19,6 +19,12 @@
   --orange:#F79646;
   --rouge:#C0504D;
   --interrompu:#595959;
+  --vert-pastel:#E4EDD2;
+  --jaune-pastel:#FFF3CC;
+  --orange-pastel:#FDE5D3;
+  --rouge-pastel:#F3DCDB;
+  --interrompu-pastel:#E4E5E7;
+  --neutre-pastel:#EDF0F4;
   --rayon:6px;
 }
 *{box-sizing:border-box;}
@@ -180,24 +186,34 @@ td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
 .btn-sup{background:none;border:none;color:var(--gris);padding:2px 6px;font-size:14px;}
 .btn-sup:hover{color:var(--rouge);}
 .barre-actions{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.barre-filtres{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.barre-filtres input,.barre-filtres select{
+  padding:6px 8px;border:1px solid var(--trait);border-radius:var(--rayon);background:#fff;}
+.barre-filtres input[type=search]{min-width:190px;}
+.barre-filtres .decompte{color:var(--gris);font-size:11.5px;}
 
 /* ---------- Planning ---------- */
 .planning{overflow-x:auto;}
 .pl-grille{position:relative;min-width:680px;}
-.pl-controle{margin-bottom:10px;font-size:12px;}
+.pl-controle{margin-bottom:10px;font-size:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
 .pl-controle label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+.pl-controle select{padding:6px 8px;border:1px solid var(--trait);border-radius:var(--rayon);
+  background:#fff;max-width:340px;}
 .pl-mois{display:flex;border-bottom:1px solid var(--trait);margin-left:230px;}
-.pl-mois div{flex:1;text-align:center;font-size:10.5px;color:var(--gris);
+.pl-mois div{flex:1;text-align:center;font-size:10.5px;color:var(--bleu);font-weight:bold;
   padding:4px 0;border-left:1px solid #eef1f5;min-width:0;overflow:hidden;}
 .pl-mois div.fin-annee{border-right:1px solid var(--trait);}
 .pl-fond{position:absolute;left:230px;right:0;top:23px;bottom:0;display:flex;pointer-events:none;}
 .pl-fond div{flex:1;border-left:1px solid #f1f4f8;}
 .pl-fond div.fin-annee{border-right:1px solid #e4e9f0;}
-.pl-auj{position:absolute;top:23px;bottom:0;width:0;border-left:1px dashed var(--bleu);
-  opacity:.45;pointer-events:none;}
+.pl-auj{position:absolute;top:23px;bottom:0;width:0;border-left:2px solid #E30613;
+  pointer-events:none;z-index:2;}
 .pl-ligne{display:flex;align-items:center;height:29px;border-bottom:1px solid #f4f6f9;position:relative;}
 .pl-nom{flex:0 0 230px;padding-right:12px;font-size:11.5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pl-nom.pl-projet{font-weight:bold;color:var(--bleu);}
+.pl-nom.pl-action{color:var(--bleu);}
+.pl-nom.pl-tache{color:var(--gris);}
 .pl-piste{flex:1;position:relative;height:100%;}
 .pl-barre{
   position:absolute;top:7px;height:15px;border-radius:3px;
@@ -375,6 +391,9 @@ const S = {
   projetSel:null,
   onglet:"synthese",
   planningTaches:false,
+  planningAction:"",
+  fActions:{q:"",porteur:"",avct:""},
+  fTaches:{q:"",porteur:"",avct:""},
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
 };
@@ -436,6 +455,15 @@ function couleurAvct(p,interrompu){
   if(p>=50) return "var(--jaune)";
   if(p>=1) return "var(--orange)";
   return "var(--rouge)";
+}
+
+function couleurPastel(p,interrompu){
+  if(interrompu) return "var(--interrompu-pastel)";
+  if(p==null) return "var(--neutre-pastel)";
+  if(p>=100) return "var(--vert-pastel)";
+  if(p>=50) return "var(--jaune-pastel)";
+  if(p>=1) return "var(--orange-pastel)";
+  return "var(--rouge-pastel)";
 }
 
 function donut(p,taille,interrompu){
@@ -520,9 +548,17 @@ async function charger(){
   S.data.journal  = c.tblJournal ? enLignes(await grist.docApi.fetchTable(c.tblJournal)) : [];
 
   // libellés des colonnes de type Référence utilisées à l'écran
-  for(const k of ["colPorteur","colGroupement","colPriorite","colStatut","colNature"]){
-    const info=infoCol(c.tblMain,c[k]);
-    if(info && info.refTable && info.refDisplay) await libellesRef(info.refTable,info.refDisplay);
+  const aResoudre=[
+    [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle"]],
+    [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
+    [c.tblJournal,["colJnlAuteur","colJnlNature"]]
+  ];
+  for(const [table,cles] of aResoudre){
+    if(!table) continue;
+    for(const k of cles){
+      const info=infoCol(table,c[k]);
+      if(info && info.refTable && info.refDisplay) await libellesRef(info.refTable,info.refDisplay);
+    }
   }
 }
 
@@ -818,6 +854,79 @@ function brancherEditeurs(){
   });
 }
 
+/* --- outils de filtre et de saisie --- */
+function dansTranche(a,code){
+  if(!code) return true;
+  if(code==="sans") return a===null;
+  if(code==="0") return a===0;
+  if(code==="1-49") return a!==null&&a>=1&&a<=49;
+  if(code==="50-99") return a!==null&&a>=50&&a<=99;
+  if(code==="100") return a===100;
+  return true;
+}
+
+function barreFiltres(prefixe,etat,porteurs,total,affiches){
+  return '<div class="barre-filtres">'+
+    '<input id="'+prefixe+'-q" type="search" placeholder="Rechercher…" value="'+esc(etat.q)+'">'+
+    '<select id="'+prefixe+'-porteur"><option value="">Tous porteurs</option>'+
+      porteurs.map(v=>'<option'+(etat.porteur===v?" selected":"")+'>'+esc(v)+'</option>').join("")+'</select>'+
+    '<select id="'+prefixe+'-avct">'+
+      [["","Tout avancement"],["0","0 %"],["1-49","1 à 49 %"],["50-99","50 à 99 %"],
+       ["100","100 %"],["sans","Non renseigné"]]
+        .map(([v,l])=>'<option value="'+v+'"'+(etat.avct===v?" selected":"")+'>'+l+'</option>').join("")+'</select>'+
+    (etat.q||etat.porteur||etat.avct
+      ? '<button class="btn-raz" id="'+prefixe+'-raz">Réinitialiser</button>'+
+        '<span class="decompte">'+affiches+' sur '+total+'</span>'
+      : '<span class="decompte">'+total+' au total</span>')+
+    '</div>';
+}
+
+function brancherFiltres(prefixe,etat,rendu){
+  const q=$("#"+prefixe+"-q");
+  if(q) q.oninput=()=>{
+    etat.q=q.value; rendu();
+    const n=$("#"+prefixe+"-q");
+    if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); }
+  };
+  const po=$("#"+prefixe+"-porteur");
+  if(po) po.onchange=()=>{ etat.porteur=po.value; rendu(); };
+  const av=$("#"+prefixe+"-avct");
+  if(av) av.onchange=()=>{ etat.avct=av.value; rendu(); };
+  const raz=$("#"+prefixe+"-raz");
+  if(raz) raz.onclick=()=>{ etat.q=""; etat.porteur=""; etat.avct=""; rendu(); };
+}
+
+function champVierge(tableId,colId,id){
+  const info=infoCol(tableId,colId);
+  if(!info) return '<input id="'+id+'" type="text">';
+  if(info.type==="Choice")
+    return '<select id="'+id+'"><option value=""></option>'+
+      info.choices.map(o=>'<option>'+esc(o)+'</option>').join("")+'</select>';
+  if(info.type.startsWith("Ref:")){
+    const map=S.refLabels[info.refTable+"."+info.refDisplay];
+    if(map){
+      const ids=Object.keys(map).sort((x,y)=>String(map[x]).localeCompare(String(map[y]),"fr"));
+      return '<select id="'+id+'"><option value="0"></option>'+
+        ids.map(i=>'<option value="'+i+'">'+esc(map[i])+'</option>').join("")+'</select>';
+    }
+  }
+  if(info.type.startsWith("Date")) return '<input id="'+id+'" type="date">';
+  if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
+    return '<input id="'+id+'" type="number" step="any">';
+  return '<input id="'+id+'" type="text">';
+}
+
+function valeurChamp(id,tableId,colId){
+  const el=$("#"+id);
+  if(!el) return null;
+  const info=infoCol(tableId,colId), v=el.value;
+  if(!info) return v;
+  if(info.type.startsWith("Ref:")) return Number(v)||0;
+  if(info.type.startsWith("Date")) return isoVersDate(v);
+  if(info.type.startsWith("Numeric")||info.type.startsWith("Int")) return v===""?null:Number(v);
+  return v;
+}
+
 /* --- Synthèse --- */
 function blocInstance(p){
   const c=S.cfg;
@@ -859,12 +968,26 @@ function vueSynthese(p){
 
 /* --- Actions --- */
 function vueActions(p){
-  const c=S.cfg, t=c.tblMain, acts=actionsDe(p);
+  const c=S.cfg, t=c.tblMain, toutes=actionsDe(p), f=S.fActions;
+  const porteurs=[...new Set(toutes.map(r=>lire(t,r,c.colPorteur)).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"fr"));
+  const q=f.q.trim().toLowerCase();
+  const acts=toutes.filter(r=>{
+    if(f.porteur && lire(t,r,c.colPorteur)!==f.porteur) return false;
+    if(!dansTranche(pct(r[c.colAvancement]),f.avct)) return false;
+    if(q && !lire(t,r,c.colLibelle).toLowerCase().includes(q)
+         && !lire(t,r,c.colPorteur).toLowerCase().includes(q)) return false;
+    return true;
+  });
+
   let html='<div class="barre-actions"><button class="btn" id="add-action">+ Ajouter une action</button>'+
-    '<span style="color:var(--gris)">Les modifications sont enregistrées dans Grist à la sortie du champ.</span></div>';
+    '<span style="color:var(--gris)">Les modifications sont enregistrées dans Grist à la sortie du champ.</span></div>'+
+    barreFiltres("fa",f,porteurs,toutes.length,acts.length);
   if(!acts.length){
-    html+='<div class="carte"><div class="vide"><b>Aucune action pour ce projet</b>'+
-      'Créez la première action de mise en œuvre.</div></div>';
+    html+='<div class="carte"><div class="vide"><b>'+
+      (toutes.length?"Aucune action ne correspond":"Aucune action pour ce projet")+'</b>'+
+      (toutes.length?"Modifiez la recherche ou les filtres.":"Créez la première action de mise en œuvre.")+
+      '</div></div>';
   }else{
     html+='<div class="carte"><table><thead><tr>'+
       '<th>Action</th><th class="col-mini">Avct</th><th class="col-etroite">Porteur</th>'+
@@ -884,6 +1007,7 @@ function vueActions(p){
   }
   $("#corps").innerHTML=html;
   brancherEditeurs();
+  brancherFiltres("fa",S.fActions,()=>vueActions(p));
   $("#add-action").onclick=async()=>{
     const lib=prompt("Libellé de la nouvelle action :");
     if(!lib) return;
@@ -909,9 +1033,24 @@ function vueTaches(p){
       'Ouvrez les réglages pour indiquer la table des tâches et sa colonne de liaison.</div></div>';
     return;
   }
-  let html="";
+  const f=S.fTaches, q=f.q.trim().toLowerCase();
+  const toutesT=acts.reduce((n,a)=>n.concat(tachesDe(a)),[]);
+  const porteurs=[...new Set(toutesT.map(r=>lire(c.tblTache,r,c.colTachePorteur)).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"fr"));
+  const filtre=r=>{
+    if(f.porteur && lire(c.tblTache,r,c.colTachePorteur)!==f.porteur) return false;
+    if(!dansTranche(pct(r[c.colTacheAvancement]),f.avct)) return false;
+    if(q && !lire(c.tblTache,r,c.colTacheLibelle).toLowerCase().includes(q)
+         && !lire(c.tblTache,r,c.colTachePorteur).toLowerCase().includes(q)) return false;
+    return true;
+  };
+  const actif=!!(f.q||f.porteur||f.avct);
+  const retenues=toutesT.filter(filtre).length;
+
+  let html=barreFiltres("ft",f,porteurs,toutesT.length,retenues);
   acts.forEach(act=>{
-    const ts=tachesDe(act);
+    const ts=tachesDe(act).filter(filtre);
+    if(actif && !ts.length) return;
     html+='<div class="carte"><h2>'+esc(lire(c.tblMain,act,c.colLibelle)||"(action sans libellé)")+'</h2>';
     if(!ts.length){
       html+='<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>';
@@ -932,9 +1071,13 @@ function vueTaches(p){
     }
     html+='<div style="margin-top:10px"><button class="btn-2" data-addt="'+act.id+'">+ Ajouter une tâche</button></div></div>';
   });
-  $("#corps").innerHTML = html || '<div class="carte"><div class="vide"><b>Aucune action</b>'+
-    'Créez d\'abord une action dans l\'onglet Actions.</div></div>';
+  $("#corps").innerHTML = html + (
+    !acts.length ? '<div class="carte"><div class="vide"><b>Aucune action</b>'+
+      'Créez d\'abord une action dans l\'onglet Actions.</div></div>'
+    : (actif && !retenues) ? '<div class="carte"><div class="vide"><b>Aucune tâche ne correspond</b>'+
+      'Modifiez la recherche ou les filtres.</div></div>' : "");
   brancherEditeurs();
+  brancherFiltres("ft",S.fTaches,()=>vueTaches(p));
   document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
     const lib=prompt("Libellé de la nouvelle tâche :");
     if(!lib) return;
@@ -995,8 +1138,14 @@ function posPlanning(per,ts){
 function vuePlanning(p){
   const c=S.cfg;
   const avecTaches=S.planningTaches;
+  const actions=actionsDe(p);
+  if(S.planningAction && !actions.some(a=>String(a.id)===String(S.planningAction))) S.planningAction="";
+  const retenues=S.planningAction
+    ? actions.filter(a=>String(a.id)===String(S.planningAction))
+    : actions;
+
   const lignes=[{r:p,niv:0}];
-  actionsDe(p).forEach(a=>{
+  retenues.forEach(a=>{
     lignes.push({r:a,niv:1});
     if(avecTaches) tachesDe(a).forEach(t=>lignes.push({r:t,niv:2,tache:true}));
   });
@@ -1005,8 +1154,12 @@ function vuePlanning(p){
     const f=Number(o.tache?o.r[c.colTacheFin]:(o.r[c.colFin]||o.r[c.colEch]))||null;
     return {d,f};
   };
-  const controle='<div class="pl-controle"><label><input type="checkbox" id="pl-taches"'+
-    (avecTaches?" checked":"")+'> Afficher les tâches</label></div>';
+  const controle='<div class="pl-controle">'+
+    '<select id="pl-action"><option value="">Toutes les actions</option>'+
+      actions.map(a=>'<option value="'+a.id+'"'+(String(S.planningAction)===String(a.id)?" selected":"")+'>'+
+        esc(lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)")+'</option>').join("")+'</select>'+
+    '<label><input type="checkbox" id="pl-taches"'+(avecTaches?" checked":"")+'> Afficher les tâches</label>'+
+    '</div>';
 
   const toutes=lignes.map(bornes).filter(b=>b.d||b.f);
   if(!toutes.length){
@@ -1038,14 +1191,16 @@ function vuePlanning(p){
     const av=pct(tache?r[c.colTacheAvancement]:r[c.colAvancement]);
     const inter=!tache&&interrompu(r);
     const lib=tache?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle);
-    const nom='<div class="pl-nom" style="padding-left:'+(o.niv*14)+'px'+
-      (o.niv===0?';font-weight:bold':'')+'" title="'+esc(lib)+'">'+esc(lib)+'</div>';
+    const cls=o.niv===0?"pl-projet":(tache?"pl-tache":"pl-action");
+    const nom='<div class="pl-nom '+cls+'" style="padding-left:'+(o.niv*14)+'px" title="'+esc(lib)+'">'+
+      esc(lib)+'</div>';
     if(!b.d&&!b.f)
       return '<div class="pl-ligne">'+nom+'<div class="pl-piste"><div class="pl-etiq">dates non renseignées</div></div></div>';
     const deb=b.d||b.f, fin=b.f||b.d;
     const g=pos(deb), w=Math.max(pos(fin)-g,0.4);
     return '<div class="pl-ligne">'+nom+
-      '<div class="pl-piste"><div class="pl-barre" style="left:'+g+'%;width:'+w+'%" '+
+      '<div class="pl-piste"><div class="pl-barre" style="left:'+g+'%;width:'+w+'%;background:'+
+      couleurPastel(av,inter)+'" '+
       'title="'+esc(dateVersFR(deb)+" → "+dateVersFR(fin))+'">'+
       '<div class="pl-remplie" style="width:'+(av==null?0:av)+'%;background:'+couleurAvct(av,inter)+'"></div>'+
       '</div></div></div>';
@@ -1054,8 +1209,8 @@ function vuePlanning(p){
   $("#corps").innerHTML='<div class="carte"><h2>Planning du projet</h2>'+controle+
     '<div class="planning"><div class="pl-grille">'+entete+fond+marqueur+rangs+'</div></div>'+
     '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gris)">'+
-    [["var(--vert)","Terminé"],["var(--jaune)","50 à 99 %"],["var(--orange)","1 à 49 %"],
-     ["var(--rouge)","À faire"],["var(--interrompu)","Interrompu"]]
+    [["var(--rouge)","À faire"],["var(--orange)","1 à 49 %"],["var(--jaune)","50 à 99 %"],
+     ["var(--vert)","Terminé"],["var(--interrompu)","Interrompu"]]
       .map(([c2,l])=>'<span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;'+
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     '</div></div>';
@@ -1065,6 +1220,8 @@ function vuePlanning(p){
 function brancherPlanning(p){
   const cb=$("#pl-taches");
   if(cb) cb.onchange=()=>{ S.planningTaches=cb.checked; vuePlanning(p); };
+  const sa=$("#pl-action");
+  if(sa) sa.onchange=()=>{ S.planningAction=sa.value; vuePlanning(p); };
 }
 
 /* --- Journal de bord --- */
@@ -1084,7 +1241,10 @@ function vueJournal(p){
     '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille">'+
       '<div class="champ"><label>Date</label><input id="j-date" type="date" value="'+
         new Date().toISOString().slice(0,10)+'"></div>'+
-      (c.colJnlAuteur?'<div class="champ"><label>Collaborateur</label><input id="j-auteur" type="text"></div>':'')+
+      (c.colJnlAuteur?'<div class="champ"><label>Collaborateur</label>'+
+        champVierge(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
+      (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
+        champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte"></textarea></div>'+
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '<div class="carte"><h2>Historique</h2>'+
@@ -1101,7 +1261,8 @@ function vueJournal(p){
     const info=infoCol(c.tblJournal,c.colJnlLien);
     const champs={[c.colJnlTexte]:texte};
     if(c.colJnlDate) champs[c.colJnlDate]=isoVersDate($("#j-date").value);
-    if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=$("#j-auteur").value;
+    if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=valeurChamp("j-auteur",c.tblJournal,c.colJnlAuteur);
+    if(c.colJnlNature && $("#j-nature")) champs[c.colJnlNature]=valeurChamp("j-nature",c.tblJournal,c.colJnlNature);
     if(info && info.type.startsWith("Ref:")) champs[c.colJnlLien]=p.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colJnlLien]=["L",p.id];
     else champs[c.colJnlLien]=p[c.colProjKey];

@@ -383,8 +383,9 @@ const DEF = {
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
-  tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"",
-  tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"",
+  tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"",
+  tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
+  colInsType:"", colInsRapporteur:"",
   btnLibelle:"", btnUrl:""
 };
 
@@ -412,10 +413,15 @@ const CHAMPS_REGLAGES = [
     ["colJnlAuteur","Collaborateur"],["colJnlNature","Nature / origine"]
   ]},
   {bloc:"Table des jalons", tableKey:"tblJalon", champs:[
-    ["colJalLien","Lien vers le projet"],["colJalDate","Date"],["colJalLibelle","Libellé du jalon"]
+    ["colJalLien","Lien vers le projet"],["colJalDate","Date"],
+    ["colJalLibelle","Libellé saisi à l'ajout"],
+    ["colJalHisto","Colonne affichée dans l'historique"]
   ]},
   {bloc:"Table des instances", tableKey:"tblInstance", champs:[
-    ["colInsLien","Lien vers le projet"],["colInsDate","Date"],["colInsLibelle","Libellé de l'instance"]
+    ["colInsLien","Lien vers le projet"],["colInsDate","Date"],
+    ["colInsLibelle","Libellé saisi à l'ajout"],
+    ["colInsHisto","Colonne affichée dans l'historique"],
+    ["colInsType","Type"],["colInsRapporteur","Rapporteur"]
   ]}
 ];
 
@@ -592,8 +598,8 @@ async function charger(){
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
     [c.tblJournal,["colJnlAuteur","colJnlNature"]],
-    [c.tblJalon,["colJalLibelle"]],
-    [c.tblInstance,["colInsLibelle"]]
+    [c.tblJalon,["colJalLibelle","colJalHisto"]],
+    [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur"]]
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
@@ -673,12 +679,16 @@ function jalonsDe(p){
   if(c.tblJalon && c.colJalLien)
     S.data.jalons.filter(j=>lieAuProjet(j,c.colJalLien,p)).forEach(j=>out.push({
       id:j.id, table:c.tblJalon, genre:"Jalon",
-      date:j[c.colJalDate], libelle:lire(c.tblJalon,j,c.colJalLibelle)
+      date:j[c.colJalDate],
+      libelle:lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle)
     }));
   if(c.tblInstance && c.colInsLien)
     S.data.instances.filter(j=>lieAuProjet(j,c.colInsLien,p)).forEach(j=>out.push({
       id:j.id, table:c.tblInstance, genre:"Instance",
-      date:j[c.colInsDate], libelle:lire(c.tblInstance,j,c.colInsLibelle)
+      date:j[c.colInsDate],
+      libelle:lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle),
+      type:c.colInsType?lire(c.tblInstance,j,c.colInsType):"",
+      rapporteur:c.colInsRapporteur?lire(c.tblInstance,j,c.colInsRapporteur):""
     }));
   return out.sort((a,b)=>{
     const da=Number(a.date)||null, db=Number(b.date)||null;
@@ -1263,37 +1273,51 @@ function vueTaches(p){
 }
 
 /* --- Jalons et instances --- */
-function carteAjout(cfgTable,cfgLien,cfgDate,cfgLib,prefixe,titre,libelleChamp,bouton){
+function carteAjout(prefixe,titre,cles,extras,libelleChamp,bouton){
   const c=S.cfg;
-  if(!c[cfgTable] || !c[cfgLien])
+  if(!c[cles.table] || !c[cles.lien])
     return '<div class="carte"><h2>'+titre+'</h2>'+
       '<p style="color:var(--gris);font-size:11.5px;margin:0">Indiquez la table correspondante '+
       'dans les réglages pour pouvoir en ajouter.</p></div>';
+  const sup=extras.filter(e=>c[e.cle]).map(e=>
+    '<div class="champ"><label>'+e.libelle+'</label>'+
+    champVierge(c[cles.table],c[e.cle],prefixe+"-"+e.id)+'</div>').join("");
   return '<div class="carte"><h2>'+titre+'</h2><div class="grille">'+
     '<div class="champ"><label>Date</label><input id="'+prefixe+'-date" type="date" value="'+
       new Date().toISOString().slice(0,10)+'"></div>'+
     '<div class="champ"><label>'+libelleChamp+'</label>'+
-      champVierge(c[cfgTable],c[cfgLib],prefixe+"-libelle")+'</div>'+
+      champVierge(c[cles.table],c[cles.lib],prefixe+"-libelle")+'</div>'+
+    sup+
     '</div><div style="margin-top:10px"><button class="btn" id="'+prefixe+'-ajouter">'+bouton+'</button></div></div>';
 }
 
-function brancherAjout(p,cfgTable,cfgLien,cfgDate,cfgLib,prefixe,alerte){
+function brancherAjout(p,prefixe,cles,extras,alerte){
   const c=S.cfg;
   const b=$("#"+prefixe+"-ajouter");
   if(!b) return;
   b.onclick=async()=>{
-    const lib=valeurChamp(prefixe+"-libelle",c[cfgTable],c[cfgLib]);
+    const lib=valeurChamp(prefixe+"-libelle",c[cles.table],c[cles.lib]);
     if(!lib){ toast(alerte,true); return; }
-    const info=infoCol(c[cfgTable],c[cfgLien]);
-    const champs={[c[cfgLib]]:lib};
-    if(c[cfgDate]) champs[c[cfgDate]]=isoVersDate($("#"+prefixe+"-date").value);
-    if(info && info.type.startsWith("Ref:")) champs[c[cfgLien]]=p.id;
-    else if(info && info.type.startsWith("RefList:")) champs[c[cfgLien]]=["L",p.id];
-    else champs[c[cfgLien]]=p[c.colProjKey];
-    await ajouter(c[cfgTable],champs);
+    const info=infoCol(c[cles.table],c[cles.lien]);
+    const champs={[c[cles.lib]]:lib};
+    if(c[cles.date]) champs[c[cles.date]]=isoVersDate($("#"+prefixe+"-date").value);
+    extras.forEach(e=>{
+      if(!c[e.cle] || !$("#"+prefixe+"-"+e.id)) return;
+      const v=valeurChamp(prefixe+"-"+e.id,c[cles.table],c[e.cle]);
+      if(v!==null && v!=="") champs[c[e.cle]]=v;
+    });
+    if(info && info.type.startsWith("Ref:")) champs[c[cles.lien]]=p.id;
+    else if(info && info.type.startsWith("RefList:")) champs[c[cles.lien]]=["L",p.id];
+    else champs[c[cles.lien]]=p[c.colProjKey];
+    await ajouter(c[cles.table],champs);
     await charger(); rendreProjet();
   };
 }
+
+const CLES_JALON={table:"tblJalon",lien:"colJalLien",date:"colJalDate",lib:"colJalLibelle"};
+const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",lib:"colInsLibelle"};
+const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
+                       {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
 function vueJalons(p){
   const c=S.cfg, js=jalonsDe(p);
@@ -1302,7 +1326,9 @@ function vueJalons(p){
   const historique = js.length
     ? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
         '<span class="pastille '+(j.genre==="Jalon"?"p-jalon":"p-instance")+'">'+j.genre+'</span>'+
-        '<span class="texte">'+esc(j.libelle)+'</span>'+
+        (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
+        '<span class="texte">'+esc(j.libelle)+
+        (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
         '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
         'title="Supprimer">✕</button></div>').join("")
     : '<div class="vide"><b>Rien à afficher</b>'+
@@ -1310,14 +1336,13 @@ function vueJalons(p){
            :"Le premier jalon ou la première instance s'ajoute ci-dessus.")+'</div>';
 
   $("#corps").innerHTML =
-    carteAjout("tblJalon","colJalLien","colJalDate","colJalLibelle","jl",
-               "Ajouter un jalon","Libellé du jalon","Ajouter le jalon")+
-    carteAjout("tblInstance","colInsLien","colInsDate","colInsLibelle","in",
-               "Ajouter une instance","Libellé de l'instance","Ajouter l'instance")+
+    carteAjout("jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
+    carteAjout("in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
+               "Libellé de l'instance","Ajouter l'instance")+
     '<div class="carte"><h2>Historique</h2>'+historique+'</div>';
 
-  brancherAjout(p,"tblJalon","colJalLien","colJalDate","colJalLibelle","jl","Indiquez le libellé du jalon avant d'ajouter.");
-  brancherAjout(p,"tblInstance","colInsLien","colInsDate","colInsLibelle","in","Indiquez le libellé de l'instance avant d'ajouter.");
+  brancherAjout(p,"jl",CLES_JALON,[],"Indiquez le libellé du jalon avant d'ajouter.");
+  brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
 
   document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
     if(!confirm("Supprimer définitivement cette ligne du document Grist ?")) return;

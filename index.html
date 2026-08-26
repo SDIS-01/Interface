@@ -658,27 +658,22 @@ function tachesDe(action){
   const c=S.cfg;
   if(!c.tblTache||!c.colTacheLien) return [];
   const cle=txt(action[c.colActKey]);
-  return S.data.taches.filter(t=>{
-    const v=t[c.colTacheLien];
-    const l=estListe(v)?v.slice(1):[v];
-    return l.some(x=>String(x)===String(action.id) || (cle && String(x)===cle));
-  });
+  return S.data.taches.filter(t=>lieA(c.tblTache,t,c.colTacheLien,action.id,cle));
 }
 function journalDe(p){
   const c=S.cfg;
   if(!c.tblJournal||!c.colJnlLien) return [];
   const cle=cleProjet(p);
-  return S.data.journal.filter(j=>{
-    const v=j[c.colJnlLien];
-    const l=estListe(v)?v.slice(1):[v];
-    return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
-  }).sort((a,b)=>(Number(b[c.colJnlDate])||0)-(Number(a[c.colJnlDate])||0));
+  return S.data.journal.filter(j=>lieA(c.tblJournal,j,c.colJnlLien,p.id,cle)).sort((a,b)=>(Number(b[c.colJnlDate])||0)-(Number(a[c.colJnlDate])||0));
 }
-function lieAuProjet(ligne,colLien,p){
+function lieA(tableId,ligne,colLien,cibleId,cleTexte){
+  const info=infoCol(tableId,colLien);
   const v=ligne[colLien];
   const l=estListe(v)?v.slice(1):[v];
-  const cle=cleProjet(p);
-  return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
+  if(info && /^Ref(List)?:/.test(info.type))      // colonne Référence : on compare les identifiants de ligne
+    return l.some(x=>Number(x)===Number(cibleId));
+  if(cleTexte===null || cleTexte===undefined || cleTexte==="") return false;
+  return l.some(x=>String(x)===String(cleTexte)); // sinon : on compare les clés saisies
 }
 
 function dateDepuisTexte(s){
@@ -689,7 +684,7 @@ function dateDepuisTexte(s){
 function jalonsDe(p){
   const c=S.cfg, out=[];
   if(c.tblJalon && c.colJalLien)
-    S.data.jalons.filter(j=>lieAuProjet(j,c.colJalLien,p)).forEach(j=>{
+    S.data.jalons.filter(j=>lieA(c.tblJalon,j,c.colJalLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
       out.push({
         id:j.id, table:c.tblJalon, genre:"Jalon",
@@ -698,7 +693,7 @@ function jalonsDe(p){
       });
     });
   if(c.tblInstance && c.colInsLien)
-    S.data.instances.filter(j=>lieAuProjet(j,c.colInsLien,p)).forEach(j=>{
+    S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
       out.push({
         id:j.id, table:c.tblInstance, genre:"Instance",

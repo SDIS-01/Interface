@@ -64,6 +64,20 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   outline:2px solid var(--bleu);outline-offset:-1px;border-color:var(--bleu);
 }
 .filtres{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.msel{position:relative;min-width:0;}
+.msel-large{grid-column:1/-1;}
+.msel-btn{width:100%;padding:7px 9px;border:1px solid var(--trait);border-radius:var(--rayon);
+  background:#fff;color:var(--encre);text-align:left;font-size:12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.msel-btn:hover{border-color:var(--bleu);}
+.msel-pan{position:absolute;z-index:8;top:calc(100% + 4px);left:0;min-width:100%;max-width:280px;
+  background:#fff;border:1px solid var(--trait);border-radius:var(--rayon);
+  box-shadow:0 6px 18px rgba(20,28,45,.14);padding:7px;max-height:250px;overflow-y:auto;}
+.msel-pan label{display:flex;align-items:center;gap:7px;padding:4px 5px;border-radius:4px;
+  cursor:pointer;font-size:12px;white-space:nowrap;}
+.msel-pan label:hover{background:var(--bleu-survol);}
+.msel-pan .msel-tout{font-weight:bold;border-bottom:1px solid var(--trait);
+  margin-bottom:4px;padding-bottom:6px;}
 .filtre-date{grid-column:1/-1;display:flex;align-items:center;gap:6px;
   font-size:11px;color:var(--gris);white-space:nowrap;}
 .filtre-date input{flex:1;min-width:0;padding:5px 6px;border:1px solid var(--trait);
@@ -317,24 +331,26 @@ tbody tr.ligne-com:hover{background:transparent;}
     <div class="recherche">
       <input id="q" type="search" placeholder="Rechercher un projet…" autocomplete="off">
       <div class="filtres">
-        <select id="f-groupement"><option value="">Tous groupements</option></select>
-        <select id="f-porteur"><option value="">Tous porteurs</option></select>
-        <select id="f-priorite"><option value="">Toutes priorités</option></select>
-        <select id="f-etat">
-          <option value="">Tous états</option>
-          <option value="encours">En cours</option>
-          <option value="termine">Terminés</option>
-          <option value="afaire">À faire</option>
-          <option value="interrompu">Interrompus</option>
-        </select>
-        <select id="f-avct">
-          <option value="">Tout avancement</option>
-          <option value="0">0 % — à faire</option>
-          <option value="1-49">1 à 49 %</option>
-          <option value="50-99">50 à 99 %</option>
-          <option value="100">100 % — terminé</option>
-          <option value="sans">Non renseigné</option>
-        </select>
+        <div class="msel" id="m-groupement">
+          <button type="button" class="msel-btn"></button>
+          <div class="msel-pan" hidden></div>
+        </div>
+        <div class="msel" id="m-porteur">
+          <button type="button" class="msel-btn"></button>
+          <div class="msel-pan" hidden></div>
+        </div>
+        <div class="msel" id="m-priorite">
+          <button type="button" class="msel-btn"></button>
+          <div class="msel-pan" hidden></div>
+        </div>
+        <div class="msel" id="m-etat">
+          <button type="button" class="msel-btn"></button>
+          <div class="msel-pan" hidden></div>
+        </div>
+        <div class="msel msel-large" id="m-avct">
+          <button type="button" class="msel-btn"></button>
+          <div class="msel-pan" hidden></div>
+        </div>
         <div class="filtre-date">
           <span>Échéance du</span>
           <input id="f-ech-du" type="date" aria-label="Échéance à partir du">
@@ -740,46 +756,88 @@ async function supprimer(tableId,rowId){
    6. Rendu — liste des projets
    ======================================================================= */
 
-const SELECTS_FILTRE=["#f-groupement","#f-porteur","#f-priorite","#f-etat","#f-avct"];
 const DATES_FILTRE=["#f-ech-du","#f-ech-au"];
+
+/* menus à cases à cocher : priorité, état, avancement */
+const MENUS={
+  "m-groupement":{tous:"Tous groupements", sel:[], opts:[]},
+  "m-porteur":{tous:"Tous porteurs", sel:[], opts:[]},
+  "m-priorite":{tous:"Toutes priorités", sel:[], opts:[]},
+  "m-etat":{tous:"Tous états", sel:[], opts:[
+    ["encours","En cours"],["termine","Terminés"],["afaire","À faire"],["interrompu","Interrompus"]]},
+  "m-avct":{tous:"Tout avancement", sel:[], opts:[
+    ["0","0 %"],["1-49","1 à 49 %"],["50-99","50 à 99 %"],["100","100 %"],["sans","Non renseigné"]]}
+};
+
+function rendreMenu(id){
+  const m=MENUS[id], wrap=$("#"+id);
+  if(!wrap) return;
+  const n=m.sel.length;
+  const etiq = n===0 ? m.tous
+    : n===1 ? (m.opts.find(o=>o[0]===m.sel[0])||[,m.sel[0]])[1]
+    : n+" sélectionnés";
+  wrap.querySelector(".msel-btn").textContent=etiq+" ▾";
+  wrap.querySelector(".msel-pan").innerHTML=
+    '<label class="msel-tout"><input type="checkbox" data-tout'+(n===0?" checked":"")+'> '+esc(m.tous)+'</label>'+
+    m.opts.map(([v,l])=>'<label><input type="checkbox" value="'+esc(v)+'"'+
+      (m.sel.includes(v)?" checked":"")+'> '+esc(l)+'</label>').join("");
+  wrap.querySelectorAll(".msel-pan input").forEach(inp=>inp.onchange=()=>{
+    if(inp.hasAttribute("data-tout")) m.sel=[];
+    else m.sel = inp.checked ? m.sel.concat([inp.value]) : m.sel.filter(x=>x!==inp.value);
+    rendreMenu(id);
+    rendreListe();
+  });
+}
+
+function brancherMenus(){
+  Object.keys(MENUS).forEach(id=>{
+    const wrap=$("#"+id);
+    if(!wrap) return;
+    wrap.querySelector(".msel-btn").onclick=()=>{
+      const pan=wrap.querySelector(".msel-pan");
+      const ouvrir=pan.hidden;
+      document.querySelectorAll(".msel-pan").forEach(x=>x.hidden=true);
+      pan.hidden=!ouvrir;
+    };
+    rendreMenu(id);
+  });
+}
+
+function etatDe(p){
+  const c=S.cfg;
+  if(interrompu(p)) return "interrompu";
+  const a=pct(p[c.colAvancement]);
+  if(a===100) return "termine";
+  if(!a) return "afaire";
+  return "encours";
+}
 
 function remplirFiltres(){
   const c=S.cfg, ps=projets();
   const uniq=(f)=>[...new Set(ps.map(f).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
-  const set=(sel,vals,libelle)=>{
-    const el=$(sel), garde=el.value;
-    el.innerHTML='<option value="">'+libelle+'</option>'+vals.map(v=>'<option>'+esc(v)+'</option>').join("");
-    el.value=garde;
+  const alimente=(id,f)=>{
+    MENUS[id].opts=uniq(f).map(v=>[v,v]);
+    MENUS[id].sel=MENUS[id].sel.filter(v=>MENUS[id].opts.some(o=>o[0]===v));
   };
-  set("#f-groupement",uniq(p=>lire(c.tblMain,p,c.colGroupement)),"Tous groupements");
-  set("#f-porteur",uniq(p=>lire(c.tblMain,p,c.colPorteur)),"Tous porteurs");
-  set("#f-priorite",uniq(p=>lire(c.tblMain,p,c.colPriorite)),"Toutes priorités");
+  alimente("m-groupement",p=>lire(c.tblMain,p,c.colGroupement));
+  alimente("m-porteur",   p=>lire(c.tblMain,p,c.colPorteur));
+  alimente("m-priorite",  p=>lire(c.tblMain,p,c.colPriorite));
+  Object.keys(MENUS).forEach(rendreMenu);
 }
 
 function projetsFiltres(){
   const c=S.cfg;
   const q=$("#q").value.trim().toLowerCase();
-  const g=$("#f-groupement").value, po=$("#f-porteur").value, pr=$("#f-priorite").value;
-  const et=$("#f-etat").value, av=$("#f-avct").value;
+  const g=MENUS["m-groupement"].sel, po=MENUS["m-porteur"].sel;
+  const pr=MENUS["m-priorite"].sel, et=MENUS["m-etat"].sel, av=MENUS["m-avct"].sel;
   const ecDu=isoVersDate($("#f-ech-du").value), ecAu=isoVersDate($("#f-ech-au").value);
   return projets().filter(p=>{
-    if(g && lire(c.tblMain,p,c.colGroupement)!==g) return false;
-    if(po && lire(c.tblMain,p,c.colPorteur)!==po) return false;
-    if(pr && lire(c.tblMain,p,c.colPriorite)!==pr) return false;
-    const a=pct(p[c.colAvancement]), i=interrompu(p);
-    if(et){
-      if(et==="interrompu" && !i) return false;
-      if(et==="termine" && (i||a!==100)) return false;
-      if(et==="afaire" && (i||(a||0)!==0)) return false;
-      if(et==="encours" && (i||!a||a>=100)) return false;
-    }
-    if(av){
-      if(av==="sans" && a!==null) return false;
-      if(av==="0" && a!==0) return false;
-      if(av==="1-49" && !(a!==null&&a>=1&&a<=49)) return false;
-      if(av==="50-99" && !(a!==null&&a>=50&&a<=99)) return false;
-      if(av==="100" && a!==100) return false;
-    }
+    if(g.length && !g.includes(lire(c.tblMain,p,c.colGroupement))) return false;
+    if(po.length && !po.includes(lire(c.tblMain,p,c.colPorteur))) return false;
+    if(pr.length && !pr.includes(lire(c.tblMain,p,c.colPriorite))) return false;
+    if(et.length && !et.includes(etatDe(p))) return false;
+    const a=pct(p[c.colAvancement]);
+    if(av.length && !av.some(code=>dansTranche(a,code))) return false;
     if(ecDu!==null || ecAu!==null){
       const e=Number(p[c.colEch])||null;
       if(!e) return false;
@@ -796,12 +854,14 @@ function projetsFiltres(){
 }
 
 function filtresActifs(){
-  return !!$("#q").value.trim() || SELECTS_FILTRE.some(s=>$(s).value) || DATES_FILTRE.some(s=>$(s).value);
+  return !!$("#q").value.trim() || DATES_FILTRE.some(s=>$(s).value)
+    || Object.keys(MENUS).some(id=>MENUS[id].sel.length);
 }
 
 function reinitialiserFiltres(){
   $("#q").value="";
-  SELECTS_FILTRE.concat(DATES_FILTRE).forEach(s=>$(s).value="");
+  DATES_FILTRE.forEach(s=>$(s).value="");
+  Object.keys(MENUS).forEach(id=>{ MENUS[id].sel=[]; rendreMenu(id); });
   rendreListe();
   $("#q").focus();
 }
@@ -1695,13 +1755,16 @@ async function demarrer(){
 }
 
 $("#q").oninput=rendreListe;
-SELECTS_FILTRE.concat(DATES_FILTRE).forEach(s=>$(s).onchange=rendreListe);
+DATES_FILTRE.forEach(s=>$(s).onchange=rendreListe);
+brancherMenus();
 $("#btn-raz").onclick=reinitialiserFiltres;
 $("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");
 $("#btn-enregistrer").onclick=enregistrerReglages;
 $("#voile").onclick=e=>{ if(e.target===$("#voile")) $("#voile").classList.remove("ouvert"); };
 
 document.addEventListener("click",e=>{
+  if(!e.target.closest(".msel"))
+    document.querySelectorAll(".msel-pan").forEach(x=>x.hidden=true);
   const w=$("#pl-actions-wrap");
   if(S.plPanneau && w && !w.contains(e.target)){
     S.plPanneau=false;

@@ -120,7 +120,9 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .entete-haut{display:flex;gap:16px;align-items:flex-start;}
 .entete-haut .txt{flex:1;min-width:0;}
 .btn-perso{margin-left:auto;flex:0 0 auto;text-decoration:none;display:inline-block;
-  white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis;}
+  white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis;
+  background:var(--rouge);}
+.btn-perso:hover{background:#a34340;}
 
 /* ---------- Onglets ---------- */
 .onglets{display:flex;gap:2px;}
@@ -200,8 +202,9 @@ td input:hover,td select:hover{border-color:var(--trait);background:#fff;}
 .pl-controle select{padding:6px 8px;border:1px solid var(--trait);border-radius:var(--rayon);
   background:#fff;max-width:340px;}
 .pl-mois{display:flex;border-bottom:1px solid var(--trait);margin-left:230px;}
-.pl-mois div{flex:1;text-align:center;font-size:10.5px;color:var(--bleu);font-weight:bold;
+.pl-mois div{flex:1;text-align:center;font-size:10.5px;color:#3a4150;font-weight:normal;
   padding:4px 0;border-left:1px solid #eef1f5;min-width:0;overflow:hidden;}
+.pl-mois div.an-courante{color:var(--bleu);font-weight:bold;}
 .pl-mois div.fin-annee{border-right:1px solid var(--trait);}
 .pl-fond{position:absolute;left:230px;right:0;top:23px;bottom:0;display:flex;pointer-events:none;}
 .pl-fond div{flex:1;border-left:1px solid #f1f4f8;}
@@ -355,6 +358,7 @@ const DEF = {
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
+  tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"",
   btnLibelle:"", btnUrl:""
 };
 
@@ -380,13 +384,16 @@ const CHAMPS_REGLAGES = [
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
     ["colJnlLien","Lien vers le projet"],["colJnlDate","Date"],["colJnlTexte","Commentaire"],
     ["colJnlAuteur","Collaborateur"],["colJnlNature","Nature / origine"]
+  ]},
+  {bloc:"Table des jalons (passages en instance)", tableKey:"tblJalon", champs:[
+    ["colJalLien","Lien vers le projet"],["colJalDate","Date"],["colJalLibelle","Instance / libellé"]
   ]}
 ];
 
 const S = {
   cfg:Object.assign({},DEF),
   meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
-  data:{main:[],taches:[],journal:[]},
+  data:{main:[],taches:[],journal:[],jalons:[]},
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
   onglet:"synthese",
@@ -546,12 +553,14 @@ async function charger(){
 
   S.data.taches   = c.tblTache   ? enLignes(await grist.docApi.fetchTable(c.tblTache))   : [];
   S.data.journal  = c.tblJournal ? enLignes(await grist.docApi.fetchTable(c.tblJournal)) : [];
+  S.data.jalons   = c.tblJalon   ? enLignes(await grist.docApi.fetchTable(c.tblJalon))   : [];
 
   // libellés des colonnes de type Référence utilisées à l'écran
   const aResoudre=[
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
-    [c.tblJournal,["colJnlAuteur","colJnlNature"]]
+    [c.tblJournal,["colJnlAuteur","colJnlNature"]],
+    [c.tblJalon,["colJalLibelle"]]
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
@@ -621,9 +630,19 @@ function journalDe(p){
 }
 function jalonsDe(p){
   const c=S.cfg;
+  if(c.tblJalon && c.colJalLien){
+    const cle=cleProjet(p);
+    return S.data.jalons.filter(j=>{
+      const v=j[c.colJalLien];
+      const l=estListe(v)?v.slice(1):[v];
+      return l.some(x=>String(x)===String(p.id) || (cle && String(x)===cle));
+    }).map(j=>({
+      id:j.id, date:j[c.colJalDate], libelle:lire(c.tblJalon,j,c.colJalLibelle), enTable:true
+    })).sort((a,b)=>(Number(a.date)||0)-(Number(b.date)||0));
+  }
   const d=valListe(p[c.colJalonDate]), l=valListe(p[c.colJalonLib]);
   const n=Math.max(d.length,l.length), out=[];
-  for(let i=0;i<n;i++) out.push({date:d[i]!==undefined?d[i]:null, libelle:l[i]!==undefined?l[i]:""});
+  for(let i=0;i<n;i++) out.push({date:d[i]!==undefined?d[i]:null, libelle:txt(l[i]!==undefined?l[i]:""), enTable:false});
   return out.filter(x=>x.date||x.libelle).sort((a,b)=>(Number(a.date)||0)-(Number(b.date)||0));
 }
 
@@ -1099,13 +1118,50 @@ function vueTaches(p){
 
 /* --- Jalons --- */
 function vueJalons(p){
-  const js=jalonsDe(p);
-  $("#corps").innerHTML='<div class="carte"><h2>Passages en instance</h2>'+
-    (js.length
-      ? js.map(j=>'<div class="jalon"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
-          '<span>'+esc(txt(j.libelle))+'</span></div>').join("")
-      : '<div class="vide"><b>Aucun jalon</b>Les jalons se saisissent dans la table dédiée du document.</div>')+
-    '</div>';
+  const c=S.cfg, js=jalonsDe(p);
+  const enTable = !!(c.tblJalon && c.colJalLien);
+
+  const liste = js.length
+    ? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
+        '<span class="texte">'+esc(j.libelle)+'</span>'+
+        (j.enTable?'<button class="btn-sup" data-supjal="'+j.id+'" title="Supprimer le jalon">✕</button>':'')+
+        '</div>').join("")
+    : '<div class="vide"><b>Aucun jalon</b>'+
+      (enTable?"Le premier passage en instance s'ajoute ci-dessus."
+             :"Renseignez la table des jalons dans les réglages pour pouvoir en ajouter.")+'</div>';
+
+  const saisie = enTable
+    ? '<div class="carte"><h2>Ajouter un jalon</h2><div class="grille">'+
+        '<div class="champ"><label>Date</label><input id="jl-date" type="date" value="'+
+          new Date().toISOString().slice(0,10)+'"></div>'+
+        '<div class="champ"><label>Instance</label>'+
+          champVierge(c.tblJalon,c.colJalLibelle,"jl-libelle")+'</div>'+
+      '</div><div style="margin-top:10px"><button class="btn" id="jl-ajouter">Ajouter le jalon</button></div></div>'
+    : '<div class="carte"><h2>Ajouter un jalon</h2><p style="color:var(--gris);font-size:11.5px;margin:0">'+
+      'Les jalons affichés proviennent des colonnes de la table principale et sont en lecture seule. '+
+      'Indiquez la table des jalons dans les réglages pour pouvoir en ajouter.</p></div>';
+
+  $("#corps").innerHTML = saisie + '<div class="carte"><h2>Passages en instance</h2>'+liste+'</div>';
+
+  if(enTable){
+    $("#jl-ajouter").onclick=async()=>{
+      const lib=valeurChamp("jl-libelle",c.tblJalon,c.colJalLibelle);
+      if(!lib){ toast("Indiquez l'instance avant d'ajouter.",true); return; }
+      const info=infoCol(c.tblJalon,c.colJalLien);
+      const champs={[c.colJalLibelle]:lib};
+      if(c.colJalDate) champs[c.colJalDate]=isoVersDate($("#jl-date").value);
+      if(info && info.type.startsWith("Ref:")) champs[c.colJalLien]=p.id;
+      else if(info && info.type.startsWith("RefList:")) champs[c.colJalLien]=["L",p.id];
+      else champs[c.colJalLien]=p[c.colProjKey];
+      await ajouter(c.tblJalon,champs);
+      await charger(); rendreProjet();
+    };
+    document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
+      if(!confirm("Supprimer définitivement ce jalon du document Grist ?")) return;
+      await supprimer(c.tblJalon,Number(b.dataset.supjal));
+      await charger(); rendreProjet();
+    });
+  }
 }
 
 /* --- Planning --- */
@@ -1116,7 +1172,7 @@ function periodesPlanning(minAn,maxAn){
     if(y===an||y===an+1){
       for(let t=0;t<4;t++) per.push({
         debut:Date.UTC(y,t*3,1)/1000, fin:Date.UTC(y,t*3+3,1)/1000,
-        label:"T"+(t+1)+" "+y, fin_annee:t===3
+        label:"T"+(t+1)+" "+y, fin_annee:t===3, courant:y===an
       });
     }else{
       per.push({debut:Date.UTC(y,0,1)/1000, fin:Date.UTC(y+1,0,1)/1000, label:String(y), fin_annee:true});
@@ -1178,7 +1234,7 @@ function vuePlanning(p){
   const pos=ts=>posPlanning(per,ts)/per.length*100;
 
   const entete='<div class="pl-mois">'+per.map(x=>
-    '<div'+(x.fin_annee?' class="fin-annee"':'')+'>'+x.label+'</div>').join("")+'</div>';
+    '<div class="'+(x.fin_annee?"fin-annee ":"")+(x.courant?"an-courante":"")+'">'+x.label+'</div>').join("")+'</div>';
   const fond='<div class="pl-fond">'+per.map(x=>
     '<div'+(x.fin_annee?' class="fin-annee"':'')+'></div>').join("")+'</div>';
 

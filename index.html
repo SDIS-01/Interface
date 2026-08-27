@@ -76,11 +76,14 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   background:#fff;color:var(--encre);text-align:left;font-size:12px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .msel-btn:hover{border-color:var(--bleu);}
-.msel-pan{position:absolute;z-index:8;top:calc(100% + 4px);left:0;min-width:100%;max-width:280px;
+.msel-pan{position:absolute;z-index:8;top:calc(100% + 4px);left:0;min-width:210px;width:max-content;
+  max-width:min(280px,calc(100vw - 40px));
   background:#fff;border:1px solid var(--trait);border-radius:var(--rayon);
   box-shadow:0 6px 18px rgba(20,28,45,.14);padding:7px;max-height:250px;overflow-y:auto;}
-.msel-pan label{display:flex;align-items:center;gap:7px;padding:4px 5px;border-radius:4px;
-  cursor:pointer;font-size:12px;white-space:nowrap;}
+.msel-pan label{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:4px;
+  cursor:pointer;font-size:12px;}
+.msel-pan input[type=checkbox]{flex:0 0 auto;width:14px;height:14px;margin:0;}
+.msel-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .msel-pan label:hover{background:var(--bleu-survol);}
 .msel-pan .msel-tout{font-weight:bold;border-bottom:1px solid var(--trait);
   margin-bottom:4px;padding-bottom:6px;}
@@ -130,7 +133,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 
 /* ---------- En-tête projet ---------- */
 .entete{
-  background:#fff;border-bottom:1px solid var(--trait);padding:20px 18px 0;
+  background:#fff;border-bottom:1px solid var(--trait);padding:28px 18px 0;
 }
 .entete h1{margin:0 0 4px;font-size:18px;color:var(--bleu);line-height:1.25;}
 .entete .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -258,8 +261,9 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-select-panneau{position:absolute;z-index:5;top:calc(100% + 4px);left:0;background:#fff;
   border:1px solid var(--trait);border-radius:var(--rayon);box-shadow:0 6px 18px rgba(20,28,45,.14);
   padding:8px;min-width:330px;max-width:460px;max-height:260px;overflow-y:auto;}
-.pl-select-panneau label{display:flex;align-items:flex-start;gap:7px;padding:4px 5px;
+.pl-select-panneau label{display:flex;align-items:center;gap:8px;padding:5px 6px;
   border-radius:4px;cursor:pointer;font-size:12px;line-height:1.35;}
+.pl-select-panneau input[type=checkbox]{flex:0 0 auto;width:14px;height:14px;margin:0;}
 .pl-select-panneau label:hover{background:var(--bleu-survol);}
 .pl-select-panneau .pl-tout{font-weight:bold;border-bottom:1px solid var(--trait);
   margin-bottom:4px;padding-bottom:6px;}
@@ -810,9 +814,10 @@ function rendreMenu(id){
     : n+" sélectionnés";
   wrap.querySelector(".msel-btn").textContent=etiq+" ▾";
   wrap.querySelector(".msel-pan").innerHTML=
-    '<label class="msel-tout"><input type="checkbox" data-tout'+(n===0?" checked":"")+'> '+esc(m.tous)+'</label>'+
-    m.opts.map(([v,l])=>'<label><input type="checkbox" value="'+esc(v)+'"'+
-      (m.sel.includes(v)?" checked":"")+'> '+esc(l)+'</label>').join("");
+    '<label class="msel-tout"><input type="checkbox" data-tout'+(n===0?" checked":"")+'>'+
+      '<span class="msel-txt">'+esc(m.tous)+'</span></label>'+
+    m.opts.map(([v,l])=>'<label title="'+esc(l)+'"><input type="checkbox" value="'+esc(v)+'"'+
+      (m.sel.includes(v)?" checked":"")+'><span class="msel-txt">'+esc(l)+'</span></label>').join("");
   wrap.querySelectorAll(".msel-pan input").forEach(inp=>inp.onchange=()=>{
     if(inp.hasAttribute("data-tout")) m.sel=[];
     else m.sel = inp.checked ? m.sel.concat([inp.value]) : m.sel.filter(x=>x!==inp.value);

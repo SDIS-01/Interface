@@ -133,7 +133,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 
 /* ---------- En-tête projet ---------- */
 .entete{
-  background:#fff;border-bottom:1px solid var(--trait);padding:28px 18px 0;
+  background:#fff;border-bottom:1px solid var(--trait);padding:18px 18px 0;
 }
 .entete h1{margin:0 0 4px;font-size:18px;color:var(--bleu);line-height:1.25;}
 .entete .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -176,7 +176,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 }
 .champ textarea{resize:vertical;min-height:74px;line-height:1.5;}
 .champ .fige{padding:6px 8px;background:#f7f8fa;border:1px solid var(--trait);
-  border-radius:4px;color:var(--gris);min-height:30px;}
+  border-radius:4px;color:var(--gris);min-height:30px;line-height:1.45;
+  white-space:pre-wrap;overflow-wrap:anywhere;}
 .pleine{grid-column:1/-1;}
 .liste-instance{display:flex;flex-direction:column;gap:0;color:var(--encre);}
 .liste-instance span{padding:5px 0;border-bottom:1px solid #eef1f5;}
@@ -382,7 +383,7 @@ tbody tr.ligne-com:hover{background:transparent;}
   </aside>
 
   <main class="contenu">
-    <div id="entete"></div>
+    <div id="entete" class="entete"></div>
     <div class="corps" id="corps">
       <div class="accueil">Sélectionnez un projet dans la liste de gauche.</div>
     </div>
@@ -602,6 +603,19 @@ async function chargerMeta(){
   });
 }
 
+/* garantit qu'une colonne Référence dispose d'une colonne d'affichage exploitable */
+async function preparerRef(tableId,colId){
+  const info=infoCol(tableId,colId);
+  if(!info || !info.refTable) return;
+  if(!info.refDisplay){                       // aucune colonne d'affichage définie dans Grist
+    const cible=colonnesDe(info.refTable)
+      .find(x=>/^(Text|Choice|Any)/.test(x.type) && x.colId!=="manualSort");
+    if(!cible) return;
+    info.refDisplay=cible.colId;
+  }
+  await libellesRef(info.refTable,info.refDisplay);
+}
+
 async function libellesRef(tableId,colId){
   const cle=tableId+"."+colId;
   if(S.refLabels[cle]) return S.refLabels[cle];
@@ -636,7 +650,7 @@ async function charger(){
 
   // libellés des colonnes de type Référence utilisées à l'écran
   const aResoudre=[
-    [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle"]],
+    [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
     [c.tblJournal,["colJnlAuteur","colJnlNature"]],
     [c.tblJalon,["colJalLibelle","colJalHisto"]],
@@ -644,10 +658,7 @@ async function charger(){
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
-    for(const k of cles){
-      const info=infoCol(table,c[k]);
-      if(info && info.refTable && info.refDisplay) await libellesRef(info.refTable,info.refDisplay);
-    }
+    for(const k of cles) if(c[k]) await preparerRef(table,c[k]);
   }
 }
 
@@ -1300,8 +1311,8 @@ function vueSynthese(p){
       ch("Porteur",lect(c.colPorteur))+
       ch("Priorité",lect(c.colPriorite))+
       ch("Statut",lect(c.colStatut))+
-      (c.colSup?ch(libelleColonne(t,c.colSup),lect(c.colSup)):"")+
       ch("Avancement",avct)+
+      (c.colSup?ch(libelleColonne(t,c.colSup),lect(c.colSup),true):"")+
     '</div></div>'+
     '<div class="carte'+(ouvert?" carte-ouverte":"")+'"><h2>Calendrier</h2><div class="grille">'+
       ch("Date de début",date(c.colDebut))+

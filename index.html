@@ -416,6 +416,7 @@ const DEF = {
   colCommentaire:"Commentaire", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
   colPJ:"Pièce_Jointe",
+  colSup:"MEC_2023",
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
@@ -437,6 +438,7 @@ const CHAMPS_REGLAGES = [
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colPJ","Pièces jointes"],
+    ["colSup","Champ complémentaire de l'identité"],
     ["colJournalTexte","Journal de bord (colonne texte)"]
   ]},
   {bloc:"Table des tâches", tableKey:"tblTache", champs:[
@@ -1267,6 +1269,11 @@ async function basculerVerrou(p){
 }
 
 /* --- Synthèse --- */
+function libelleColonne(tableId,colId){
+  const info=infoCol(tableId,colId);
+  return esc(info?(info.label||colId):colId);
+}
+
 function vueSynthese(p){
   const c=S.cfg, t=c.tblMain, ouvert=S.deverrouille;
   const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
@@ -1293,6 +1300,7 @@ function vueSynthese(p){
       ch("Porteur",lect(c.colPorteur))+
       ch("Priorité",lect(c.colPriorite))+
       ch("Statut",lect(c.colStatut))+
+      (c.colSup?ch(libelleColonne(t,c.colSup),lect(c.colSup)):"")+
       ch("Avancement",avct)+
     '</div></div>'+
     '<div class="carte'+(ouvert?" carte-ouverte":"")+'"><h2>Calendrier</h2><div class="grille">'+

@@ -401,6 +401,7 @@ const DEF = {
   colCommentaire:"Commentaire", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
   colPJ:"Pièce_Jointe",
+  colProjJalons:"", colProjInstances:"",
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
@@ -422,6 +423,8 @@ const CHAMPS_REGLAGES = [
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colPJ","Pièces jointes"],
+    ["colProjJalons","Colonne listant les jalons du projet"],
+    ["colProjInstances","Colonne listant les instances du projet"],
     ["colJournalTexte","Journal de bord (colonne texte)"]
   ]},
   {bloc:"Table des tâches", tableKey:"tblTache", champs:[
@@ -697,10 +700,20 @@ function dateDepuisTexte(s){
   return m ? Date.UTC(+m[3],+m[2]-1,+m[1])/1000 : null;
 }
 
+function lignesLiees(p,colListe,donnees,tableId,colLien){
+  const c=S.cfg;
+  if(colListe && p[colListe]!==undefined){            // la liste est portée par le projet
+    const ids=valListe(p[colListe]).map(Number).filter(Boolean);
+    return donnees.filter(r=>ids.includes(Number(r.id)));
+  }
+  if(!colLien) return [];                             // sinon : la ligne désigne son projet
+  return donnees.filter(r=>lieA(tableId,r,colLien,p.id,cleProjet(p)));
+}
+
 function jalonsDe(p){
   const c=S.cfg, out=[];
-  if(c.tblJalon && c.colJalLien)
-    S.data.jalons.filter(j=>lieA(c.tblJalon,j,c.colJalLien,p.id,cleProjet(p))).forEach(j=>{
+  if(c.tblJalon && (c.colJalLien||c.colProjJalons))
+    lignesLiees(p,c.colProjJalons,S.data.jalons,c.tblJalon,c.colJalLien).forEach(j=>{
       const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
       out.push({
         id:j.id, table:c.tblJalon, genre:"Jalon",
@@ -708,8 +721,8 @@ function jalonsDe(p){
         libelle:lib
       });
     });
-  if(c.tblInstance && c.colInsLien)
-    S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
+  if(c.tblInstance && (c.colInsLien||c.colProjInstances))
+    lignesLiees(p,c.colProjInstances,S.data.instances,c.tblInstance,c.colInsLien).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
       out.push({
         id:j.id, table:c.tblInstance, genre:"Instance",
@@ -1423,11 +1436,11 @@ function vueJalons(p){
 
   $("#corps").innerHTML =
     carteAjout("jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
-    carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
+    carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&(c.colJalLien||c.colProjJalons)),
                "Le premier jalon s'ajoute ci-dessus.")+
     carteAjout("in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
                "Libellé de l'instance","Ajouter l'instance")+
-    carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
+    carteHisto("Historique des instances",instances,!!(c.tblInstance&&(c.colInsLien||c.colProjInstances)),
                "La première instance s'ajoute ci-dessus.");
 
   brancherAjout(p,"jl",CLES_JALON,[],"Indiquez le libellé du jalon avant d'ajouter.");

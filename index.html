@@ -162,6 +162,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   background:#fff;border:1px solid var(--trait);border-radius:var(--rayon);
   padding:14px 16px;margin-bottom:14px;
 }
+.carte-ouverte{border-color:var(--bleu);box-shadow:0 0 0 1px var(--bleu-clair);}
 .carte h2{margin:0 0 12px;font-size:13px;color:var(--bleu);
   text-transform:uppercase;letter-spacing:.06em;}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
@@ -418,7 +419,7 @@ const DEF = {
   tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
   colInsType:"", colInsRapporteur:"",
-  btnLibelle:"", btnUrl:""
+  btnLibelle:"", btnUrl:"", mdpHash:""
 };
 
 const CHAMPS_REGLAGES = [
@@ -470,6 +471,7 @@ const S = {
   fActions:{porteur:"",avct:"",du:"",au:""},
   fTaches:{porteur:"",avct:"",du:"",au:""},
   ouverts:{},
+  deverrouille:false,
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
 };
@@ -1202,24 +1204,68 @@ function brancherPJ(){
   });
 }
 
+async function empreinte(txtClair){
+  const donnees=new TextEncoder().encode("console-projets|"+txtClair);
+  if(window.crypto && crypto.subtle){
+    const buf=await crypto.subtle.digest("SHA-256",donnees);
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  let h=0;                                   // secours si l'API n'est pas disponible
+  for(const o of donnees) h=(h*31+o)>>>0;
+  return "s"+h.toString(16);
+}
+
+async function motDePasseValide(invite){
+  if(!S.cfg.mdpHash) return true;              // aucun mot de passe défini
+  const saisi=prompt(invite);
+  if(saisi===null) return false;               // annulation
+  if(await empreinte(saisi)===S.cfg.mdpHash) return true;
+  toast("Mot de passe incorrect",true);
+  return false;
+}
+
+async function confirmerSuppression(question){
+  if(!confirm(question)) return false;
+  return await motDePasseValide("Mot de passe pour confirmer la suppression :");
+}
+
+async function basculerVerrou(p){
+  if(S.deverrouille){ S.deverrouille=false; vueSynthese(p); return; }
+  if(await motDePasseValide("Mot de passe pour modifier ces champs :")){
+    S.deverrouille=true; vueSynthese(p);
+  }
+}
+
 /* --- Synthèse --- */
 function vueSynthese(p){
-  const c=S.cfg, t=c.tblMain;
+  const c=S.cfg, t=c.tblMain, ouvert=S.deverrouille;
   const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
   const fige=v=>'<div class="fige">'+esc(v||"—")+'</div>';
-  const lect=colId=>fige(lire(t,p,colId));
-  const date=colId=>fige(dateVersFR(p[colId]));
+  const lect=colId=>ouvert?editeur(t,p,colId):fige(lire(t,p,colId));
+  const date=colId=>ouvert?editeur(t,p,colId):fige(dateVersFR(p[colId]));
   const a=pct(p[c.colAvancement]);
+  const avct=ouvert
+    ? '<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
+      '" data-t="'+t+'" data-r="'+p.id+'" data-c="'+c.colAvancement+'">'
+    : fige(a==null?"":a+" %");
+
   $("#corps").innerHTML=
-    '<div class="carte"><h2>Identité du projet</h2><div class="grille">'+
+    '<div class="barre-actions">'+
+      '<button class="'+(ouvert?"btn":"btn-2")+'" id="verrou">'+
+        (ouvert?"Verrouiller les champs":"Modifier les champs")+'</button>'+
+      '<span style="color:var(--gris)">'+
+        (ouvert?"Les modifications sont enregistrées dans Grist à la sortie du champ."
+               :"Identité et calendrier sont en consultation.")+'</span>'+
+    '</div>'+
+    '<div class="carte'+(ouvert?" carte-ouverte":"")+'"><h2>Identité du projet</h2><div class="grille">'+
       ch("Nature",lect(c.colNature))+
       ch("Groupement",lect(c.colGroupement))+
       ch("Porteur",lect(c.colPorteur))+
       ch("Priorité",lect(c.colPriorite))+
       ch("Statut",lect(c.colStatut))+
-      ch("Avancement",fige(a==null?"":a+" %"))+
+      ch("Avancement",avct)+
     '</div></div>'+
-    '<div class="carte"><h2>Calendrier</h2><div class="grille">'+
+    '<div class="carte'+(ouvert?" carte-ouverte":"")+'"><h2>Calendrier</h2><div class="grille">'+
       ch("Date de début",date(c.colDebut))+
       ch("Échéance prévue",date(c.colEch))+
       ch("Date de fin",date(c.colFin))+
@@ -1232,6 +1278,7 @@ function vueSynthese(p){
     (c.colPJ?'<div class="carte"><h2>Pièces jointes</h2>'+blocPJ(t,p,c.colPJ)+'</div>':"");
   brancherEditeurs();
   brancherPJ();
+  $("#verrou").onclick=()=>basculerVerrou(p);
 }
 
 /* --- Actions --- */
@@ -1303,7 +1350,7 @@ function vueActions(p){
     await charger(); rendreListe(); rendreProjet();
   };
   document.querySelectorAll("[data-sup]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("Supprimer définitivement cette action du document Grist ?")) return;
+    if(!await confirmerSuppression("Supprimer définitivement cette action du document Grist ?")) return;
     await supprimer(t,Number(b.dataset.sup));
     await charger(); rendreListe(); rendreProjet();
   });
@@ -1387,7 +1434,7 @@ function vueTaches(p){
     await charger(); rendreProjet();
   });
   document.querySelectorAll("[data-supt]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("Supprimer définitivement cette tâche du document Grist ?")) return;
+    if(!await confirmerSuppression("Supprimer définitivement cette tâche du document Grist ?")) return;
     await supprimer(c.tblTache,Number(b.dataset.supt));
     await charger(); rendreProjet();
   });
@@ -1475,7 +1522,7 @@ function vueJalons(p){
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
 
   document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("Supprimer définitivement cette ligne du document Grist ?")) return;
+    if(!await confirmerSuppression("Supprimer définitivement cette ligne du document Grist ?")) return;
     await supprimer(b.dataset.tbl,Number(b.dataset.supjal));
     await charger(); rendreProjet();
   });
@@ -1670,7 +1717,7 @@ function vueJournal(p){
     await charger(); rendreProjet();
   };
   document.querySelectorAll("[data-supj]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("Supprimer définitivement cette entrée du journal ?")) return;
+    if(!await confirmerSuppression("Supprimer définitivement cette entrée du journal ?")) return;
     await supprimer(c.tblJournal,Number(b.dataset.supj));
     await charger(); rendreProjet();
   });
@@ -1698,6 +1745,18 @@ function rendreReglages(){
         '<div class="champ"><label>'+l+'</label><select data-cfg="'+k+'" data-pour="'+bloc.tableKey+'">'+
         optionsColonnes(tid,c[k])+'</select></div>').join("")+'</div></div>';
   }).join("") +
+  '<div class="bloc-reglage"><h3>Verrouillage des champs de la Synthèse</h3>'+
+  '<p>Un mot de passe est demandé pour rendre modifiables l\'identité et le calendrier. '+
+  'Il n\'est pas stocké en clair, mais ce verrou reste un garde-fou contre la fausse manœuvre, '+
+  'pas une sécurité : les données restent modifiables depuis la vue Grist classique.</p>'+
+  '<div class="grille">'+
+    '<div class="champ"><label>Nouveau mot de passe</label>'+
+    '<input type="password" id="mdp-nouveau" autocomplete="new-password" placeholder="'+
+      (c.mdpHash?"Mot de passe défini — laisser vide pour le conserver":"Aucun mot de passe défini")+'"></div>'+
+    '<div class="champ"><label>&nbsp;</label><label style="font-weight:normal;text-transform:none;'+
+      'display:flex;align-items:center;gap:7px;font-size:12px">'+
+      '<input type="checkbox" id="mdp-retirer"> Retirer le mot de passe</label></div>'+
+  '</div></div>'+
   '<div class="bloc-reglage"><h3>Bouton personnalisé</h3>'+
   '<p>Ce bouton s\'affiche en haut à droite de la fiche projet. Laissez vide pour le masquer.</p>'+
   '<div class="grille">'+
@@ -1720,6 +1779,9 @@ function rendreReglages(){
 
 async function enregistrerReglages(){
   $("#corps-reglages").querySelectorAll("[data-cfg]").forEach(el=>{ S.cfg[el.dataset.cfg]=el.value; });
+  const nouveau=$("#mdp-nouveau")?$("#mdp-nouveau").value:"";
+  if($("#mdp-retirer") && $("#mdp-retirer").checked){ S.cfg.mdpHash=""; S.deverrouille=false; }
+  else if(nouveau){ S.cfg.mdpHash=await empreinte(nouveau); S.deverrouille=false; }
   try{ await grist.widgetApi.setOptions({cfg:S.cfg}); }catch(e){}
   $("#voile").classList.remove("ouvert");
   await tout();

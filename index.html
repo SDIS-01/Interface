@@ -1206,24 +1206,25 @@ function brancherPJ(){
 function vueSynthese(p){
   const c=S.cfg, t=c.tblMain;
   const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
+  const fige=v=>'<div class="fige">'+esc(v||"—")+'</div>';
+  const lect=colId=>fige(lire(t,p,colId));
+  const date=colId=>fige(dateVersFR(p[colId]));
   const a=pct(p[c.colAvancement]);
   $("#corps").innerHTML=
     '<div class="carte"><h2>Identité du projet</h2><div class="grille">'+
-      ch("Libellé",editeur(t,p,c.colLibelle))+
-      ch("Nature",editeur(t,p,c.colNature))+
-      ch("Groupement",editeur(t,p,c.colGroupement))+
-      ch("Porteur",editeur(t,p,c.colPorteur))+
-      ch("Priorité",editeur(t,p,c.colPriorite))+
-      ch("Statut",editeur(t,p,c.colStatut))+
-      ch("Avancement (%)",'<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+
-        (a==null?"":a)+'" data-t="'+t+'" data-r="'+p.id+'" data-c="'+c.colAvancement+'">')+
+      ch("Nature",lect(c.colNature))+
+      ch("Groupement",lect(c.colGroupement))+
+      ch("Porteur",lect(c.colPorteur))+
+      ch("Priorité",lect(c.colPriorite))+
+      ch("Statut",lect(c.colStatut))+
+      ch("Avancement",fige(a==null?"":a+" %"))+
     '</div></div>'+
     '<div class="carte"><h2>Calendrier</h2><div class="grille">'+
-      ch("Date de début",editeur(t,p,c.colDebut))+
-      ch("Échéance prévue",editeur(t,p,c.colEch))+
-      ch("Date de fin",editeur(t,p,c.colFin))+
-      ch("Date de suspension",editeur(t,p,c.colSuspension))+
-      ch("Date d'abandon",editeur(t,p,c.colAbandon))+
+      ch("Date de début",date(c.colDebut))+
+      ch("Échéance prévue",date(c.colEch))+
+      ch("Date de fin",date(c.colFin))+
+      ch("Date de suspension",date(c.colSuspension))+
+      ch("Date d'abandon",date(c.colAbandon))+
     '</div></div>'+
     '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+

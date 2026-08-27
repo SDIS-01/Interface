@@ -686,13 +686,17 @@ function actionsDe(p){
   const c=S.cfg;
   const info=infoCol(c.tblMain,c.colProjKey);
   const parRef=!!(info && /^Ref(List)?:/.test(info.type));
-  const cle=txt(p[c.colProjKey]);                    // identifiant porté par le projet
+  const brut=p[c.colProjKey];
+  const refProjet=(estListe(brut)?brut.slice(1):[brut]).map(Number).filter(Boolean);
+  const cle=txt(brut);                               // identifiant porté par le projet
   const lib=lire(c.tblMain,p,c.colLibelle);          // libellé du projet
   return S.data.main.filter(r=>{
     if(!estAction(r)) return false;
     const v=r[c.colProjKey];
     const vals=(estListe(v)?v.slice(1):[v]);
-    if(parRef) return vals.some(x=>Number(x)===p.id);
+    if(parRef)
+      return vals.some(x=>Number(x)===p.id                 // la référence désigne la ligne du projet
+                       || refProjet.includes(Number(x)));  // ou la même cible que le projet
     const textes=vals.map(x=>txt(x)).filter(x=>x!=="");
     if(!textes.length) return false;
     if(cle && textes.includes(cle)) return true;

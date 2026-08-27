@@ -696,6 +696,12 @@ function actionsDe(p){
     return false;
   });
 }
+/* lignes susceptibles de porter des tâches : les actions, et le projet lui-même */
+function porteursDeTaches(p){
+  const liste=actionsDe(p);
+  return tachesDe(p).length ? [p].concat(liste) : liste;
+}
+
 function tachesDe(action){
   const c=S.cfg;
   if(!c.tblTache||!c.colTacheLien) return [];
@@ -946,7 +952,8 @@ function rendreProjet(){
   }
   const a=pct(p[c.colAvancement]), i=interrompu(p);
   const acts=actionsDe(p);
-  const nb={actions:acts.length, taches:acts.reduce((n,x)=>n+tachesDe(x).length,0),
+  const nb={actions:acts.length,
+            taches:porteursDeTaches(p).reduce((n,x)=>n+tachesDe(x).length,0),
             jalons:jalonsDe(p).length, journal:journalDe(p).length};
 
   $("#entete").innerHTML=
@@ -1372,7 +1379,7 @@ function vueActions(p){
 
 /* --- Tâches --- */
 function vueTaches(p){
-  const c=S.cfg, acts=actionsDe(p);
+  const c=S.cfg, acts=porteursDeTaches(p);
   if(!c.tblTache){
     $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Table des tâches non paramétrée</b>'+
       'Ouvrez les réglages pour indiquer la table des tâches et sa colonne de liaison.</div></div>';
@@ -1580,6 +1587,7 @@ function vuePlanning(p){
     : actions;
 
   const lignes=[{r:p,niv:0}];
+  if(avecTaches) tachesDe(p).forEach(t=>lignes.push({r:t,niv:1,tache:true}));
   retenues.forEach(a=>{
     lignes.push({r:a,niv:1});
     if(avecTaches) tachesDe(a).forEach(t=>lignes.push({r:t,niv:2,tache:true}));

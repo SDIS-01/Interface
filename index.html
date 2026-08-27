@@ -679,8 +679,22 @@ function projets(){
     lire(S.cfg.tblMain,a,S.cfg.colLibelle).localeCompare(lire(S.cfg.tblMain,b,S.cfg.colLibelle),"fr"));
 }
 function actionsDe(p){
-  const k=cleProjet(p);
-  return S.data.main.filter(r=>estAction(r)&&cleProjet(r)===k);
+  const c=S.cfg;
+  const info=infoCol(c.tblMain,c.colProjKey);
+  const parRef=!!(info && /^Ref(List)?:/.test(info.type));
+  const cle=txt(p[c.colProjKey]);                    // identifiant porté par le projet
+  const lib=lire(c.tblMain,p,c.colLibelle);          // libellé du projet
+  return S.data.main.filter(r=>{
+    if(!estAction(r)) return false;
+    const v=r[c.colProjKey];
+    const vals=(estListe(v)?v.slice(1):[v]);
+    if(parRef) return vals.some(x=>Number(x)===p.id);
+    const textes=vals.map(x=>txt(x)).filter(x=>x!=="");
+    if(!textes.length) return false;
+    if(cle && textes.includes(cle)) return true;
+    if(lib && textes.includes(lib)) return true;     // l'action désigne son projet par son libellé
+    return false;
+  });
 }
 function tachesDe(action){
   const c=S.cfg;

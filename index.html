@@ -177,6 +177,7 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   padding:6px 8px;border:1px solid var(--trait);border-radius:4px;background:#fff;width:100%;
 }
 .champ textarea{resize:vertical;min-height:74px;line-height:1.5;}
+textarea.auto-h{overflow-y:hidden;}
 .champ .fige{padding:6px 8px;background:#f7f8fa;border:1px solid var(--trait);
   border-radius:4px;color:var(--gris);min-height:30px;line-height:1.45;
   white-space:pre-wrap;overflow-wrap:anywhere;}
@@ -1033,7 +1034,7 @@ function editeur(tableId,ligne,colId,opts){
     return '<select class="edit" data-k="bool" '+attr+'><option value="">–</option>'+
       '<option value="1"'+(v?" selected":"")+'>Oui</option><option value="0"'+(v===false?" selected":"")+'>Non</option></select>';
   if(opts.multi)
-    return '<textarea class="edit" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
+    return '<textarea class="edit auto-h" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
   if(opts.auto)
     return '<textarea class="edit auto" rows="1" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
   if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
@@ -1041,12 +1042,21 @@ function editeur(tableId,ligne,colId,opts){
   return '<input class="edit" type="text" data-k="txt" '+attr+' value="'+esc(txt(v))+'">';
 }
 
-function brancherEditeurs(){
-  const ajuster=el=>{ el.style.height="auto"; el.style.height=(el.scrollHeight+2)+"px"; };
-  document.querySelectorAll("textarea.auto").forEach(el=>{
-    ajuster(el);
-    el.oninput=()=>ajuster(el);
+/* hauteur des zones de texte ajustée au contenu, pour éviter d'avoir à faire défiler */
+function ajusterHauteur(el){
+  if(!el || el.offsetParent===null) return;     // élément masqué : scrollHeight non fiable
+  el.style.height="auto";
+  el.style.height=(el.scrollHeight+2)+"px";
+}
+function brancherAutoHauteur(racine){
+  (racine||document).querySelectorAll("textarea.auto, textarea.auto-h").forEach(el=>{
+    ajusterHauteur(el);
+    el.oninput=()=>ajusterHauteur(el);
   });
+}
+
+function brancherEditeurs(){
+  brancherAutoHauteur();
   document.querySelectorAll(".edit").forEach(el=>{
     el.onchange=async()=>{
       const {t,r,c,k}=el.dataset;
@@ -1257,6 +1267,7 @@ function brancherRepli(){
       const ouvert=!S.ouverts[cle];
       S.ouverts[cle]=ouvert;
       sous.style.display=ouvert?"":"none";
+      if(ouvert) brancherAutoHauteur(sous);
       const ch=tr.querySelector(".chevron");
       if(ch) ch.textContent=ouvert?"▾":"▸";
     };
@@ -1807,7 +1818,7 @@ function vueJournal(p){
         champVierge(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
       (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
         champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
-      '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte"></textarea></div>'+
+      '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '<div class="carte"><h2>Historique</h2>'+
       (js.length? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
@@ -1822,6 +1833,7 @@ function vueJournal(p){
         '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
     '</div>';
+  brancherAutoHauteur();
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }

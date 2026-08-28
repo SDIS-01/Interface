@@ -129,6 +129,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .p-instance{background:#fdeadb;color:#b4611f;}
 .p-nature{background:#eef1f5;color:#4b5462;max-width:150px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
+.p-action{background:var(--bleu-clair);color:var(--bleu);max-width:190px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
 
 /* ---------- En-tête projet ---------- */
@@ -422,9 +424,10 @@ const DEF = {
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
-  tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"",
+  colJnlAction:"",
+  tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"", colJalAction:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
-  colInsType:"", colInsRapporteur:"",
+  colInsType:"", colInsRapporteur:"", colInsAction:"",
   btnLibelle:"", btnUrl:"", mdpHash:""
 };
 
@@ -449,16 +452,19 @@ const CHAMPS_REGLAGES = [
     ["colTacheCommentaire","Commentaire"]
   ]},
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
-    ["colJnlLien","Lien vers le projet"],["colJnlDate","Date"],["colJnlTexte","Commentaire"],
+    ["colJnlLien","Lien vers le projet"],["colJnlAction","Lien vers l'action (facultatif)"],
+    ["colJnlDate","Date"],["colJnlTexte","Commentaire"],
     ["colJnlAuteur","Collaborateur"],["colJnlNature","Nature / origine"]
   ]},
   {bloc:"Table des jalons", tableKey:"tblJalon", champs:[
-    ["colJalLien","Lien vers le projet"],["colJalDate","Date"],
+    ["colJalLien","Lien vers le projet"],["colJalAction","Lien vers l'action (facultatif)"],
+    ["colJalDate","Date"],
     ["colJalLibelle","Libellé saisi à l'ajout"],
     ["colJalHisto","Colonne affichée dans l'historique"]
   ]},
   {bloc:"Table des instances", tableKey:"tblInstance", champs:[
-    ["colInsLien","Lien vers le projet"],["colInsDate","Date"],
+    ["colInsLien","Lien vers le projet"],["colInsAction","Lien vers l'action (facultatif)"],
+    ["colInsDate","Date"],
     ["colInsLibelle","Libellé saisi à l'ajout"],
     ["colInsHisto","Colonne affichée dans l'historique"],
     ["colInsType","Type"],["colInsRapporteur","Rapporteur"]
@@ -652,9 +658,9 @@ async function charger(){
   const aResoudre=[
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
-    [c.tblJournal,["colJnlAuteur","colJnlNature"]],
-    [c.tblJalon,["colJalLibelle","colJalHisto"]],
-    [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur"]]
+    [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction"]],
+    [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction"]],
+    [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]]
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
@@ -758,7 +764,8 @@ function jalonsDe(p){
       out.push({
         id:j.id, table:c.tblJalon, genre:"Jalon",
         date:Number(j[c.colJalDate])||dateDepuisTexte(lib),
-        libelle:lib
+        libelle:lib,
+        action:actionDeLigne(c.tblJalon,j,c.colJalAction)
       });
     });
   if(c.tblInstance && c.colInsLien)
@@ -768,6 +775,7 @@ function jalonsDe(p){
         id:j.id, table:c.tblInstance, genre:"Instance",
         date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
         libelle:lib,
+        action:actionDeLigne(c.tblInstance,j,c.colInsAction),
         type:c.colInsType?lire(c.tblInstance,j,c.colInsType):"",
         rapporteur:c.colInsRapporteur?lire(c.tblInstance,j,c.colInsRapporteur):""
       });
@@ -1162,6 +1170,53 @@ function valeurChamp(id,tableId,colId){
   return v;
 }
 
+/* --- Action concernée (jalons, instances, journal de bord) --- */
+
+function libelleAction(a){
+  const c=S.cfg;
+  return lire(c.tblMain,a,c.colLibelle) || txt(a[c.colActKey]) || ("Action "+a.id);
+}
+
+/* liste déroulante des actions du projet courant ; valeur = identifiant de ligne */
+function champAction(p,idChamp,selection){
+  const liste=actionsDe(p).slice().sort((a,b)=>
+    libelleAction(a).localeCompare(libelleAction(b),"fr"));
+  return '<select id="'+idChamp+'"><option value="">— Projet (aucune action) —</option>'+
+    liste.map(a=>'<option value="'+a.id+'"'+(Number(selection)===a.id?" selected":"")+'>'+
+      esc(libelleAction(a))+'</option>').join("")+'</select>';
+}
+
+/* valeur à écrire dans la colonne de lien, selon son type (Ref, RefList ou texte) */
+function valeurAction(idChamp,tableId,colId){
+  const el=$("#"+idChamp);
+  if(!el||!el.value) return null;
+  const act=S.data.main.find(r=>r.id===Number(el.value));
+  if(!act) return null;
+  const info=infoCol(tableId,colId);
+  if(info && info.type.startsWith("Ref:")) return act.id;
+  if(info && info.type.startsWith("RefList:")) return ["L",act.id];
+  return txt(act[S.cfg.colActKey]);
+}
+
+/* libellé lisible de l'action portée par une ligne existante */
+function actionDeLigne(tableId,ligne,colId){
+  if(!colId||!ligne) return "";
+  const c=S.cfg;
+  const info=infoCol(tableId,colId);
+  if(info && info.refTable && info.refTable!==c.tblMain) return lire(tableId,ligne,colId);
+  const v=ligne[colId];
+  const vals=estListe(v)?v.slice(1):[v];
+  return vals.map(x=>{
+    if(x===null||x===undefined||x==="") return "";
+    if(info && /^Ref(List)?:/.test(info.type)){
+      const a=S.data.main.find(r=>r.id===Number(x));
+      return a?libelleAction(a):"";
+    }
+    const a=S.data.main.find(r=>estAction(r)&&txt(r[c.colActKey])===String(x));
+    return a?libelleAction(a):String(x);
+  }).filter(Boolean).join(", ");
+}
+
 async function chargerPJ(){
   S.pj={};
   try{
@@ -1490,7 +1545,7 @@ function vueTaches(p){
 }
 
 /* --- Jalons et instances --- */
-function carteAjout(prefixe,titre,cles,extras,libelleChamp,bouton){
+function carteAjout(p,prefixe,titre,cles,extras,libelleChamp,bouton){
   const c=S.cfg;
   if(!c[cles.table] || !c[cles.lien])
     return '<div class="carte"><h2>'+titre+'</h2>'+
@@ -1499,12 +1554,15 @@ function carteAjout(prefixe,titre,cles,extras,libelleChamp,bouton){
   const sup=extras.filter(e=>c[e.cle]).map(e=>
     '<div class="champ"><label>'+e.libelle+'</label>'+
     champVierge(c[cles.table],c[e.cle],prefixe+"-"+e.id)+'</div>').join("");
+  const action = c[cles.action]
+    ? '<div class="champ"><label>Action concernée</label>'+
+      champAction(p,prefixe+"-action",null)+'</div>' : "";
   return '<div class="carte"><h2>'+titre+'</h2><div class="grille">'+
     '<div class="champ"><label>Date</label><input id="'+prefixe+'-date" type="date" value="'+
       new Date().toISOString().slice(0,10)+'"></div>'+
     '<div class="champ"><label>'+libelleChamp+'</label>'+
       champVierge(c[cles.table],c[cles.lib],prefixe+"-libelle")+'</div>'+
-    sup+
+    action+sup+
     '</div><div style="margin-top:10px"><button class="btn" id="'+prefixe+'-ajouter">'+bouton+'</button></div></div>';
 }
 
@@ -1523,6 +1581,10 @@ function brancherAjout(p,prefixe,cles,extras,alerte){
       const v=valeurChamp(prefixe+"-"+e.id,c[cles.table],c[e.cle]);
       if(v!==null && v!=="") champs[c[e.cle]]=v;
     });
+    if(c[cles.action] && $("#"+prefixe+"-action")){
+      const va=valeurAction(prefixe+"-action",c[cles.table],c[cles.action]);
+      if(va!==null) champs[c[cles.action]]=va;
+    }
     if(info && info.type.startsWith("Ref:")) champs[c[cles.lien]]=p.id;
     else if(info && info.type.startsWith("RefList:")) champs[c[cles.lien]]=["L",p.id];
     else champs[c[cles.lien]]=p[c.colProjKey];
@@ -1531,13 +1593,16 @@ function brancherAjout(p,prefixe,cles,extras,alerte){
   };
 }
 
-const CLES_JALON={table:"tblJalon",lien:"colJalLien",date:"colJalDate",lib:"colJalLibelle"};
-const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",lib:"colInsLibelle"};
+const CLES_JALON={table:"tblJalon",lien:"colJalLien",date:"colJalDate",
+                  lib:"colJalLibelle",action:"colJalAction"};
+const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",
+                     lib:"colInsLibelle",action:"colInsAction"};
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
 function ligneHisto(j){
   return '<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
+    (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':'')+
     (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
     '<span class="texte">'+esc(j.libelle)+
     (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
@@ -1559,10 +1624,10 @@ function vueJalons(p){
   const instances=js.filter(j=>j.genre==="Instance");
 
   $("#corps").innerHTML =
-    carteAjout("jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
+    carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
     carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
                "Le premier jalon s'ajoute ci-dessus.")+
-    carteAjout("in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
+    carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
                "Libellé de l'instance","Ajouter l'instance")+
     carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
                "La première instance s'ajoute ci-dessus.");
@@ -1736,6 +1801,8 @@ function vueJournal(p){
     '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille">'+
       '<div class="champ"><label>Date</label><input id="j-date" type="date" value="'+
         new Date().toISOString().slice(0,10)+'"></div>'+
+      (c.colJnlAction?'<div class="champ"><label>Action concernée</label>'+
+        champAction(p,"j-action",null)+'</div>':'')+
       (c.colJnlAuteur?'<div class="champ"><label>Collaborateur</label>'+
         champVierge(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
       (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
@@ -1744,6 +1811,9 @@ function vueJournal(p){
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '<div class="carte"><h2>Historique</h2>'+
       (js.length? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
+        (c.colJnlAction&&actionDeLigne(c.tblJournal,j,c.colJnlAction)
+          ? '<span class="pastille p-action" title="'+esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'">'+
+            esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'</span>':'')+
         (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
           ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
         '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
@@ -1760,6 +1830,10 @@ function vueJournal(p){
     if(c.colJnlDate) champs[c.colJnlDate]=isoVersDate($("#j-date").value);
     if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=valeurChamp("j-auteur",c.tblJournal,c.colJnlAuteur);
     if(c.colJnlNature && $("#j-nature")) champs[c.colJnlNature]=valeurChamp("j-nature",c.tblJournal,c.colJnlNature);
+    if(c.colJnlAction && $("#j-action")){
+      const va=valeurAction("j-action",c.tblJournal,c.colJnlAction);
+      if(va!==null) champs[c.colJnlAction]=va;
+    }
     if(info && info.type.startsWith("Ref:")) champs[c.colJnlLien]=p.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colJnlLien]=["L",p.id];
     else champs[c.colJnlLien]=p[c.colProjKey];

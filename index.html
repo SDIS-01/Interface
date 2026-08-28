@@ -178,6 +178,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 }
 .champ textarea{resize:vertical;min-height:74px;line-height:1.5;}
 textarea.auto-h{overflow-y:hidden;}
+td input.edit-avct{text-align:right;border-radius:4px;}
+td input.edit-avct:hover{border-color:var(--bleu);}
 .champ .fige{padding:6px 8px;background:#f7f8fa;border:1px solid var(--trait);
   border-radius:4px;color:var(--gris);min-height:30px;line-height:1.45;
   white-space:pre-wrap;overflow-wrap:anywhere;}
@@ -556,6 +558,18 @@ function couleurPastel(p,interrompu){
   if(p>=50) return "var(--jaune-pastel)";
   if(p>=1) return "var(--orange-pastel)";
   return "var(--rouge-pastel)";
+}
+
+/* fond pastel + liseré de la couleur d'avancement, comme les donuts */
+function styleAvct(a,inter){
+  return "background:"+couleurPastel(a,inter)+
+         ";box-shadow:inset 3px 0 0 "+couleurAvct(a,inter)+";font-weight:bold";
+}
+
+function champAvct(tableId,ligne,colId,a,inter){
+  return '<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
+    '" data-t="'+esc(tableId)+'" data-r="'+ligne.id+'" data-c="'+esc(colId)+
+    '" data-inter="'+(inter?"1":"0")+'" style="'+styleAvct(a,inter)+'">';
 }
 
 function donut(p,taille,interrompu){
@@ -1070,6 +1084,11 @@ function brancherEditeurs(){
     };
   });
   document.querySelectorAll(".edit-avct").forEach(el=>{
+    const teinter=()=>{
+      const v=el.value===""?null:Math.max(0,Math.min(100,Number(el.value)||0));
+      el.setAttribute("style",styleAvct(v,el.dataset.inter==="1"));
+    };
+    el.oninput=teinter;
     el.onchange=async()=>{
       const {t,r,c}=el.dataset;
       const p=Math.max(0,Math.min(100,Number(el.value)||0));
@@ -1357,11 +1376,11 @@ function vueSynthese(p){
   const fige=v=>'<div class="fige">'+esc(v||"—")+'</div>';
   const lect=colId=>ouvert?editeur(t,p,colId):fige(lire(t,p,colId));
   const date=colId=>ouvert?editeur(t,p,colId):fige(dateVersFR(p[colId]));
-  const a=pct(p[c.colAvancement]);
+  const a=pct(p[c.colAvancement]), inter=interrompu(p);
   const avct=ouvert
-    ? '<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
-      '" data-t="'+t+'" data-r="'+p.id+'" data-c="'+c.colAvancement+'">'
-    : fige(a==null?"":a+" %");
+    ? champAvct(t,p,c.colAvancement,a,inter)
+    : '<div class="fige" style="'+styleAvct(a,inter)+';color:var(--encre)">'+
+      esc(a==null?"—":a+" %")+'</div>';
 
   $("#corps").innerHTML=
     '<div class="barre-actions">'+
@@ -1431,8 +1450,7 @@ function vueActions(p){
         return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
           (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
           '<td>'+editeur(t,r,c.colLibelle,{auto:true})+'</td>'+
-          '<td><input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
-            '" data-t="'+t+'" data-r="'+r.id+'" data-c="'+c.colAvancement+'"></td>'+
+          '<td>'+champAvct(t,r,c.colAvancement,a,interrompu(r))+'</td>'+
           '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
           '<td>'+editeur(t,r,c.colDebut)+'</td>'+
           '<td>'+editeur(t,r,c.colEch)+'</td>'+
@@ -1513,8 +1531,8 @@ function vueTaches(p){
           return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
             (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
-            '<td>'+(c.colTacheAvancement?'<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+
-              (a==null?"":a)+'" data-t="'+c.tblTache+'" data-r="'+r.id+'" data-c="'+c.colTacheAvancement+'">':'')+'</td>'+
+            '<td>'+(c.colTacheAvancement
+              ? champAvct(c.tblTache,r,c.colTacheAvancement,a,false):'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+

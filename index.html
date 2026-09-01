@@ -133,17 +133,6 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   text-overflow:ellipsis;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
 
-/* liste déroulante « action concernée » dans les historiques */
-.sel-action{
-  flex:0 0 auto;align-self:flex-start;max-width:190px;
-  background:var(--bleu-clair);color:var(--bleu);
-  border:1px solid transparent;border-radius:11px;
-  font-size:11px;font-weight:bold;padding:2px 6px;cursor:pointer;
-}
-.sel-action:hover{border-color:var(--bleu);}
-.sel-action:focus{outline:2px solid var(--bleu);outline-offset:-1px;}
-.sel-action.vide{background:#eef1f5;color:var(--gris);font-weight:normal;}
-
 /* ---------- En-tête projet ---------- */
 .entete{
   background:#fff;border-bottom:1px solid var(--trait);padding:18px 18px 0;
@@ -181,6 +170,17 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .carte-ouverte{border-color:var(--bleu);box-shadow:0 0 0 1px var(--bleu-clair);}
 .carte h2{margin:0 0 12px;font-size:13px;color:var(--bleu);
   text-transform:uppercase;letter-spacing:.06em;}
+
+/* en-tête de carte avec filtre à droite */
+.carte-tete{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;margin:0 0 12px;}
+.carte-tete h2{margin:0;}
+.f-histo{padding:5px 8px;border:1px solid var(--trait);border-radius:4px;
+  background:#fff;font-size:11.5px;max-width:230px;}
+.f-histo:focus{outline:2px solid var(--bleu);outline-offset:-1px;}
+.f-histo.actif{border-color:var(--bleu);background:var(--bleu-clair);
+  color:var(--bleu);font-weight:bold;}
+.histo-rien{padding:18px;text-align:center;color:var(--gris);font-size:11.5px;}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
 .champ{display:flex;flex-direction:column;gap:4px;}
 .champ label{font-size:11px;color:var(--gris);font-weight:bold;}
@@ -514,6 +514,7 @@ const S = {
   plPanneau:false,
   fActions:{porteur:"",avct:"",du:"",au:""},
   fTaches:{porteur:"",avct:"",du:"",au:""},
+  fHisto:{},                  // filtre « action » par historique : identifiant -> libellé
   ouverts:{},
   deverrouille:false,
   fraction:false,             // avancement stocké en 0–1 ?
@@ -806,7 +807,7 @@ function jalonsDe(p){
     S.data.jalons.filter(j=>lieA(c.tblJalon,j,c.colJalLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
       out.push({
-        id:j.id, table:c.tblJalon, genre:"Jalon", brut:j,
+        id:j.id, table:c.tblJalon, genre:"Jalon",
         date:Number(j[c.colJalDate])||dateDepuisTexte(lib),
         libelle:lib,
         action:actionDeLigne(c.tblJalon,j,c.colJalAction)
@@ -816,7 +817,7 @@ function jalonsDe(p){
     S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
       out.push({
-        id:j.id, table:c.tblInstance, genre:"Instance", brut:j,
+        id:j.id, table:c.tblInstance, genre:"Instance",
         date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
         libelle:lib,
         action:actionDeLigne(c.tblInstance,j,c.colInsAction),
@@ -1276,63 +1277,55 @@ function actionDeLigne(tableId,ligne,colId){
   }).filter(Boolean).join(", ");
 }
 
-/* identifiant de ligne de l'action portée par une ligne existante (0 si aucune) */
-function idActionDeLigne(tableId,ligne,colId){
-  if(!colId||!ligne) return 0;
-  const c=S.cfg, info=infoCol(tableId,colId);
-  if(info && info.refTable && info.refTable!==c.tblMain) return 0;   // référence vers une autre table
-  for(const x of valListe(ligne[colId])){
-    if(x===null||x===undefined||x==="") continue;
-    if(info && /^Ref(List)?:/.test(info.type)){
-      const a=S.data.main.find(r=>r.id===Number(x));
-      if(a) return a.id;
-    }else{
-      const a=S.data.main.find(r=>estAction(r)&&txt(r[c.colActKey])===String(x));
-      if(a) return a.id;
-    }
-  }
-  return 0;
+/* --- Filtre « action » des historiques (jalons, instances, journal de bord) --- */
+
+const SANS_ACTION="\u0001sans";   // valeur réservée : entrées sans action
+
+/* liste déroulante de filtrage ; libelles = actions présentes dans l'historique */
+function filtreHisto(id,libelles,avecSans){
+  if(!libelles.length) return "";
+  return '<select class="f-histo" id="'+esc(id)+'" data-cible="'+esc(id)+'-liste" '+
+    'title="Filtrer l\'historique par action">'+
+    '<option value="">Toutes les actions</option>'+
+    libelles.map(l=>'<option value="'+esc(l)+'">'+esc(l)+'</option>').join("")+
+    (avecSans?'<option value="'+SANS_ACTION+'">— Sans action —</option>':'')+
+    '</select>';
 }
 
-/* liste déroulante d'action pour une ligne déjà enregistrée (historiques) ;
-   renvoie "" si la colonne n'est pas exploitable, l'appelant retombe sur la pastille */
-function selectActionLigne(p,tableId,ligne,colId){
-  const c=S.cfg;
-  if(!colId||!ligne||!p) return "";
-  const info=infoCol(tableId,colId);
-  if(info && info.refTable && info.refTable!==c.tblMain) return "";
-  const sel=idActionDeLigne(tableId,ligne,colId);
-  const liste=actionsDe(p).slice().sort((a,b)=>
-    libelleAction(a).localeCompare(libelleAction(b),"fr"));
-  if(sel && !liste.some(a=>a.id===sel)){                 // action hors du projet : on la conserve
-    const a=S.data.main.find(r=>r.id===sel);
-    if(a) liste.push(a);
-  }
-  return '<select class="sel-action'+(sel?"":" vide")+'" title="Action concernée"'+
-    ' data-act-t="'+esc(tableId)+'" data-act-r="'+ligne.id+'" data-act-c="'+esc(colId)+'">'+
-    '<option value="">— Projet (aucune action) —</option>'+
-    liste.map(a=>'<option value="'+a.id+'"'+(sel===a.id?" selected":"")+'>'+
-      esc(libelleAction(a))+'</option>').join("")+'</select>';
+/* en-tête de carte : titre seul, ou titre + filtre */
+function teteHisto(titre,filtre){
+  return filtre ? '<div class="carte-tete"><h2>'+titre+'</h2>'+filtre+'</div>'
+                : '<h2>'+titre+'</h2>';
 }
 
-/* enregistrement du changement d'action depuis un historique */
-function brancherActionsHisto(){
-  document.querySelectorAll("select.sel-action").forEach(s=>s.onchange=async()=>{
-    const tableId=s.dataset.actT, rowId=Number(s.dataset.actR), colId=s.dataset.actC;
-    const info=infoCol(tableId,colId);
-    let valeur;
-    if(!s.value){
-      valeur = info && info.type.startsWith("Ref:") ? 0
-             : info && info.type.startsWith("RefList:") ? null : "";
-    }else{
-      const act=S.data.main.find(r=>r.id===Number(s.value));
-      if(!act) return;
-      valeur = info && info.type.startsWith("Ref:") ? act.id
-             : info && info.type.startsWith("RefList:") ? ["L",act.id]
-             : txt(act[S.cfg.colActKey]);
-    }
-    await maj(tableId,rowId,colId,valeur);
-    await charger(); rendreProjet();
+/* actions distinctes présentes dans une liste d'entrées (chaque entrée porte .action) */
+function actionsPresentes(entrees){
+  return [...new Set(entrees.map(e=>e.action).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"fr"));
+}
+
+/* masque/affiche les lignes selon le filtre choisi ; purement visuel, aucune écriture */
+function brancherFiltresHisto(){
+  document.querySelectorAll("select.f-histo").forEach(s=>{
+    const memo=S.fHisto[s.id];
+    if(memo && [...s.options].some(o=>o.value===memo)) s.value=memo;
+    const appliquer=()=>{
+      S.fHisto[s.id]=s.value;
+      s.classList.toggle("actif",!!s.value);
+      const liste=document.getElementById(s.dataset.cible);
+      if(!liste) return;
+      let n=0;
+      liste.querySelectorAll("[data-act]").forEach(l=>{
+        const a=l.dataset.act;
+        const ok = !s.value || (s.value===SANS_ACTION ? !a : a===s.value);
+        l.style.display = ok ? "" : "none";
+        if(ok) n++;
+      });
+      const rien=liste.querySelector(".histo-rien");
+      if(rien) rien.style.display = n ? "none" : "";
+    };
+    s.onchange=appliquer;
+    appliquer();
   });
 }
 
@@ -1719,13 +1712,10 @@ const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
-function ligneHisto(j,p){
-  const c=S.cfg;
-  const colAct = j.table===c.tblInstance ? c.colInsAction : c.colJalAction;
-  const selAct = selectActionLigne(p,j.table,j.brut,colAct);
-  return '<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
-    (selAct ||
-     (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':''))+
+function ligneHisto(j){
+  return '<div class="jnl" data-act="'+esc(j.action||"")+'">'+
+    '<span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
+    (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':'')+
     (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
     '<span class="texte">'+esc(j.libelle)+
     (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
@@ -1733,12 +1723,15 @@ function ligneHisto(j,p){
     'title="Supprimer">✕</button></div>';
 }
 
-function carteHisto(titre,entrees,configuree,vide,p){
-  return '<div class="carte"><h2>'+titre+'</h2>'+
-    (entrees.length ? entrees.map(j=>ligneHisto(j,p)).join("")
+function carteHisto(titre,entrees,configuree,vide,id){
+  const filtre=filtreHisto(id,actionsPresentes(entrees),entrees.some(e=>!e.action));
+  return '<div class="carte">'+teteHisto(titre,filtre)+
+    '<div class="histo-liste" id="'+esc(id)+'-liste">'+
+    (entrees.length ? entrees.map(ligneHisto).join("")+
+        '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
       : '<div class="vide"><b>Rien à afficher</b>'+
         (configuree?vide:"Indiquez la table correspondante dans les réglages.")+'</div>')+
-    '</div>';
+    '</div></div>';
 }
 
 function vueJalons(p){
@@ -1749,15 +1742,15 @@ function vueJalons(p){
   $("#corps").innerHTML =
     carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
     carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
-               "Le premier jalon s'ajoute ci-dessus.",p)+
+               "Le premier jalon s'ajoute ci-dessus.","fh-jalons")+
     carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
                "Libellé de l'instance","Ajouter l'instance")+
     carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
-               "La première instance s'ajoute ci-dessus.",p);
+               "La première instance s'ajoute ci-dessus.","fh-instances");
 
   brancherAjout(p,"jl",CLES_JALON,[],"Indiquez le libellé du jalon avant d'ajouter.");
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
-  brancherActionsHisto();
+  brancherFiltresHisto();
 
   document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
     if(!await confirmerSuppression("Supprimer définitivement cette ligne du document Grist ?")) return;
@@ -1921,6 +1914,10 @@ function vueJournal(p){
     return;
   }
   const js=journalDe(p);
+  const actJnl=j=>(c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):"");
+  const fJnl=filtreHisto("fh-journal",
+    actionsPresentes(js.map(j=>({action:actJnl(j)}))),
+    js.some(j=>!actJnl(j)));
   $("#corps").innerHTML=
     '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille">'+
       '<div class="champ"><label>Date</label><input id="j-date" type="date" value="'+
@@ -1933,24 +1930,23 @@ function vueJournal(p){
         champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
-    '<div class="carte"><h2>Historique</h2>'+
-      (js.length? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
-        (c.colJnlAction
-          ? (selectActionLigne(p,c.tblJournal,j,c.colJnlAction) ||
-             (actionDeLigne(c.tblJournal,j,c.colJnlAction)
-               ? '<span class="pastille p-action" title="'+esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'">'+
-                 esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'</span>':''))
-          :'')+
+    '<div class="carte">'+teteHisto("Historique",fJnl)+'<div class="histo-liste" id="fh-journal-liste">'+
+      (js.length? js.map(j=>'<div class="jnl" data-act="'+esc(actJnl(j))+'">'+
+        '<span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
+        (actJnl(j)
+          ? '<span class="pastille p-action" title="'+esc(actJnl(j))+'">'+
+            esc(actJnl(j))+'</span>':'')+
         (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
           ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
         '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
         (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
           esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
-        '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")
+        '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")+
+        '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
-    '</div>';
+    '</div></div>';
   brancherAutoHauteur();
-  brancherActionsHisto();
+  brancherFiltresHisto();
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }

@@ -133,6 +133,17 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   text-overflow:ellipsis;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
 
+/* liste déroulante « action concernée » dans les historiques */
+.sel-action{
+  flex:0 0 auto;align-self:flex-start;max-width:190px;
+  background:var(--bleu-clair);color:var(--bleu);
+  border:1px solid transparent;border-radius:11px;
+  font-size:11px;font-weight:bold;padding:2px 6px;cursor:pointer;
+}
+.sel-action:hover{border-color:var(--bleu);}
+.sel-action:focus{outline:2px solid var(--bleu);outline-offset:-1px;}
+.sel-action.vide{background:#eef1f5;color:var(--gris);font-weight:normal;}
+
 /* ---------- En-tête projet ---------- */
 .entete{
   background:#fff;border-bottom:1px solid var(--trait);padding:18px 18px 0;
@@ -795,7 +806,7 @@ function jalonsDe(p){
     S.data.jalons.filter(j=>lieA(c.tblJalon,j,c.colJalLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
       out.push({
-        id:j.id, table:c.tblJalon, genre:"Jalon",
+        id:j.id, table:c.tblJalon, genre:"Jalon", brut:j,
         date:Number(j[c.colJalDate])||dateDepuisTexte(lib),
         libelle:lib,
         action:actionDeLigne(c.tblJalon,j,c.colJalAction)
@@ -805,7 +816,7 @@ function jalonsDe(p){
     S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
       out.push({
-        id:j.id, table:c.tblInstance, genre:"Instance",
+        id:j.id, table:c.tblInstance, genre:"Instance", brut:j,
         date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
         libelle:lib,
         action:actionDeLigne(c.tblInstance,j,c.colInsAction),
@@ -1265,6 +1276,66 @@ function actionDeLigne(tableId,ligne,colId){
   }).filter(Boolean).join(", ");
 }
 
+/* identifiant de ligne de l'action portée par une ligne existante (0 si aucune) */
+function idActionDeLigne(tableId,ligne,colId){
+  if(!colId||!ligne) return 0;
+  const c=S.cfg, info=infoCol(tableId,colId);
+  if(info && info.refTable && info.refTable!==c.tblMain) return 0;   // référence vers une autre table
+  for(const x of valListe(ligne[colId])){
+    if(x===null||x===undefined||x==="") continue;
+    if(info && /^Ref(List)?:/.test(info.type)){
+      const a=S.data.main.find(r=>r.id===Number(x));
+      if(a) return a.id;
+    }else{
+      const a=S.data.main.find(r=>estAction(r)&&txt(r[c.colActKey])===String(x));
+      if(a) return a.id;
+    }
+  }
+  return 0;
+}
+
+/* liste déroulante d'action pour une ligne déjà enregistrée (historiques) ;
+   renvoie "" si la colonne n'est pas exploitable, l'appelant retombe sur la pastille */
+function selectActionLigne(p,tableId,ligne,colId){
+  const c=S.cfg;
+  if(!colId||!ligne||!p) return "";
+  const info=infoCol(tableId,colId);
+  if(info && info.refTable && info.refTable!==c.tblMain) return "";
+  const sel=idActionDeLigne(tableId,ligne,colId);
+  const liste=actionsDe(p).slice().sort((a,b)=>
+    libelleAction(a).localeCompare(libelleAction(b),"fr"));
+  if(sel && !liste.some(a=>a.id===sel)){                 // action hors du projet : on la conserve
+    const a=S.data.main.find(r=>r.id===sel);
+    if(a) liste.push(a);
+  }
+  return '<select class="sel-action'+(sel?"":" vide")+'" title="Action concernée"'+
+    ' data-act-t="'+esc(tableId)+'" data-act-r="'+ligne.id+'" data-act-c="'+esc(colId)+'">'+
+    '<option value="">— Projet (aucune action) —</option>'+
+    liste.map(a=>'<option value="'+a.id+'"'+(sel===a.id?" selected":"")+'>'+
+      esc(libelleAction(a))+'</option>').join("")+'</select>';
+}
+
+/* enregistrement du changement d'action depuis un historique */
+function brancherActionsHisto(){
+  document.querySelectorAll("select.sel-action").forEach(s=>s.onchange=async()=>{
+    const tableId=s.dataset.actT, rowId=Number(s.dataset.actR), colId=s.dataset.actC;
+    const info=infoCol(tableId,colId);
+    let valeur;
+    if(!s.value){
+      valeur = info && info.type.startsWith("Ref:") ? 0
+             : info && info.type.startsWith("RefList:") ? null : "";
+    }else{
+      const act=S.data.main.find(r=>r.id===Number(s.value));
+      if(!act) return;
+      valeur = info && info.type.startsWith("Ref:") ? act.id
+             : info && info.type.startsWith("RefList:") ? ["L",act.id]
+             : txt(act[S.cfg.colActKey]);
+    }
+    await maj(tableId,rowId,colId,valeur);
+    await charger(); rendreProjet();
+  });
+}
+
 async function chargerPJ(){
   S.pj={};
   try{
@@ -1648,9 +1719,13 @@ const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
-function ligneHisto(j){
+function ligneHisto(j,p){
+  const c=S.cfg;
+  const colAct = j.table===c.tblInstance ? c.colInsAction : c.colJalAction;
+  const selAct = selectActionLigne(p,j.table,j.brut,colAct);
   return '<div class="jnl"><span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
-    (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':'')+
+    (selAct ||
+     (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':''))+
     (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
     '<span class="texte">'+esc(j.libelle)+
     (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
@@ -1658,9 +1733,9 @@ function ligneHisto(j){
     'title="Supprimer">✕</button></div>';
 }
 
-function carteHisto(titre,entrees,configuree,vide){
+function carteHisto(titre,entrees,configuree,vide,p){
   return '<div class="carte"><h2>'+titre+'</h2>'+
-    (entrees.length ? entrees.map(ligneHisto).join("")
+    (entrees.length ? entrees.map(j=>ligneHisto(j,p)).join("")
       : '<div class="vide"><b>Rien à afficher</b>'+
         (configuree?vide:"Indiquez la table correspondante dans les réglages.")+'</div>')+
     '</div>';
@@ -1674,14 +1749,15 @@ function vueJalons(p){
   $("#corps").innerHTML =
     carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
     carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
-               "Le premier jalon s'ajoute ci-dessus.")+
+               "Le premier jalon s'ajoute ci-dessus.",p)+
     carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
                "Libellé de l'instance","Ajouter l'instance")+
     carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
-               "La première instance s'ajoute ci-dessus.");
+               "La première instance s'ajoute ci-dessus.",p);
 
   brancherAjout(p,"jl",CLES_JALON,[],"Indiquez le libellé du jalon avant d'ajouter.");
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
+  brancherActionsHisto();
 
   document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
     if(!await confirmerSuppression("Supprimer définitivement cette ligne du document Grist ?")) return;
@@ -1859,9 +1935,12 @@ function vueJournal(p){
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '<div class="carte"><h2>Historique</h2>'+
       (js.length? js.map(j=>'<div class="jnl"><span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
-        (c.colJnlAction&&actionDeLigne(c.tblJournal,j,c.colJnlAction)
-          ? '<span class="pastille p-action" title="'+esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'">'+
-            esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'</span>':'')+
+        (c.colJnlAction
+          ? (selectActionLigne(p,c.tblJournal,j,c.colJnlAction) ||
+             (actionDeLigne(c.tblJournal,j,c.colJnlAction)
+               ? '<span class="pastille p-action" title="'+esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'">'+
+                 esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'</span>':''))
+          :'')+
         (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
           ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
         '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
@@ -1871,6 +1950,7 @@ function vueJournal(p){
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
     '</div>';
   brancherAutoHauteur();
+  brancherActionsHisto();
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }

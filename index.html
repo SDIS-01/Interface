@@ -181,6 +181,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .f-histo.actif{border-color:var(--bleu);background:var(--bleu-clair);
   color:var(--bleu);font-weight:bold;}
 .histo-rien{padding:18px;text-align:center;color:var(--gris);font-size:11.5px;}
+.tab-histo tr.histo-rien td{padding:18px;text-align:center;color:var(--gris);font-size:11.5px;}
+.tab-histo tr.histo-rien:hover{background:transparent;}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
 .champ{display:flex;flex-direction:column;gap:4px;}
 .champ label{font-size:11px;color:var(--gris);font-weight:bold;}
@@ -348,16 +350,14 @@ tbody tr.ligne-com:hover{background:transparent;}
 .jnl .date{flex:0 0 82px;color:var(--bleu);font-weight:bold;font-size:11.5px;}
 .jnl .texte{flex:1;white-space:pre-wrap;line-height:1.5;}
 .jnl .auteur{color:var(--gris);font-size:11px;}
-.jnl-com{margin-top:5px;}
-.jnl-com label{display:block;font-size:10px;color:var(--gris);font-weight:bold;
-  text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
-.jnl-com textarea{width:100%;padding:5px 7px;border:1px solid transparent;border-radius:4px;
-  background:#f7f8fa;font:inherit;line-height:1.4;resize:none;overflow:hidden;
-  min-height:26px;display:block;white-space:pre-wrap;}
-.jnl-com textarea:hover{border-color:var(--trait);background:#fff;}
-.jnl-com textarea:focus{outline:2px solid var(--bleu);outline-offset:-1px;background:#fff;}
-.jnl-com input,.jnl-com select{width:100%;padding:5px 7px;border:1px solid var(--trait);
-  border-radius:4px;background:#fff;}
+
+/* ---------- Tableaux d'historique (jalons, instances) ---------- */
+.tab-histo .col-date{width:88px;}
+.tab-histo .cel-date{color:var(--bleu);font-weight:bold;font-size:11.5px;white-space:nowrap;}
+.tab-histo .cel-texte{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45;}
+.tab-histo .cel-vide{color:var(--gris);}
+.tab-histo tr.ligne-histo:hover{background:var(--bleu-survol);}
+.tab-histo .pastille{margin:0;max-width:100%;}
 
 /* ---------- Jalons ---------- */
 .jalon{display:flex;gap:11px;align-items:baseline;padding:7px 0;border-bottom:1px solid #eef1f5;}
@@ -1457,6 +1457,11 @@ function brancherFiltresHisto(){
         const a=l.dataset.act;
         const ok = !s.value || (s.value===SANS_ACTION ? !a : a===s.value);
         l.style.display = ok ? "" : "none";
+        const cle=l.dataset.repli;                 // ligne de tableau : sa sous-ligne suit son sort
+        if(cle){
+          const sous=liste.querySelector('[data-sous="'+CSS.escape(cle)+'"]');
+          if(sous) sous.style.display = (ok && S.ouverts[cle]) ? "" : "none";
+        }
         if(ok) n++;
       });
       const rien=liste.querySelector(".histo-rien");
@@ -1862,32 +1867,89 @@ const EXTRAS_JALON=[{cle:"colJalCommentaire",id:"commentaire",libelle:"Commentai
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
-function ligneHisto(j){
-  const c=S.cfg;
-  /* le commentaire n'existe que pour les jalons, jamais pour les instances */
-  const com = (j.genre==="Jalon" && c.colJalCommentaire && j.brut)
-    ? '<div class="jnl-com"><label>Commentaire</label>'+
-      editeur(c.tblJalon,j.brut,c.colJalCommentaire,{auto:true})+'</div>'
-    : '';
-  return '<div class="jnl" data-act="'+esc(j.action||"")+'">'+
-    '<span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
-    (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':'')+
-    (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
-    '<span class="texte">'+esc(j.libelle)+
-    (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+com+'</span>'+
-    '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
-    'title="Supprimer">✕</button></div>';
+function btnSupHisto(j){
+  return '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
+    'title="Supprimer">✕</button>';
 }
 
-function carteHisto(titre,entrees,configuree,vide,id){
-  const filtre=filtreHisto(id,actionsPresentes(entrees),entrees.some(e=>!e.action));
-  return '<div class="carte">'+teteHisto(titre,filtre)+
-    '<div class="histo-liste" id="'+esc(id)+'-liste">'+
-    (entrees.length ? entrees.map(ligneHisto).join("")+
-        '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
-      : '<div class="vide"><b>Rien à afficher</b>'+
-        (configuree?vide:"Indiquez la table correspondante dans les réglages.")+'</div>')+
-    '</div></div>';
+/* aucune donnée du tout */
+function videHisto(configuree,texte){
+  return '<div class="vide"><b>Rien à afficher</b>'+
+    (configuree?texte:"Indiquez la table correspondante dans les réglages.")+'</div>';
+}
+/* des données, mais aucune ne passe le filtre par action */
+function ligneRienHisto(nbCol){
+  return '<tr class="histo-rien" style="display:none"><td colspan="'+nbCol+'">'+
+    'Aucune entrée pour cette action.</td></tr>';
+}
+
+/* Jalons : tableau, commentaire dans une sous-ligne dépliable */
+function tableauJalons(jalons){
+  const c=S.cfg, id="fh-jalons";
+  const configuree=!!(c.tblJalon&&c.colJalLien);
+  const filtre=filtreHisto(id,actionsPresentes(jalons),jalons.some(e=>!e.action));
+  const avecAction=!!c.colJalAction, avecCom=!!c.colJalCommentaire;
+  const nbCol=2+(avecAction?1:0)+(avecCom?1:0)+1;
+  const corps = !jalons.length
+    ? videHisto(configuree,"Le premier jalon s'ajoute ci-dessus.")
+    : '<table class="tab-histo"><thead><tr>'+
+        (avecCom?'<th class="col-chevron"></th>':'')+
+        '<th class="col-date">Date</th><th>Jalon</th>'+
+        (avecAction?'<th class="col-etroite">Action</th>':'')+
+        '<th style="width:34px"></th></tr></thead><tbody>'+
+        jalons.map(j=>{
+          const cle=j.table+":"+j.id, ouvert=!!S.ouverts[cle];
+          return '<tr class="ligne-histo'+(avecCom?" ligne-repli":"")+'" '+
+            'data-act="'+esc(j.action||"")+'"'+(avecCom?' data-repli="'+esc(cle)+'"':'')+'>'+
+            (avecCom?'<td class="col-chevron"><span class="chevron">'+(ouvert?"▾":"▸")+'</span></td>':'')+
+            '<td class="col-date cel-date">'+esc(dateVersFR(j.date)||"—")+'</td>'+
+            '<td class="cel-texte">'+esc(j.libelle)+'</td>'+
+            (avecAction?'<td>'+(j.action
+              ? '<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>'
+              : '<span class="cel-vide">—</span>')+'</td>':'')+
+            '<td>'+btnSupHisto(j)+'</td></tr>'+
+            (avecCom
+              ? '<tr class="ligne-com" data-sous="'+esc(cle)+'"'+(ouvert?'':' style="display:none"')+
+                '><td colspan="'+nbCol+'"><label>Commentaire</label>'+
+                editeur(c.tblJalon,j.brut,c.colJalCommentaire,{multi:true})+'</td></tr>'
+              : '');
+        }).join("")+
+        ligneRienHisto(nbCol)+'</tbody></table>';
+  return '<div class="carte">'+teteHisto("Historique des jalons",filtre)+
+    '<div class="histo-liste" id="'+id+'-liste">'+corps+'</div></div>';
+}
+
+/* Instances : tableau, une colonne par information */
+function tableauInstances(instances){
+  const c=S.cfg, id="fh-instances";
+  const configuree=!!(c.tblInstance&&c.colInsLien);
+  const filtre=filtreHisto(id,actionsPresentes(instances),instances.some(e=>!e.action));
+  const avecType=!!c.colInsType, avecRap=!!c.colInsRapporteur, avecAction=!!c.colInsAction;
+  const nbCol=2+(avecType?1:0)+(avecRap?1:0)+(avecAction?1:0)+1;
+  const cel=v=>v?esc(v):'<span class="cel-vide">—</span>';
+  const corps = !instances.length
+    ? videHisto(configuree,"La première instance s'ajoute ci-dessus.")
+    : '<table class="tab-histo"><thead><tr>'+
+        '<th class="col-date">Date</th><th>Instance</th>'+
+        (avecType?'<th class="col-etroite">Type</th>':'')+
+        (avecRap?'<th class="col-etroite">Rapporteur</th>':'')+
+        (avecAction?'<th class="col-etroite">Action</th>':'')+
+        '<th style="width:34px"></th></tr></thead><tbody>'+
+        instances.map(j=>
+          '<tr class="ligne-histo" data-act="'+esc(j.action||"")+'">'+
+          '<td class="col-date cel-date">'+esc(dateVersFR(j.date)||"—")+'</td>'+
+          '<td class="cel-texte">'+esc(j.libelle)+'</td>'+
+          (avecType?'<td>'+(j.type
+            ? '<span class="pastille p-nature">'+esc(j.type)+'</span>'
+            : '<span class="cel-vide">—</span>')+'</td>':'')+
+          (avecRap?'<td>'+cel(j.rapporteur)+'</td>':'')+
+          (avecAction?'<td>'+(j.action
+            ? '<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>'
+            : '<span class="cel-vide">—</span>')+'</td>':'')+
+          '<td>'+btnSupHisto(j)+'</td></tr>').join("")+
+        ligneRienHisto(nbCol)+'</tbody></table>';
+  return '<div class="carte">'+teteHisto("Historique des instances",filtre)+
+    '<div class="histo-liste" id="'+id+'-liste">'+corps+'</div></div>';
 }
 
 function brancherSuppressionHisto(){
@@ -1900,30 +1962,27 @@ function brancherSuppressionHisto(){
 
 /* les jalons sont présentés avec le journal de bord */
 function blocJalons(p){
-  const c=S.cfg;
   const jalons=jalonsDe(p).filter(j=>j.genre==="Jalon");
   return carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,
                     "Libellé du jalon","Ajouter le jalon")+
-    carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
-               "Le premier jalon s'ajoute ci-dessus.","fh-jalons");
+    tableauJalons(jalons);
 }
 
 function brancherJalons(p){
   brancherAjout(p,"jl",CLES_JALON,EXTRAS_JALON,"Indiquez le libellé du jalon avant d'ajouter.");
   brancherEditeurs();
+  brancherRepli();
   brancherSuppressionHisto();
 }
 
 /* l'onglet ne contient plus que les instances */
 function vueInstances(p){
-  const c=S.cfg;
   const instances=jalonsDe(p).filter(j=>j.genre==="Instance");
 
   $("#corps").innerHTML =
     carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
                "Libellé de l'instance","Ajouter l'instance")+
-    carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
-               "La première instance s'ajoute ci-dessus.","fh-instances");
+    tableauInstances(instances);
 
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
   brancherFiltresHisto();

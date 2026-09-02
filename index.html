@@ -184,6 +184,20 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .tab-histo tr.histo-rien td{padding:18px;text-align:center;color:var(--gris);font-size:11.5px;}
 .tab-histo tr.histo-rien:hover{background:transparent;}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+.grille.colonne{grid-template-columns:1fr;}
+
+/* ---------- Formulaire d'ajout à gauche, historique à droite ---------- */
+.duo{display:flex;gap:14px;align-items:flex-start;}
+.duo>.duo-ajout{flex:0 0 250px;min-width:0;}
+.duo>.duo-histo{flex:1;min-width:0;}
+.duo .carte{margin-bottom:0;}
+.duo+.duo{margin-top:14px;}
+@media (max-width:1000px){
+  .duo{flex-direction:column;}
+  .duo>.duo-ajout,.duo>.duo-histo{flex:1 1 auto;width:100%;}
+  .duo>.duo-ajout .grille.colonne{grid-template-columns:repeat(auto-fit,minmax(210px,1fr));}
+  .duo>.duo-ajout{margin-bottom:14px;}
+}
 .champ{display:flex;flex-direction:column;gap:4px;}
 .champ label{font-size:11px;color:var(--gris);font-weight:bold;}
 .champ input,.champ select,.champ textarea{
@@ -1823,7 +1837,7 @@ function carteAjout(p,prefixe,titre,cles,extras,libelleChamp,bouton){
   const action = c[cles.action]
     ? '<div class="champ"><label>Action concernée</label>'+
       champAction(p,prefixe+"-action",null)+'</div>' : "";
-  return '<div class="carte"><h2>'+titre+'</h2><div class="grille">'+
+  return '<div class="carte"><h2>'+titre+'</h2><div class="grille colonne">'+
     '<div class="champ"><label>Date</label><input id="'+prefixe+'-date" type="date" value="'+
       new Date().toISOString().slice(0,10)+'"></div>'+
     '<div class="champ"><label>'+libelleChamp+'</label>'+
@@ -1963,9 +1977,13 @@ function brancherSuppressionHisto(){
 /* les jalons sont présentés avec le journal de bord */
 function blocJalons(p){
   const jalons=jalonsDe(p).filter(j=>j.genre==="Jalon");
-  return carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,
-                    "Libellé du jalon","Ajouter le jalon")+
-    tableauJalons(jalons);
+  return '<div class="duo">'+
+    '<div class="duo-ajout">'+
+      carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,
+                 "Libellé du jalon","Ajouter le jalon")+
+    '</div>'+
+    '<div class="duo-histo">'+tableauJalons(jalons)+'</div>'+
+  '</div>';
 }
 
 function brancherJalons(p){
@@ -1980,9 +1998,13 @@ function vueInstances(p){
   const instances=jalonsDe(p).filter(j=>j.genre==="Instance");
 
   $("#corps").innerHTML =
-    carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
-               "Libellé de l'instance","Ajouter l'instance")+
-    tableauInstances(instances);
+    '<div class="duo">'+
+      '<div class="duo-ajout">'+
+        carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
+                   "Libellé de l'instance","Ajouter l'instance")+
+      '</div>'+
+      '<div class="duo-histo">'+tableauInstances(instances)+'</div>'+
+    '</div>';
 
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
   brancherFiltresHisto();
@@ -2152,7 +2174,8 @@ function vueJournal(p){
     actionsPresentes(js.map(j=>({action:actJnl(j)}))),
     js.some(j=>!actJnl(j)));
   $("#corps").innerHTML=
-    '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille">'+
+    '<div class="duo"><div class="duo-ajout">'+
+    '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille colonne">'+
       '<div class="champ"><label>Date</label><input id="j-date" type="date" value="'+
         new Date().toISOString().slice(0,10)+'"></div>'+
       (c.colJnlAction?'<div class="champ"><label>Action concernée</label>'+
@@ -2163,6 +2186,7 @@ function vueJournal(p){
         champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
+    '</div><div class="duo-histo">'+
     '<div class="carte">'+teteHisto("Historique",fJnl)+'<div class="histo-liste" id="fh-journal-liste">'+
       (js.length? js.map(j=>'<div class="jnl" data-act="'+esc(actJnl(j))+'">'+
         '<span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
@@ -2177,7 +2201,7 @@ function vueJournal(p){
         '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")+
         '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
-    '</div></div>'+
+    '</div></div></div></div>'+
     blocJalons(p);
   brancherAutoHauteur();
   brancherFiltresHisto();

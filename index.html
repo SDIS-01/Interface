@@ -236,6 +236,7 @@ td textarea.auto:focus{outline:2px solid var(--bleu);outline-offset:-1px;backgro
 tr.ligne-repli td{vertical-align:middle;}
 .ligne-repli{height:auto;}
 .col-etroite{width:112px;}
+.col-statut{width:118px;}
 .col-mini{width:74px;}
 .col-chevron{width:22px;text-align:center;padding-left:4px;padding-right:0;}
 .ligne-repli{cursor:pointer;}
@@ -331,6 +332,16 @@ tbody tr.ligne-com:hover{background:transparent;}
 .jnl .date{flex:0 0 82px;color:var(--bleu);font-weight:bold;font-size:11.5px;}
 .jnl .texte{flex:1;white-space:pre-wrap;line-height:1.5;}
 .jnl .auteur{color:var(--gris);font-size:11px;}
+.jnl-com{margin-top:5px;}
+.jnl-com label{display:block;font-size:10px;color:var(--gris);font-weight:bold;
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+.jnl-com textarea{width:100%;padding:5px 7px;border:1px solid transparent;border-radius:4px;
+  background:#f7f8fa;font:inherit;line-height:1.4;resize:none;overflow:hidden;
+  min-height:26px;display:block;white-space:pre-wrap;}
+.jnl-com textarea:hover{border-color:var(--trait);background:#fff;}
+.jnl-com textarea:focus{outline:2px solid var(--bleu);outline-offset:-1px;background:#fff;}
+.jnl-com input,.jnl-com select{width:100%;padding:5px 7px;border:1px solid var(--trait);
+  border-radius:4px;background:#fff;}
 
 /* ---------- Jalons ---------- */
 .jalon{display:flex;gap:11px;align-items:baseline;padding:7px 0;border-bottom:1px solid #eef1f5;}
@@ -457,6 +468,7 @@ const DEF = {
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"",
   tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"", colJalAction:"",
+  colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
   colInsType:"", colInsRapporteur:"", colInsAction:"",
   btnLibelle:"", btnUrl:"", mdpHash:""
@@ -491,7 +503,8 @@ const CHAMPS_REGLAGES = [
     ["colJalLien","Lien vers le projet"],["colJalAction","Lien vers l'action (facultatif)"],
     ["colJalDate","Date"],
     ["colJalLibelle","Libellé saisi à l'ajout"],
-    ["colJalHisto","Colonne affichée dans l'historique"]
+    ["colJalHisto","Colonne affichée dans l'historique"],
+    ["colJalCommentaire","Commentaire"]
   ]},
   {bloc:"Table des instances", tableKey:"tblInstance", champs:[
     ["colInsLien","Lien vers le projet"],["colInsAction","Lien vers l'action (facultatif)"],
@@ -704,7 +717,7 @@ async function charger(){
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
     [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction"]],
-    [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction"]],
+    [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction","colJalCommentaire"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]]
   ];
   for(const [table,cles] of aResoudre){
@@ -807,7 +820,7 @@ function jalonsDe(p){
     S.data.jalons.filter(j=>lieA(c.tblJalon,j,c.colJalLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
       out.push({
-        id:j.id, table:c.tblJalon, genre:"Jalon",
+        id:j.id, table:c.tblJalon, genre:"Jalon", brut:j,
         date:Number(j[c.colJalDate])||dateDepuisTexte(lib),
         libelle:lib,
         action:actionDeLigne(c.tblJalon,j,c.colJalAction)
@@ -1521,9 +1534,13 @@ function vueActions(p){
       (toutes.length?"Modifiez la recherche ou les filtres.":"Créez la première action de mise en œuvre.")+
       '</div></div>';
   }else{
+    const avecStatut=!!c.colStatut;
+    const nbCol=avecStatut?9:8;
     html+='<div class="carte"><table><thead><tr>'+
       '<th class="col-chevron"></th>'+
-      '<th>Action</th><th class="col-mini-avct">Avct</th><th class="col-etroite">Porteur</th>'+
+      '<th>Action</th>'+
+      (avecStatut?'<th class="col-statut">Statut</th>':'')+
+      '<th class="col-mini-avct">Avct</th><th class="col-etroite">Porteur</th>'+
       '<th class="col-etroite">Début</th><th class="col-etroite">Échéance</th>'+
       '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
       acts.map(r=>{
@@ -1533,6 +1550,7 @@ function vueActions(p){
         return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
           (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
           '<td>'+editeur(t,r,c.colLibelle,{auto:true})+'</td>'+
+          (avecStatut?'<td>'+editeur(t,r,c.colStatut)+'</td>':'')+
           '<td>'+champAvct(t,r,c.colAvancement,a,interrompu(r))+'</td>'+
           '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
           '<td>'+editeur(t,r,c.colDebut)+'</td>'+
@@ -1541,7 +1559,7 @@ function vueActions(p){
           '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>'+
           (detail
             ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
-              '><td colspan="8"><div class="sous-ligne">'+
+              '><td colspan="'+nbCol+'"><div class="sous-ligne">'+
               (c.colCommentaire?'<div class="sl-com"><label>Commentaire</label>'+
                 editeur(t,r,c.colCommentaire,{multi:true})+'</div>':'')+
               (c.colPJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
@@ -1594,6 +1612,8 @@ function vueTaches(p){
   };
   const actif=!!(f.porteur||f.avct||f.du||f.au||sel.length);
   const retenues=actionsVues.reduce((n,a)=>n+tachesDe(a).filter(filtre).length,0);
+  const avecStatutT=!!c.colTacheStatut;
+  const nbColT=avecStatutT?8:7;
 
   let html=barreFiltres("ft",f,porteurs,toutesT.length,retenues,"m-ft-action","Fin");
   actionsVues.forEach(act=>{
@@ -1604,7 +1624,9 @@ function vueTaches(p){
       html+='<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>';
     }else{
       html+='<table><thead><tr><th class="col-chevron"></th>'+
-        '<th>Tâche</th><th class="col-mini-avct">Avct</th>'+
+        '<th>Tâche</th>'+
+        (avecStatutT?'<th class="col-statut">Statut</th>':'')+
+        '<th class="col-mini-avct">Avct</th>'+
         '<th class="col-etroite">Porteur</th><th class="col-etroite">Début</th>'+
         '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
         ts.map(r=>{
@@ -1614,6 +1636,7 @@ function vueTaches(p){
           return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
             (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
+            (avecStatutT?'<td>'+editeur(c.tblTache,r,c.colTacheStatut)+'</td>':'')+
             '<td>'+(c.colTacheAvancement
               ? champAvct(c.tblTache,r,c.colTacheAvancement,a,false):'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
@@ -1622,7 +1645,7 @@ function vueTaches(p){
             '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>'+
             (detail
               ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
-                '><td colspan="7"><label>Commentaire</label>'+
+                '><td colspan="'+nbColT+'"><label>Commentaire</label>'+
                 editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true})+'</td></tr>'
               : '');
         }).join("")+'</tbody></table>';
@@ -1709,16 +1732,23 @@ const CLES_JALON={table:"tblJalon",lien:"colJalLien",date:"colJalDate",
                   lib:"colJalLibelle",action:"colJalAction"};
 const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",
                      lib:"colInsLibelle",action:"colInsAction"};
+const EXTRAS_JALON=[{cle:"colJalCommentaire",id:"commentaire",libelle:"Commentaire"}];
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
 function ligneHisto(j){
+  const c=S.cfg;
+  /* le commentaire n'existe que pour les jalons, jamais pour les instances */
+  const com = (j.genre==="Jalon" && c.colJalCommentaire && j.brut)
+    ? '<div class="jnl-com"><label>Commentaire</label>'+
+      editeur(c.tblJalon,j.brut,c.colJalCommentaire,{auto:true})+'</div>'
+    : '';
   return '<div class="jnl" data-act="'+esc(j.action||"")+'">'+
     '<span class="date">'+esc(dateVersFR(j.date)||"—")+'</span>'+
     (j.action?'<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':'')+
     (j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':'')+
     '<span class="texte">'+esc(j.libelle)+
-    (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+'</span>'+
+    (j.rapporteur?'<span class="auteur"> — '+esc(j.rapporteur)+'</span>':'')+com+'</span>'+
     '<button class="btn-sup" data-supjal="'+j.id+'" data-tbl="'+esc(j.table)+'" '+
     'title="Supprimer">✕</button></div>';
 }
@@ -1740,7 +1770,7 @@ function vueJalons(p){
   const instances=js.filter(j=>j.genre==="Instance");
 
   $("#corps").innerHTML =
-    carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,[],"Libellé du jalon","Ajouter le jalon")+
+    carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,"Libellé du jalon","Ajouter le jalon")+
     carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
                "Le premier jalon s'ajoute ci-dessus.","fh-jalons")+
     carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
@@ -1748,8 +1778,9 @@ function vueJalons(p){
     carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
                "La première instance s'ajoute ci-dessus.","fh-instances");
 
-  brancherAjout(p,"jl",CLES_JALON,[],"Indiquez le libellé du jalon avant d'ajouter.");
+  brancherAjout(p,"jl",CLES_JALON,EXTRAS_JALON,"Indiquez le libellé du jalon avant d'ajouter.");
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
+  brancherEditeurs();
   brancherFiltresHisto();
 
   document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{

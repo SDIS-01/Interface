@@ -776,8 +776,17 @@ function estProjet(r){ const n=natureDe(r); return n==="AV"||n==="PEPS"; }
 function estAction(r){ return natureDe(r)==="MEO"; }
 function cleProjet(r){ return txt(r[S.cfg.colProjKey]); }
 
+/* une ligne est « interrompue » si une date de suspension/abandon est posée
+   ou si sa colonne Statut vaut Interrompu */
+function statutInterrompu(tableId,ligne,colId){
+  if(!colId||!ligne) return false;
+  return /interromp/i.test(txt(lire(tableId,ligne,colId)));
+}
+
 function interrompu(r){
-  return !!(r[S.cfg.colSuspension] || r[S.cfg.colAbandon]);
+  const c=S.cfg;
+  return !!(r[c.colSuspension] || r[c.colAbandon]) ||
+         statutInterrompu(c.tblMain,r,c.colStatut);
 }
 
 function projets(){
@@ -1103,7 +1112,7 @@ function rendreListe(){
    ======================================================================= */
 
 const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
-               ["jalons","Jalons"],["planning","Planning"],["journal","Journal de bord"]];
+               ["instances","Instances"],["planning","Planning"],["journal","Journal de bord"]];
 
 function urlSure(u){
   const s=String(u||"").trim();
@@ -1129,9 +1138,11 @@ function rendreProjet(){
   }
   const a=pct(p[c.colAvancement]), i=interrompu(p);
   const acts=actionsDe(p);
+  const jx=jalonsDe(p);
   const nb={actions:acts.length,
             taches:porteursDeTaches(p).reduce((n,x)=>n+tachesDe(x).length,0),
-            jalons:jalonsDe(p).length, journal:journalDe(p).length};
+            instances:jx.filter(j=>j.genre==="Instance").length,
+            journal:journalDe(p).length+jx.filter(j=>j.genre==="Jalon").length};
 
   $("#entete").innerHTML=
     '<div class="entete-haut">'+donut(a,54,i)+
@@ -1151,7 +1162,7 @@ function rendreProjet(){
   });
 
   ({synthese:vueSynthese, actions:vueActions, taches:vueTaches,
-    jalons:vueJalons, planning:vuePlanning, journal:vueJournal})[S.onglet](p);
+    instances:vueInstances, planning:vuePlanning, journal:vueJournal})[S.onglet](p);
 }
 
 /* --- éditeur de champ générique --- */
@@ -1202,6 +1213,25 @@ function brancherAutoHauteur(racine){
   });
 }
 
+/* le statut pilote la couleur de l'avancement : on la remet à jour sans tout réafficher */
+function rafraichirAvctLigne(el){
+  const c=S.cfg, t=el.dataset.t, col=el.dataset.c, r=Number(el.dataset.r);
+  const surMain = t===c.tblMain && col===c.colStatut;
+  const surTache= t===c.tblTache && col===c.colTacheStatut;
+  if(!surMain && !surTache) return;
+  const ligne=ligneDe(t,r);
+  if(!ligne) return;
+  const inter = surMain ? interrompu(ligne) : statutInterrompu(c.tblTache,ligne,c.colTacheStatut);
+  const colAv = surMain ? c.colAvancement : c.colTacheAvancement;
+  document.querySelectorAll('.edit-avct[data-t="'+t+'"][data-r="'+r+'"]').forEach(inp=>{
+    if(inp.dataset.c!==colAv) return;
+    inp.dataset.inter = inter?"1":"0";
+    const boite=inp.closest(".avct");
+    if(boite) boite.setAttribute("style",
+      styleAvct(inp.value===""?null:Math.max(0,Math.min(100,Number(inp.value)||0)),inter));
+  });
+}
+
 function brancherEditeurs(){
   brancherAutoHauteur();
   document.querySelectorAll(".edit").forEach(el=>{
@@ -1214,6 +1244,7 @@ function brancherEditeurs(){
       else if(k==="bool") v=v===""?null:v==="1";
       noterModif(t,Number(r),c,v);
       el.classList.add("modifie");
+      rafraichirAvctLigne(el);
       rendreListe();                 // le volet de gauche seul : aucune perte de focus dans la fiche
     };
   });
@@ -1629,14 +1660,14 @@ function vueActions(p){
       '</div></div>';
   }else{
     const avecStatut=!!c.colStatut;
-    const nbCol=avecStatut?9:8;
+    const nbCol=avecStatut?8:7;
     html+='<div class="carte"><table><thead><tr>'+
       '<th class="col-chevron"></th>'+
       '<th>Action</th>'+
       (avecStatut?'<th class="col-statut">Statut</th>':'')+
       '<th class="col-mini-avct">Avct</th><th class="col-etroite">Porteur</th>'+
       '<th class="col-etroite">Début</th><th class="col-etroite">Échéance</th>'+
-      '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
+      '<th style="width:34px"></th></tr></thead><tbody>'+
       acts.map(r=>{
         const a=pct(r[c.colAvancement]);
         const cle=t+":"+r.id, ouvert=!!S.ouverts[cle];
@@ -1649,7 +1680,6 @@ function vueActions(p){
           '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
           '<td>'+editeur(t,r,c.colDebut)+'</td>'+
           '<td>'+editeur(t,r,c.colEch)+'</td>'+
-          '<td>'+editeur(t,r,c.colFin)+'</td>'+
           '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>'+
           (detail
             ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
@@ -1709,7 +1739,7 @@ function vueTaches(p){
   const avecStatutT=!!c.colTacheStatut;
   const nbColT=avecStatutT?8:7;
 
-  let html=barreFiltres("ft",f,porteurs,toutesT.length,retenues,"m-ft-action","Fin");
+  let html=barreFiltres("ft",f,porteurs,toutesT.length,retenues,"m-ft-action","Échéance");
   actionsVues.forEach(act=>{
     const ts=tachesDe(act).filter(filtre);
     if(actif && !ts.length) return;
@@ -1722,7 +1752,7 @@ function vueTaches(p){
         (avecStatutT?'<th class="col-statut">Statut</th>':'')+
         '<th class="col-mini-avct">Avct</th>'+
         '<th class="col-etroite">Porteur</th><th class="col-etroite">Début</th>'+
-        '<th class="col-etroite">Fin</th><th style="width:34px"></th></tr></thead><tbody>'+
+        '<th class="col-etroite">Échéance</th><th style="width:34px"></th></tr></thead><tbody>'+
         ts.map(r=>{
           const a=pct(r[c.colTacheAvancement]);
           const cle=c.tblTache+":"+r.id, ouvert=!!S.ouverts[cle];
@@ -1732,7 +1762,8 @@ function vueTaches(p){
             '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
             (avecStatutT?'<td>'+editeur(c.tblTache,r,c.colTacheStatut)+'</td>':'')+
             '<td>'+(c.colTacheAvancement
-              ? champAvct(c.tblTache,r,c.colTacheAvancement,a,false):'')+'</td>'+
+              ? champAvct(c.tblTache,r,c.colTacheAvancement,a,
+                          statutInterrompu(c.tblTache,r,c.colTacheStatut)):'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+
@@ -1858,30 +1889,44 @@ function carteHisto(titre,entrees,configuree,vide,id){
     '</div></div>';
 }
 
-function vueJalons(p){
-  const c=S.cfg, js=jalonsDe(p);
-  const jalons=js.filter(j=>j.genre==="Jalon");
-  const instances=js.filter(j=>j.genre==="Instance");
-
-  $("#corps").innerHTML =
-    carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,"Libellé du jalon","Ajouter le jalon")+
-    carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
-               "Le premier jalon s'ajoute ci-dessus.","fh-jalons")+
-    carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
-               "Libellé de l'instance","Ajouter l'instance")+
-    carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
-               "La première instance s'ajoute ci-dessus.","fh-instances");
-
-  brancherAjout(p,"jl",CLES_JALON,EXTRAS_JALON,"Indiquez le libellé du jalon avant d'ajouter.");
-  brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
-  brancherEditeurs();
-  brancherFiltresHisto();
-
+function brancherSuppressionHisto(){
   document.querySelectorAll("[data-supjal]").forEach(b=>b.onclick=async()=>{
     if(!await confirmerSuppression("Supprimer définitivement cette ligne du document Grist ?")) return;
     await supprimer(b.dataset.tbl,Number(b.dataset.supjal));
     await charger(); rendreProjet();
   });
+}
+
+/* les jalons sont présentés avec le journal de bord */
+function blocJalons(p){
+  const c=S.cfg;
+  const jalons=jalonsDe(p).filter(j=>j.genre==="Jalon");
+  return carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,
+                    "Libellé du jalon","Ajouter le jalon")+
+    carteHisto("Historique des jalons",jalons,!!(c.tblJalon&&c.colJalLien),
+               "Le premier jalon s'ajoute ci-dessus.","fh-jalons");
+}
+
+function brancherJalons(p){
+  brancherAjout(p,"jl",CLES_JALON,EXTRAS_JALON,"Indiquez le libellé du jalon avant d'ajouter.");
+  brancherEditeurs();
+  brancherSuppressionHisto();
+}
+
+/* l'onglet ne contient plus que les instances */
+function vueInstances(p){
+  const c=S.cfg;
+  const instances=jalonsDe(p).filter(j=>j.genre==="Instance");
+
+  $("#corps").innerHTML =
+    carteAjout(p,"in","Ajouter une instance",CLES_INSTANCE,EXTRAS_INSTANCE,
+               "Libellé de l'instance","Ajouter l'instance")+
+    carteHisto("Historique des instances",instances,!!(c.tblInstance&&c.colInsLien),
+               "La première instance s'ajoute ci-dessus.","fh-instances");
+
+  brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
+  brancherFiltresHisto();
+  brancherSuppressionHisto();
 }
 
 /* --- Planning --- */
@@ -1977,7 +2022,7 @@ function vuePlanning(p){
   const rangs=lignes.map(o=>{
     const b=bornes(o), r=o.r, tache=o.tache;
     const av=pct(tache?r[c.colTacheAvancement]:r[c.colAvancement]);
-    const inter=!tache&&interrompu(r);
+    const inter=tache?statutInterrompu(c.tblTache,r,c.colTacheStatut):interrompu(r);
     const lib=tache?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle);
     const cls=o.niv===0?"pl-projet":(tache?"pl-tache":"pl-action");
     const nom='<div class="pl-nom '+cls+'" style="padding-left:'+(o.niv*14)+'px" title="'+esc(lib)+'">'+
@@ -2034,8 +2079,11 @@ function vueJournal(p){
     $("#corps").innerHTML='<div class="carte"><h2>Journal de bord</h2>'+
       '<div class="champ">'+editeur(t,p,c.colJournalTexte,{multi:true})+'</div>'+
       '<p style="color:var(--gris);font-size:11.5px;margin:10px 0 0">Pour un journal daté ligne à ligne, '+
-      'paramétrez la table du journal dans les réglages.</p></div>';
+      'paramétrez la table du journal dans les réglages.</p></div>'+
+      blocJalons(p);
     brancherEditeurs();
+    brancherFiltresHisto();
+    brancherJalons(p);
     return;
   }
   const js=journalDe(p);
@@ -2069,9 +2117,11 @@ function vueJournal(p){
         '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")+
         '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
-    '</div></div>';
+    '</div></div>'+
+    blocJalons(p);
   brancherAutoHauteur();
   brancherFiltresHisto();
+  brancherJalons(p);
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }

@@ -272,6 +272,22 @@ tbody tr.ligne-com:hover{background:transparent;}
 .btn-2{background:#fff;color:var(--bleu);border:1px solid var(--bleu);}
 .btn-2:hover{background:var(--bleu-clair);}
 .btn-sup{background:none;border:none;color:var(--gris);padding:2px 6px;font-size:14px;}
+
+/* ---------- Saisies en attente d'enregistrement ---------- */
+.edit.modifie{box-shadow:inset 3px 0 0 var(--orange);background:#FFF7F0;
+  border-color:var(--orange);}
+.edit.modifie:hover,.edit.modifie:focus{border-color:var(--orange);background:#FFF7F0;}
+.avct.modifie{outline:2px dashed var(--orange);outline-offset:1px;}
+.barre-enr{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:55;
+  display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--orange);
+  border-left:4px solid var(--orange);border-radius:var(--rayon);
+  padding:9px 13px;box-shadow:0 6px 22px rgba(12,18,32,.18);font-size:12px;
+}
+.barre-enr[hidden]{display:none;}
+.barre-enr .cpt{font-weight:bold;color:var(--encre);}
+.barre-enr .info{color:var(--gris);}
+.btn-top.attention{background:var(--orange);}
 .btn-sup:hover{color:var(--rouge);}
 .barre-actions{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
 .barre-filtres{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
@@ -434,6 +450,13 @@ tbody tr.ligne-com:hover{background:transparent;}
   </main>
 </div>
 
+<div class="barre-enr" id="barre-enr" hidden>
+  <span class="cpt" id="barre-enr-txt"></span>
+  <span class="info">Ctrl + S pour enregistrer</span>
+  <button class="btn-2" id="btn-abandonner">Abandonner</button>
+  <button class="btn" id="btn-enr-brouillon">Enregistrer</button>
+</div>
+
 <div class="voile" id="voile">
   <div class="modale">
     <header>Réglages — correspondance des tables et des colonnes</header>
@@ -529,6 +552,7 @@ const S = {
   fTaches:{porteur:"",avct:"",du:"",au:""},
   fHisto:{},                  // filtre « action » par historique : identifiant -> libellé
   ouverts:{},
+  brouillon:{},               // saisies en attente : "table|ligne|colonne" -> {t,r,c,v}
   deverrouille:false,
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
@@ -609,7 +633,8 @@ function styleAvct(a,inter){
 }
 
 function champAvct(tableId,ligne,colId,a,inter){
-  return '<span class="avct" style="'+styleAvct(a,inter)+'">'+
+  const mk=estModifie(tableId,ligne.id,colId)?" modifie":"";
+  return '<span class="avct'+mk+'" style="'+styleAvct(a,inter)+'">'+
     '<input class="edit-avct" type="number" min="0" max="100" step="5" value="'+(a==null?"":a)+
     '" data-t="'+esc(tableId)+'" data-r="'+ligne.id+'" data-c="'+esc(colId)+
     '" data-inter="'+(inter?"1":"0")+'"><span class="unite">%</span></span>';
@@ -851,13 +876,8 @@ function jalonsDe(p){
    5. Écriture
    ======================================================================= */
 
-async function maj(tableId,rowId,colId,valeur){
-  try{
-    await grist.docApi.applyUserActions([["UpdateRecord",tableId,rowId,{[colId]:valeur}]]);
-    toast("Modification enregistrée");
-  }catch(e){ toast("Échec de l'enregistrement : "+e.message,true); }
-}
 async function ajouter(tableId,champs){
+  await enregistrerBrouillon();      // l'ajout recharge tout : on n'écrase pas les saisies en attente
   try{
     const r=await grist.docApi.applyUserActions([["AddRecord",tableId,null,champs]]);
     toast("Ligne ajoutée");
@@ -865,10 +885,79 @@ async function ajouter(tableId,champs){
   }catch(e){ toast("Échec de l'ajout : "+e.message,true); return null; }
 }
 async function supprimer(tableId,rowId){
+  await enregistrerBrouillon();
   try{
     await grist.docApi.applyUserActions([["RemoveRecord",tableId,rowId]]);
     toast("Ligne supprimée");
   }catch(e){ toast("Échec de la suppression : "+e.message,true); }
+}
+
+/* -----------------------------------------------------------------------
+   Brouillon : les saisies restent locales, puis partent en un seul bloc.
+   Évite un aller-retour Grist (et un réaffichage complet) à chaque champ.
+   ----------------------------------------------------------------------- */
+
+function cleBrouillon(t,r,c){ return t+"|"+r+"|"+c; }
+function estModifie(t,r,c){ return Object.prototype.hasOwnProperty.call(S.brouillon,cleBrouillon(t,r,c)); }
+function nbModifs(){ return Object.keys(S.brouillon).length; }
+
+function noterModif(tableId,rowId,colId,valeur){
+  S.brouillon[cleBrouillon(tableId,rowId,colId)]={t:tableId,r:Number(rowId),c:colId,v:valeur};
+  const ligne=ligneDe(tableId,Number(rowId));   // valeur appliquée en mémoire : l'écran reste cohérent
+  if(ligne) ligne[colId]=valeur;
+  majBarreBrouillon();
+}
+
+function majBarreBrouillon(){
+  const n=nbModifs(), barre=$("#barre-enr");
+  if(!barre) return;
+  barre.hidden = !n;
+  if(n) $("#barre-enr-txt").textContent =
+    n+" modification"+(n>1?"s":"")+" en attente";
+  const act=$("#btn-actualiser");
+  if(act) act.classList.toggle("attention",!!n);
+}
+
+async function enregistrerBrouillon(){
+  const n=nbModifs();
+  if(!n) return true;
+  const parLigne={};                            // un UpdateRecord par ligne, tous champs regroupés
+  Object.keys(S.brouillon).forEach(k=>{
+    const m=S.brouillon[k], cle=m.t+"|"+m.r;
+    if(!parLigne[cle]) parLigne[cle]={t:m.t,r:m.r,champs:{}};
+    parLigne[cle].champs[m.c]=m.v;
+  });
+  const actions=Object.keys(parLigne).map(k=>
+    ["UpdateRecord",parLigne[k].t,parLigne[k].r,parLigne[k].champs]);
+  try{
+    await grist.docApi.applyUserActions(actions);
+    S.brouillon={};
+    majBarreBrouillon();
+    toast(n+" modification"+(n>1?"s":"")+" enregistrée"+(n>1?"s":""));
+    await tout();
+    return true;
+  }catch(e){
+    toast("Échec de l'enregistrement : "+e.message,true);
+    return false;
+  }
+}
+
+async function abandonnerBrouillon(){
+  if(!nbModifs()) return;
+  if(!confirm("Abandonner les "+nbModifs()+" modification(s) non enregistrées ?")) return;
+  S.brouillon={};
+  majBarreBrouillon();
+  await tout();
+}
+
+/* après un rechargement (déclenché par Grist ou par un ajout), on remet les saisies en attente */
+function reappliquerBrouillon(){
+  Object.keys(S.brouillon).forEach(k=>{
+    const m=S.brouillon[k], ligne=ligneDe(m.t,m.r);
+    if(ligne) ligne[m.c]=m.v;
+    else delete S.brouillon[k];        // la ligne a disparu entre-temps
+  });
+  majBarreBrouillon();
 }
 
 /* =======================================================================
@@ -1071,6 +1160,7 @@ function editeur(tableId,ligne,colId,opts){
   if(!colId) return '<div class="fige">Colonne non paramétrée</div>';
   const info=infoCol(tableId,colId);
   const v=ligne[colId];
+  const mk=estModifie(tableId,ligne.id,colId)?" modifie":"";
   const attr='data-t="'+tableId+'" data-r="'+ligne.id+'" data-c="'+colId+'"';
   if(!info) return '<div class="fige">'+esc(txt(v))+'</div>';
   if(info.type.startsWith("RefList")||info.type.startsWith("ChoiceList")||info.type.startsWith("Attachments"))
@@ -1079,24 +1169,24 @@ function editeur(tableId,ligne,colId,opts){
     const map=S.refLabels[info.refTable+"."+info.refDisplay];
     if(!map) return '<div class="fige">'+esc(lire(tableId,ligne,colId))+'</div>';
     const ids=Object.keys(map).sort((x,y)=>String(map[x]).localeCompare(String(map[y]),"fr"));
-    return '<select class="edit" data-k="ref" '+attr+'><option value="0"></option>'+
+    return '<select class="edit'+mk+'" data-k="ref" '+attr+'><option value="0"></option>'+
       ids.map(id=>'<option value="'+id+'"'+(String(v)===id?" selected":"")+'>'+esc(map[id])+'</option>').join("")+'</select>';
   }
   if(info.type.startsWith("Date"))
-    return '<input class="edit" type="date" data-k="date" '+attr+' value="'+dateVersISO(v)+'">';
+    return '<input class="edit'+mk+'" type="date" data-k="date" '+attr+' value="'+dateVersISO(v)+'">';
   if(info.type==="Choice")
-    return '<select class="edit" data-k="txt" '+attr+'><option value=""></option>'+
+    return '<select class="edit'+mk+'" data-k="txt" '+attr+'><option value=""></option>'+
       info.choices.map(o=>'<option'+(String(v)===o?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
   if(info.type==="Bool")
-    return '<select class="edit" data-k="bool" '+attr+'><option value="">–</option>'+
+    return '<select class="edit'+mk+'" data-k="bool" '+attr+'><option value="">–</option>'+
       '<option value="1"'+(v?" selected":"")+'>Oui</option><option value="0"'+(v===false?" selected":"")+'>Non</option></select>';
   if(opts.multi)
-    return '<textarea class="edit auto-h" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
+    return '<textarea class="edit auto-h'+mk+'" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
   if(opts.auto)
-    return '<textarea class="edit auto" rows="1" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
+    return '<textarea class="edit auto'+mk+'" rows="1" data-k="txt" '+attr+'>'+esc(txt(v))+'</textarea>';
   if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
-    return '<input class="edit" type="number" step="any" data-k="num" '+attr+' value="'+esc(v==null?"":v)+'">';
-  return '<input class="edit" type="text" data-k="txt" '+attr+' value="'+esc(txt(v))+'">';
+    return '<input class="edit'+mk+'" type="number" step="any" data-k="num" '+attr+' value="'+esc(v==null?"":v)+'">';
+  return '<input class="edit'+mk+'" type="text" data-k="txt" '+attr+' value="'+esc(txt(v))+'">';
 }
 
 /* hauteur des zones de texte ajustée au contenu, pour éviter d'avoir à faire défiler */
@@ -1115,15 +1205,16 @@ function brancherAutoHauteur(racine){
 function brancherEditeurs(){
   brancherAutoHauteur();
   document.querySelectorAll(".edit").forEach(el=>{
-    el.onchange=async()=>{
+    el.onchange=()=>{
       const {t,r,c,k}=el.dataset;
       let v=el.value;
       if(k==="date") v=isoVersDate(v);
       else if(k==="num") v=v===""?null:Number(v);
       else if(k==="ref") v=Number(v)||0;
       else if(k==="bool") v=v===""?null:v==="1";
-      await maj(t,Number(r),c,v);
-      await charger(); rendreListe(); rendreProjet();
+      noterModif(t,Number(r),c,v);
+      el.classList.add("modifie");
+      rendreListe();                 // le volet de gauche seul : aucune perte de focus dans la fiche
     };
   });
   document.querySelectorAll(".edit-avct").forEach(el=>{
@@ -1133,11 +1224,13 @@ function brancherEditeurs(){
       boite.setAttribute("style",styleAvct(v,el.dataset.inter==="1"));
     };
     el.oninput=teinter;
-    el.onchange=async()=>{
+    el.onchange=()=>{
       const {t,r,c}=el.dataset;
       const p=Math.max(0,Math.min(100,Number(el.value)||0));
-      await maj(t,Number(r),c,pctVersStock(p));
-      await charger(); rendreListe(); rendreProjet();
+      noterModif(t,Number(r),c,pctVersStock(p));
+      const boite=el.closest(".avct");
+      if(boite) boite.classList.add("modifie");
+      rendreListe();
     };
   });
 }
@@ -1401,6 +1494,7 @@ function brancherPJ(){
     const bloc=inp.closest(".pj-bloc");
     const tableId=bloc.dataset.t, rowId=Number(bloc.dataset.r), colId=bloc.dataset.c;
     if(!inp.files.length) return;
+    await enregistrerBrouillon();
     try{
       toast("Envoi en cours…");
       const tk=await grist.docApi.getAccessToken({readOnly:false});
@@ -2107,6 +2201,7 @@ function devineDefauts(){
 async function tout(){
   try{
     await charger();
+    reappliquerBrouillon();
     remplirFiltres();
     if(S.projetSel) S.projetSel=S.data.main.find(r=>r.id===S.projetSel.id)||null;
     rendreListe(); rendreProjet();
@@ -2133,7 +2228,7 @@ async function demarrer(){
   devineDefauts();
   await tout();
   if(!S.cfg.tblMain){ rendreReglages(); $("#voile").classList.add("ouvert"); }
-  try{ grist.onRecords(()=>{ if(S.pret) rechargerBientot(); }); }catch(e){}
+  try{ grist.onRecords(()=>{ if(S.pret && !nbModifs()) rechargerBientot(); }); }catch(e){}
   S.pret=true;
 }
 
@@ -2141,7 +2236,30 @@ $("#q").oninput=rendreListe;
 DATES_FILTRE.forEach(s=>$(s).onchange=rendreListe);
 brancherMenus();
 $("#btn-raz").onclick=reinitialiserFiltres;
-$("#btn-actualiser").onclick=tout;
+$("#btn-enr-brouillon").onclick=enregistrerBrouillon;
+$("#btn-abandonner").onclick=abandonnerBrouillon;
+$("#btn-actualiser").onclick=async()=>{
+  if(nbModifs()){
+    const ok=confirm(nbModifs()+" modification(s) ne sont pas encore enregistrées.\n\n"+
+      "OK : les enregistrer, puis actualiser.\nAnnuler : les abandonner, puis actualiser.");
+    if(ok){ await enregistrerBrouillon(); return; }   // enregistrerBrouillon recharge déjà tout
+    S.brouillon={}; majBarreBrouillon();
+  }
+  await tout();
+};
+
+/* Ctrl + S enregistre les saisies en attente */
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey) && (e.key==="s"||e.key==="S")){
+    e.preventDefault();
+    if(nbModifs()) enregistrerBrouillon();
+  }
+});
+
+/* on ne quitte pas la page en laissant des saisies non enregistrées */
+window.addEventListener("beforeunload",e=>{
+  if(nbModifs()){ e.preventDefault(); e.returnValue=""; }
+});
 $("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");
 $("#btn-enregistrer").onclick=enregistrerReglages;
 $("#voile").onclick=e=>{ if(e.target===$("#voile")) $("#voile").classList.remove("ouvert"); };

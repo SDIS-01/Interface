@@ -2187,7 +2187,7 @@ function vueJournal(p){
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '</div><div class="duo-histo">'+
-    '<div class="carte">'+teteHisto("Historique",fJnl)+'<div class="histo-liste" id="fh-journal-liste">'+
+    '<div class="carte">'+teteHisto("Journal de bord",fJnl)+'<div class="histo-liste" id="fh-journal-liste">'+
       (js.length? js.map(j=>'<div class="jnl" data-act="'+esc(actJnl(j))+'">'+
         '<span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
         (actJnl(j)

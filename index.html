@@ -1068,7 +1068,8 @@ async function charger(){
     [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction"]],
     [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction","colJalCommentaire"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
-    [c.tblNote,["colNoteAuteur","colNoteTexte","colNoteStatut","colNoteDestination","colNoteAction"]]
+    [c.tblNote,["colNoteLien","colNoteAuteur","colNoteTexte","colNoteStatut",
+                "colNoteDestination","colNoteAction"]]
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
@@ -2738,10 +2739,33 @@ const NOTE_DESTINATIONS=[
 function notesDe(p){
   const c=S.cfg;
   if(!c.tblNote||!c.colNoteLien||!p) return [];
-  const cle=cleProjet(p);
   return S.data.notes
-    .filter(n=>lieA(c.tblNote,n,c.colNoteLien,p.id,cle))
+    .filter(n=>noteVise(n,c.colNoteLien,p,c.colProjKey,c.colLibelle))
     .sort((a,b)=>(Number(a[c.colNoteDate])||0)-(Number(b[c.colNoteDate])||0));
+}
+
+/* Une colonne de liaison peut être une référence vers la table de suivi, une
+   référence vers une table annexe qui liste les projets ou les actions, ou une
+   simple clé texte. On accepte les trois. */
+function noteVise(note,colLien,cible,colCle,colLib){
+  const c=S.cfg;
+  const info=infoCol(c.tblNote,colLien);
+  const v=note[colLien];
+  const brut=estListe(v)?v.slice(1):[v];
+  const cle=colCle?txt(cible[colCle]):"";
+  const lib=colLib?lire(c.tblMain,cible,colLib):"";
+
+  if(info && /^Ref(List)?:/.test(info.type)){
+    if(info.refTable===c.tblMain)                       // référence directe
+      return brut.some(x=>Number(x)===Number(cible.id));
+    /* référence vers une table annexe : on compare ce qui est affiché,
+       puis la clé, l'identifiant de la table annexe pouvant la reprendre */
+    const affiche=lire(c.tblNote,note,colLien);
+    if(affiche && (affiche===lib || (cle && affiche===cle))) return true;
+    return !!cle && brut.some(x=>String(x)===String(cle));
+  }
+  if(!cle) return false;
+  return brut.some(x=>String(x)===String(cle));
 }
 
 /* une note sans statut est considérée comme en attente */
@@ -2773,12 +2797,13 @@ function actionDeNote(note){
   if(!c.colNoteAction||!note) return null;
   const v=note[c.colNoteAction];
   const l=estListe(v)?v.slice(1):[v];
-  const brut=l.find(x=>x!==null&&x!=="");
-  if(!brut) return null;
+  const brut=l.find(x=>x!==null&&x!==""&&x!==0);
+  if(brut===undefined) return null;
   const info=infoCol(c.tblNote,c.colNoteAction);
-  if(info && /^Ref(List)?:/.test(info.type))
+  if(info && /^Ref(List)?:/.test(info.type) && info.refTable===c.tblMain)
     return S.data.main.find(r=>r.id===Number(brut))||null;
-  return S.data.main.find(r=>txt(r[c.colActKey])===txt(brut))||null;
+  return S.data.main.find(r=>
+    noteVise(note,c.colNoteAction,r,c.colActKey,c.colLibelle))||null;
 }
 
 /* recopie l'action vers la colonne « action » de la table cible */
@@ -2788,6 +2813,25 @@ function poserLienAction(champs,tableId,colAction,action){
   if(info && info.type.startsWith("Ref:")) champs[colAction]=action.id;
   else if(info && info.type.startsWith("RefList:")) champs[colAction]=["L",action.id];
   else champs[colAction]=action[S.cfg.colActKey];
+}
+
+/* Écrit une liaison en reprenant, si possible, la référence déjà portée par la
+   note : quand les deux colonnes visent la même table annexe, la recopie est
+   toujours juste, alors que reconstruire l'identifiant ne le serait pas. */
+function poserLienDeNote(champs,tableCible,colCible,colNote,note,secours){
+  if(!colCible) return;
+  const c=S.cfg;
+  const iC=infoCol(tableCible,colCible), iN=infoCol(c.tblNote,colNote);
+  if(iC && iN && iC.refTable && iC.refTable===iN.refTable){
+    const v=note[colNote];
+    const ids=estListe(v)?v.slice(1):[v];
+    const nets=ids.filter(x=>x!==null&&x!==""&&x!==0);
+    if(nets.length){
+      champs[colCible]=iC.type.startsWith("RefList:")?["L"].concat(nets):nets[0];
+      return;
+    }
+  }
+  if(secours) secours();
 }
 
 /* renseigne une colonne de liaison, quel que soit son type */
@@ -2828,8 +2872,10 @@ async function classerNote(p,note,dest,extra){
     if(c.colJnlTexte)  champs[c.colJnlTexte]=texte;
     if(c.colJnlDate)   champs[c.colJnlDate]=date;
     if(c.colJnlAuteur && auteur) champs[c.colJnlAuteur]=auteur;
-    poserLienAction(champs,c.tblJournal,c.colJnlAction,actNote);
-    poserLien(champs,c.tblJournal,c.colJnlLien,p,cle);
+    poserLienDeNote(champs,c.tblJournal,c.colJnlAction,c.colNoteAction,note,
+                    ()=>poserLienAction(champs,c.tblJournal,c.colJnlAction,actNote));
+    poserLienDeNote(champs,c.tblJournal,c.colJnlLien,c.colNoteLien,note,
+                    ()=>poserLien(champs,c.tblJournal,c.colJnlLien,p,cle));
     table=c.tblJournal; id=await ajouter(table,champs);
   }
   else if(dest==="instance"){
@@ -2838,8 +2884,10 @@ async function classerNote(p,note,dest,extra){
     if(c.colInsLibelle) champs[c.colInsLibelle]=texte;
     if(c.colInsDate)    champs[c.colInsDate]=date;
     if(c.colInsRapporteur && auteur) champs[c.colInsRapporteur]=auteur;
-    poserLienAction(champs,c.tblInstance,c.colInsAction,actNote);
-    poserLien(champs,c.tblInstance,c.colInsLien,p,cle);
+    poserLienDeNote(champs,c.tblInstance,c.colInsAction,c.colNoteAction,note,
+                    ()=>poserLienAction(champs,c.tblInstance,c.colInsAction,actNote));
+    poserLienDeNote(champs,c.tblInstance,c.colInsLien,c.colNoteLien,note,
+                    ()=>poserLien(champs,c.tblInstance,c.colInsLien,p,cle));
     table=c.tblInstance; id=await ajouter(table,champs);
   }
   else if(dest==="jalon"){
@@ -2847,8 +2895,10 @@ async function classerNote(p,note,dest,extra){
     const champs={};
     if(c.colJalLibelle) champs[c.colJalLibelle]=texte;
     if(c.colJalDate)    champs[c.colJalDate]=date;
-    poserLienAction(champs,c.tblJalon,c.colJalAction,actNote);
-    poserLien(champs,c.tblJalon,c.colJalLien,p,cle);
+    poserLienDeNote(champs,c.tblJalon,c.colJalAction,c.colNoteAction,note,
+                    ()=>poserLienAction(champs,c.tblJalon,c.colJalAction,actNote));
+    poserLienDeNote(champs,c.tblJalon,c.colJalLien,c.colNoteLien,note,
+                    ()=>poserLien(champs,c.tblJalon,c.colJalLien,p,cle));
     table=c.tblJalon; id=await ajouter(table,champs);
   }
   else if(dest==="action"){

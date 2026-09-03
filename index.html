@@ -49,6 +49,10 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   color:#fff;border-radius:var(--rayon);padding:3px 10px;font-size:11.5px;
 }
 .btn-top:hover{background:rgba(255,255,255,.22);}
+.btn-top.btn-impr{background:#fff;color:var(--bleu);border-color:#fff;font-weight:bold;
+  padding:4px 13px;display:inline-flex;align-items:center;gap:6px;}
+.btn-top.btn-impr svg{flex:0 0 auto;}
+.btn-top.btn-impr:hover{background:var(--bleu-clair);}
 
 /* ---------- Structure ---------- */
 .layout{flex:1;display:flex;min-height:0;}
@@ -408,6 +412,11 @@ tbody tr.ligne-com:hover{background:transparent;}
 .bloc-reglage{margin-bottom:18px;}
 .bloc-reglage h3{margin:0 0 4px;font-size:12.5px;color:var(--bleu);}
 .bloc-reglage p{margin:0 0 10px;color:var(--gris);font-size:11.5px;}
+.impr-cases{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;}
+.impr-cases label,.impr-radio{display:flex;align-items:center;gap:7px;padding:4px 5px;
+  border-radius:4px;cursor:pointer;font-size:12px;}
+.impr-cases label:hover,.impr-radio:hover{background:var(--bleu-survol);}
+.impr-cases input,.impr-radio input{width:14px;height:14px;margin:0;flex:0 0 auto;}
 
 /* ---------- Divers ---------- */
 .toast{
@@ -428,36 +437,102 @@ tbody tr.ligne-com:hover{background:transparent;}
   background:#FDF3F3!important;color:var(--rouge);}
 .filtre-plage .date-fr{width:104px;flex:0 0 auto;}
 
-/* ---------- Impression du projet sélectionné ---------- */
+/* ---------- Fiche projet imprimée ---------- */
 #impression{display:none;}
-#impression .imp-entete{border-bottom:2px solid var(--bleu);padding-bottom:9px;margin-bottom:16px;
-  display:flex;gap:14px;align-items:flex-start;}
-#impression .imp-entete h1{margin:0 0 4px;font-size:17px;color:var(--bleu);line-height:1.25;}
-#impression .imp-meta{font-size:11px;color:var(--gris);line-height:1.6;}
-#impression .imp-bloc{margin-bottom:18px;}
-#impression .imp-titre{margin:0 0 9px;font-size:12px;color:var(--bleu);
-  text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--trait);
-  padding-bottom:4px;}
-#impression .imp-val{display:block;min-height:14px;line-height:1.45;
-  white-space:pre-wrap;overflow-wrap:anywhere;}
-#impression .carte{page-break-inside:auto;break-inside:auto;}
-#impression .fige{background:transparent;border:none;padding:0;color:var(--encre);}
-#impression .vide{padding:12px;}
+#imp-tete,#imp-pied{display:none;}
+
+#impression .imp-bande{display:flex;align-items:center;gap:10px;
+  background:var(--bleu);color:#fff;padding:7px 10px;border-radius:3px;margin-bottom:11px;}
+#impression .imp-bande .t{font-size:13px;font-weight:bold;line-height:1.25;}
+#impression .imp-bande .m{font-size:9.5px;color:#c3cbe8;}
+#impression .imp-bande .d{margin-left:auto;text-align:right;font-size:9px;color:#c3cbe8;
+  white-space:nowrap;}
+
+#impression .imp-cles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px;}
+#impression .imp-cle{background:var(--fond);border-radius:4px;padding:6px 8px;}
+#impression .imp-cle .l{font-size:8.5px;color:var(--gris);text-transform:uppercase;
+  letter-spacing:.04em;}
+#impression .imp-cle .v{font-size:15px;font-weight:bold;line-height:1.3;}
+
+#impression .imp-titre{font-size:9.5px;color:var(--bleu);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:bold;border-bottom:1px solid var(--trait);
+  padding-bottom:3px;margin:0 0 7px;}
+#impression .imp-titre span{color:var(--gris);letter-spacing:0;text-transform:none;
+  font-weight:normal;}
+#impression .imp-bloc{margin-bottom:15px;}
+
+#impression .imp-champs{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
+#impression .imp-champ{display:flex;gap:8px;border-bottom:1px solid #f1f3f7;padding:3px 0;}
+#impression .imp-champ .l{flex:0 0 92px;color:var(--gris);font-size:9.5px;padding-top:1px;}
+#impression .imp-champ .v{flex:1;min-width:0;overflow-wrap:anywhere;}
+#impression .imp-texte{white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere;}
+
+#impression table.imp-tab{width:100%;border-collapse:collapse;font-size:10px;}
+#impression table.imp-tab th{font-size:8.5px;color:var(--gris);text-transform:uppercase;
+  letter-spacing:.05em;text-align:left;padding:0 5px 3px;border-bottom:1px solid var(--trait);
+  font-weight:normal;}
+#impression table.imp-tab td{padding:4px 5px;border-bottom:1px solid #f1f3f7;
+  vertical-align:top;overflow-wrap:anywhere;}
+#impression table.imp-tab th:first-child,#impression table.imp-tab td:first-child{padding-left:0;}
+#impression table.imp-tab th:last-child,#impression table.imp-tab td:last-child{padding-right:0;}
+#impression .imp-tache td{color:var(--gris);font-size:9.5px;}
+#impression .imp-tache td:first-child{padding-left:14px;}
+#impression .imp-comm td{font-size:9.5px;color:#4b5462;border-bottom:1px solid #f1f3f7;
+  padding-top:0;padding-left:14px;}
+#impression .imp-retard{color:var(--rouge);font-weight:bold;}
+#impression .imp-jauge{display:inline-block;width:52px;height:7px;background:#e9edf3;
+  border-radius:2px;vertical-align:middle;overflow:hidden;}
+#impression .imp-jauge i{display:block;height:7px;border-radius:2px;}
+#impression .imp-pc{font-size:9px;margin-left:4px;}
+#impression .imp-rien{color:var(--gris);font-size:10px;padding:6px 0;}
+
+/* planning */
+#impression .imp-gantt{position:relative;}
+#impression .imp-g-mois{display:flex;border-bottom:1px solid var(--trait);margin-left:34%;}
+#impression .imp-g-mois div{flex:1;text-align:center;font-size:8px;color:#3a4150;
+  padding:2px 0;border-left:1px solid #eef1f5;min-width:0;overflow:hidden;}
+#impression .imp-g-fond{position:absolute;left:34%;right:0;top:16px;bottom:0;display:flex;}
+#impression .imp-g-fond div{flex:1;border-left:1px solid #f1f4f8;}
+#impression .imp-g-auj{position:absolute;left:34%;right:0;top:16px;bottom:0;}
+#impression .imp-g-auj i{position:absolute;top:0;bottom:0;border-left:1.5px solid #E30613;}
+#impression .imp-g-ligne{display:flex;align-items:center;height:16px;
+  border-bottom:1px solid #f4f6f9;position:relative;}
+#impression .imp-g-nom{flex:0 0 34%;padding-right:8px;font-size:9px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#impression .imp-g-nom.p{font-weight:bold;color:var(--bleu);}
+#impression .imp-g-nom.a{color:var(--bleu);}
+#impression .imp-g-nom.t{color:var(--gris);padding-left:10px;}
+#impression .imp-g-piste{flex:1;position:relative;height:100%;}
+#impression .imp-g-barre{position:absolute;top:4px;height:9px;border-radius:2px;overflow:hidden;}
+#impression .imp-g-barre i{display:block;height:9px;}
+#impression .imp-leg{margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;
+  font-size:8.5px;color:var(--gris);}
+#impression .imp-leg b{display:inline-block;width:9px;height:9px;border-radius:2px;
+  vertical-align:-1px;margin-right:3px;}
+
+/* en-tête et pied répétés sur chaque page */
+#imp-tete{display:flex;align-items:center;gap:8px;border-bottom:1.5px solid var(--bleu);
+  padding-bottom:3px;font-size:9px;color:var(--gris);}
+#imp-tete b{color:var(--bleu);font-size:10px;}
+#imp-pied{border-top:1px solid var(--trait);padding-top:3px;font-size:8.5px;color:var(--gris);
+  display:flex;}
+#imp-pied span:last-child{margin-left:auto;}
 
 @media print{
-  @page{size:A4 portrait;margin:11mm 9mm;}
   html,body{height:auto!important;overflow:visible!important;display:block!important;
-    background:#fff!important;font-size:11px;}
+    background:#fff!important;font-size:11px;color:#1c2330;}
   .topbar,.layout,.barre-enr,.voile,.toast{display:none!important;}
   #impression{display:block!important;}
-  #impression table{font-size:10px;}
-  #impression th,#impression td{padding:3px 5px;}
-  #impression tr,#impression .jnl,#impression .jalon{page-break-inside:avoid;break-inside:avoid;}
+  #imp-tete{display:flex!important;position:fixed;top:-13mm;left:0;right:0;}
+  #imp-pied{display:flex!important;position:fixed;bottom:-8mm;left:0;right:0;}
   #impression .imp-bloc{page-break-inside:auto;}
-  #impression .planning{overflow:visible!important;}
-  #impression .pl-grille{min-width:0!important;}
+  #impression tr,#impression .imp-champ,#impression .imp-g-ligne{page-break-inside:avoid;
+    break-inside:avoid;}
+  #impression .imp-titre{page-break-after:avoid;break-after:avoid;}
+  #impression .saut{page-break-before:always;break-before:page;}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 }
+
 </style>
 </head>
 <body>
@@ -467,7 +542,10 @@ tbody tr.ligne-com:hover{background:transparent;}
           title="Replier / déplier la liste des projets" aria-expanded="true">◀ Projets</button>
   <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
   <div class="spacer"></div>
-  <button class="btn-top" id="btn-imprimer" title="Imprimer la fiche du projet sélectionné">Imprimer</button>
+  <button class="btn-top btn-impr" id="btn-imprimer"
+          title="Imprimer la fiche du projet sélectionné"><svg width="13" height="13" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+    aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg> Imprimer</button>
   <button class="btn-top" id="btn-actualiser">Actualiser</button>
 </div>
 
@@ -539,7 +617,35 @@ tbody tr.ligne-com:hover{background:transparent;}
   </div>
 </div>
 
+<div id="imp-tete" aria-hidden="true"></div>
 <div id="impression" aria-hidden="true"></div>
+<div id="imp-pied" aria-hidden="true"></div>
+
+<div class="voile" id="voile-impr">
+  <div class="modale" style="width:min(430px,100%)">
+    <header>Imprimer la fiche projet</header>
+    <div class="corps-modale">
+      <div class="bloc-reglage">
+        <h3>Sections à imprimer</h3>
+        <div id="impr-sections" class="impr-cases"></div>
+      </div>
+      <div class="bloc-reglage">
+        <h3>Mise en page</h3>
+        <label class="impr-radio"><input type="radio" name="impr-orient" value="portrait" checked> Portrait</label>
+        <label class="impr-radio"><input type="radio" name="impr-orient" value="paysage"> Paysage</label>
+      </div>
+      <div class="bloc-reglage" id="impr-bloc-portee">
+        <h3>Actions</h3>
+        <label class="impr-radio"><input type="radio" name="impr-portee" value="filtrees" checked> Celles affichées à l'écran (filtres en cours)</label>
+        <label class="impr-radio"><input type="radio" name="impr-portee" value="toutes"> Toutes les actions du projet</label>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-2" id="impr-annuler">Annuler</button>
+      <button class="btn" id="impr-lancer">Aperçu et impression</button>
+    </footer>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -2381,82 +2487,331 @@ function basculerPanneau(force){
 }
 
 /* =======================================================================
-   7 ter. Impression de la fiche du projet sélectionné
+   7 ter. Fiche projet imprimée
    ======================================================================= */
 
-/* remplace les champs de saisie par du texte simple et retire les commandes */
-function aplatirImpression(zone){
-  zone.querySelectorAll("input,select,textarea").forEach(el=>{
-    const s=document.createElement("span");
-    s.className="imp-val";
-    if(el.tagName==="SELECT"){
-      const o=el.options[el.selectedIndex];
-      s.textContent=o?o.text:"";
-    }else if(el.type==="checkbox"||el.type==="radio"){
-      s.textContent=el.checked?"Oui":"Non";
-    }else if(el.type==="date"){
-      const v=el.getAttribute("value")||el.value||"";
-      s.textContent=v?v.split("-").reverse().join("/"):"";
-    }else{
-      s.textContent=(el.tagName==="TEXTAREA"? el.textContent : (el.getAttribute("value")||el.value))||"";
-    }
-    el.replaceWith(s);
-  });
-  zone.querySelectorAll(".barre-actions,.barre-filtres,.pl-controle,.pj-ajout,"+
-                        ".btn,.btn-2,.btn-sup,.chevron,.f-histo,.msel,.histo-rien")
-      .forEach(el=>el.remove());
-  /* les commentaires repliés doivent apparaître sur le papier */
-  zone.querySelectorAll(".ligne-com").forEach(tr=>tr.style.display="");
-}
+const SECTIONS_IMPR=[
+  ["synthese","Synthèse"],["actions","Actions et tâches"],
+  ["planning","Planning"],["instances","Instances"],["journal","Journal et jalons"]
+];
 
-function enteteImpression(p){
-  const c=S.cfg;
-  const a=pct(p[c.colAvancement]), i=interrompu(p);
-  const bribes=[];
-  if(lire(c.tblMain,p,c.colGroupement)) bribes.push(esc(lire(c.tblMain,p,c.colGroupement)));
-  if(lire(c.tblMain,p,c.colPorteur))    bribes.push("Porteur : "+esc(lire(c.tblMain,p,c.colPorteur)));
-  if(lire(c.tblMain,p,c.colPriorite))   bribes.push("Priorité : "+esc(lire(c.tblMain,p,c.colPriorite)));
-  bribes.push("Avancement : "+(a==null?"—":a+" %"));
-  if(i) bribes.push("Interrompu");
-  return '<div class="imp-entete">'+donut(a,54,i)+
-    '<div><h1>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</h1>'+
-    '<div class="imp-meta">'+bribes.join(" · ")+'<br>'+
-    'Suivi des projets et actions — SDIS de l\'Ain · imprimé le '+
-    esc(new Date().toLocaleDateString("fr-FR"))+'</div></div></div>';
-}
+const IMPR={sections:{synthese:true,actions:true,planning:true,instances:true,journal:true},
+            orientation:"portrait", portee:"filtrees"};
 
-function imprimerProjet(){
-  const p=S.projetSel;
-  if(!p){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
-  if(nbModifs()){ toast("Enregistrez vos saisies avant d'imprimer.",true); return; }
-
-  const ongletAvant=S.onglet, verrouAvant=S.deverrouille;
-  S.deverrouille=false;              // fiche en consultation : plus lisible sur papier
-
-  let html="";
+function chargerOptionsImpr(){
   try{
-    html = ONGLETS.map(([k,l])=>{
-      S.onglet=k;
-      VUES[k](p);
-      return '<section class="imp-bloc"><h2 class="imp-titre">'+l+'</h2>'+
-             $("#corps").innerHTML+'</section>';
-    }).join("");
-  }catch(e){
-    toast("Impression impossible : "+e.message,true);
-  }finally{
-    S.onglet=ongletAvant; S.deverrouille=verrouAvant;
-    rendreProjet();                  // on remet l'écran dans son état d'origine
+    const o=JSON.parse(localStorage.getItem("cp-impression")||"null");
+    if(o && o.sections) Object.assign(IMPR.sections,o.sections);
+    if(o && o.orientation) IMPR.orientation=o.orientation;
+    if(o && o.portee) IMPR.portee=o.portee;
+  }catch(e){}
+}
+function enregistrerOptionsImpr(){
+  try{ localStorage.setItem("cp-impression",JSON.stringify(IMPR)); }catch(e){}
+}
+
+/* --- fenêtre de choix ---------------------------------------------------- */
+
+function ouvrirImpression(){
+  if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
+  if(nbModifs()){ toast("Enregistrez vos saisies avant d'imprimer.",true); return; }
+  $("#impr-sections").innerHTML=SECTIONS_IMPR.map(([k,l])=>
+    '<label><input type="checkbox" data-sec="'+k+'"'+(IMPR.sections[k]?" checked":"")+'> '+l+'</label>').join("");
+  document.querySelectorAll('[name=impr-orient]').forEach(r=>r.checked=(r.value===IMPR.orientation));
+  document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
+  $("#voile-impr").classList.add("ouvert");
+}
+
+function lancerImpression(){
+  SECTIONS_IMPR.forEach(([k])=>{
+    const cb=document.querySelector('[data-sec="'+k+'"]');
+    if(cb) IMPR.sections[k]=cb.checked;
+  });
+  const o=document.querySelector('[name=impr-orient]:checked');
+  if(o) IMPR.orientation=o.value;
+  const t=document.querySelector('[name=impr-portee]:checked');
+  if(t) IMPR.portee=t.value;
+  if(!SECTIONS_IMPR.some(([k])=>IMPR.sections[k])){
+    toast("Choisissez au moins une section à imprimer.",true); return;
   }
-  if(!html) return;
+  enregistrerOptionsImpr();
+  $("#voile-impr").classList.remove("ouvert");
+  imprimerFiche(S.projetSel);
+}
 
-  const zone=$("#impression");
-  zone.innerHTML=enteteImpression(p)+html;
-  aplatirImpression(zone);
+/* --- briques de mise en page --------------------------------------------- */
 
-  const fin=()=>{ zone.innerHTML=""; window.removeEventListener("afterprint",fin); };
+function impJauge(a,inter){
+  const v=a==null?0:Math.max(0,Math.min(100,a));
+  return '<span class="imp-jauge"><i style="width:'+v+'%;background:'+couleurAvct(a,inter)+'"></i></span>'+
+         '<span class="imp-pc">'+(a==null?"–":a+" %")+'</span>';
+}
+function impChamp(l,v){
+  return '<div class="imp-champ"><span class="l">'+esc(l)+'</span>'+
+         '<span class="v">'+(v?esc(v):'<span style="color:var(--gris)">—</span>')+'</span></div>';
+}
+function impBloc(titre,complement,contenu,saut){
+  return '<section class="imp-bloc'+(saut?" saut":"")+'"><div class="imp-titre">'+esc(titre)+
+    (complement?' <span>— '+esc(complement)+'</span>':'')+'</div>'+contenu+'</section>';
+}
+function impVide(t){ return '<div class="imp-rien">'+esc(t)+'</div>'; }
+
+/* échéance dépassée et non terminée */
+function impEnRetard(ech,a,inter){
+  const e=Number(ech)||null;
+  if(!e || inter || a===100) return false;
+  return e < aujourdHuiUTC();
+}
+function aujourdHuiUTC(){
+  const n=new Date();
+  return Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/1000;
+}
+
+/* actions retenues selon le choix « filtrées / toutes » */
+function actionsImpression(p){
+  const c=S.cfg, t=c.tblMain, toutes=actionsDe(p);
+  if(IMPR.portee==="toutes") return toutes;
+  const f=S.fActions;
+  const sel=(MENUS["m-fa-action"] && MENUS["m-fa-action"].sel) || [];
+  return toutes.filter(r=>{
+    if(sel.length && !sel.includes(String(r.id))) return false;
+    if(f.porteur && lire(t,r,c.colPorteur)!==f.porteur) return false;
+    if(!dansTranche(pct(r[c.colAvancement]),f.avct)) return false;
+    if(!dansPlage(r[c.colEch],f.du,f.au)) return false;
+    return true;
+  });
+}
+
+/* --- sections ------------------------------------------------------------ */
+
+function impChiffresCles(p,acts){
+  const c=S.cfg;
+  const a=pct(p[c.colAvancement]);
+  const finis=acts.filter(r=>pct(r[c.colAvancement])===100).length;
+  const retard=acts.filter(r=>impEnRetard(r[c.colEch],pct(r[c.colAvancement]),interrompu(r))).length;
+  const ech=dateVersFR(p[c.colEch]||p[c.colFin]);
+  const cle=(l,v,coul)=>'<div class="imp-cle"><div class="l">'+l+'</div>'+
+    '<div class="v"'+(coul?' style="color:'+coul+'"':'')+'>'+v+'</div></div>';
+  return '<div class="imp-cles">'+
+    cle("Avancement",(a==null?"–":a+" %"),"var(--bleu)")+
+    cle("Actions",acts.length)+
+    cle("Terminées",finis,finis?"#5f7a2a":"")+
+    cle("En retard",retard,retard?"var(--rouge)":"")+
+    cle("Échéance",'<span style="font-size:12px">'+(ech||"—")+'</span>')+
+    '</div>';
+}
+
+function impSynthese(p){
+  const c=S.cfg, t=c.tblMain;
+  let h='<div class="imp-champs">'+
+    impChamp("Nature",lire(t,p,c.colNature))+
+    impChamp("Date de début",dateVersFR(p[c.colDebut]))+
+    impChamp("Groupement",lire(t,p,c.colGroupement))+
+    impChamp("Échéance prévue",dateVersFR(p[c.colEch]))+
+    impChamp("Porteur",lire(t,p,c.colPorteur))+
+    impChamp("Date de fin",dateVersFR(p[c.colFin]))+
+    impChamp("Priorité",lire(t,p,c.colPriorite))+
+    impChamp("Date de suspension",dateVersFR(p[c.colSuspension]))+
+    impChamp("Statut",lire(t,p,c.colStatut))+
+    impChamp("Date d'abandon",dateVersFR(p[c.colAbandon]))+
+    (c.colSup?impChamp(libelleColonne(t,c.colSup),lire(t,p,c.colSup)):"")+
+    '</div>';
+  const com=lire(t,p,c.colCommentaire);
+  if(com) h+='<div style="margin-top:10px"><div style="font-size:9.5px;color:var(--gris);'+
+    'margin-bottom:2px">Commentaire</div><div class="imp-texte">'+esc(com)+'</div></div>';
+  return impBloc("Identité et calendrier","",h);
+}
+
+function impActions(p,acts){
+  const c=S.cfg, t=c.tblMain;
+  if(!acts.length) return impBloc("Actions","",impVide("Aucune action pour ce projet."));
+  const finis=acts.filter(r=>pct(r[c.colAvancement])===100).length;
+  let lignes="";
+  acts.forEach(r=>{
+    const a=pct(r[c.colAvancement]), inter=interrompu(r);
+    const retard=impEnRetard(r[c.colEch],a,inter);
+    lignes+='<tr><td>'+esc(lire(t,r,c.colLibelle)||"(action sans libellé)")+'</td>'+
+      (c.colStatut?'<td>'+esc(lire(t,r,c.colStatut))+'</td>':'')+
+      '<td>'+esc(lire(t,r,c.colPorteur))+'</td>'+
+      '<td>'+esc(dateVersFR(r[c.colDebut]))+'</td>'+
+      '<td'+(retard?' class="imp-retard"':'')+'>'+esc(dateVersFR(r[c.colEch]))+'</td>'+
+      '<td>'+impJauge(a,inter)+'</td></tr>';
+    const com=lire(t,r,c.colCommentaire);
+    if(com) lignes+='<tr class="imp-comm"><td colspan="'+(c.colStatut?6:5)+'">'+esc(com)+'</td></tr>';
+    tachesDe(r).forEach(k=>{
+      const av=pct(k[c.colTacheAvancement]);
+      const ik=statutInterrompu(c.tblTache,k,c.colTacheStatut);
+      const rk=impEnRetard(k[c.colTacheFin],av,ik);
+      lignes+='<tr class="imp-tache"><td>↳ '+
+        esc(lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)")+'</td>'+
+        (c.colStatut?'<td>'+esc(lire(c.tblTache,k,c.colTacheStatut))+'</td>':'')+
+        '<td>'+esc(lire(c.tblTache,k,c.colTachePorteur))+'</td>'+
+        '<td>'+esc(dateVersFR(k[c.colTacheDebut]))+'</td>'+
+        '<td'+(rk?' class="imp-retard"':'')+'>'+esc(dateVersFR(k[c.colTacheFin]))+'</td>'+
+        '<td>'+impJauge(av,ik)+'</td></tr>';
+    });
+  });
+  const tab='<table class="imp-tab"><thead><tr><th>Action</th>'+
+    (c.colStatut?'<th style="width:14%">Statut</th>':'')+
+    '<th style="width:14%">Porteur</th><th style="width:10%">Début</th>'+
+    '<th style="width:10%">Échéance</th><th style="width:16%">Avancement</th></tr></thead>'+
+    '<tbody>'+lignes+'</tbody></table>';
+  const compl=acts.length+" action"+(acts.length>1?"s":"")+", "+finis+" terminée"+(finis>1?"s":"")+
+    (IMPR.portee==="filtrees" && acts.length<actionsDe(p).length ? " (sélection filtrée)" : "");
+  return impBloc("Actions et tâches",compl,tab);
+}
+
+function impPlanning(p,acts){
+  const c=S.cfg;
+  const lignes=[{r:p,niv:0}];
+  acts.forEach(a=>{
+    lignes.push({r:a,niv:1});
+    tachesDe(a).forEach(k=>lignes.push({r:k,niv:2,tache:true}));
+  });
+  const bornes=o=>({
+    d:Number(o.tache?o.r[c.colTacheDebut]:o.r[c.colDebut])||null,
+    f:Number(o.tache?o.r[c.colTacheFin]:(o.r[c.colFin]||o.r[c.colEch]))||null
+  });
+  const dates=lignes.map(bornes).filter(b=>b.d||b.f);
+  if(!dates.length)
+    return impBloc("Planning","",impVide("Aucune date renseignée sur ce projet."));
+
+  const an=new Date().getUTCFullYear();
+  const min=Math.min(...dates.map(b=>b.d||b.f)), max=Math.max(...dates.map(b=>b.f||b.d));
+  const per=periodesPlanning(Math.min(new Date(min*1000).getUTCFullYear(),an),
+                             Math.max(new Date(max*1000).getUTCFullYear(),an+1));
+  const pos=ts=>posPlanning(per,ts)/per.length*100;
+
+  const auj=aujourdHuiUTC();
+  const marque=(auj>=per[0].debut && auj<per[per.length-1].fin)
+    ? '<div class="imp-g-auj"><i style="left:'+pos(auj)+'%"></i></div>' : '';
+
+  const rangs=lignes.map(o=>{
+    const b=bornes(o), r=o.r, k=o.tache;
+    const av=pct(k?r[c.colTacheAvancement]:r[c.colAvancement]);
+    const inter=k?statutInterrompu(c.tblTache,r,c.colTacheStatut):interrompu(r);
+    const lib=k?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle);
+    const cl=o.niv===0?"p":(k?"t":"a");
+    const nom='<div class="imp-g-nom '+cl+'" title="'+esc(lib)+'">'+esc(lib||"(sans libellé)")+'</div>';
+    if(!b.d&&!b.f)
+      return '<div class="imp-g-ligne">'+nom+'<div class="imp-g-piste"></div></div>';
+    const g=pos(b.d||b.f), w=Math.max(pos(b.f||b.d)-g,0.4);
+    return '<div class="imp-g-ligne">'+nom+'<div class="imp-g-piste">'+
+      '<div class="imp-g-barre" style="left:'+g+'%;width:'+w+'%;background:'+
+      couleurPastel(av,inter)+'"><i style="width:'+(av==null?0:av)+'%;background:'+
+      couleurAvct(av,inter)+'"></i></div></div></div>';
+  }).join("");
+
+  const gantt='<div class="imp-gantt">'+
+    '<div class="imp-g-mois">'+per.map(x=>'<div>'+esc(x.label)+'</div>').join("")+'</div>'+
+    '<div class="imp-g-fond">'+per.map(()=>'<div></div>').join("")+'</div>'+
+    marque+rangs+'</div>'+
+    '<div class="imp-leg">'+
+    [["var(--rouge)","À faire"],["var(--orange)","1 à 49 %"],["var(--jaune)","50 à 99 %"],
+     ["var(--vert)","Terminé"],["var(--interrompu)","Interrompu"]]
+      .map(([co,l])=>'<span><b style="background:'+co+'"></b>'+l+'</span>').join("")+
+    '<span><b style="background:#E30613;width:2px"></b>Aujourd\'hui</span></div>';
+  return impBloc("Planning","",gantt);
+}
+
+function impInstances(p){
+  const c=S.cfg;
+  const xs=jalonsDe(p).filter(j=>j.genre==="Instance");
+  if(!xs.length) return impBloc("Instances","",impVide("Aucune instance enregistrée."));
+  const tab='<table class="imp-tab"><thead><tr><th style="width:11%">Date</th>'+
+    (c.colInsType?'<th style="width:14%">Type</th>':'')+'<th>Objet</th>'+
+    (c.colInsRapporteur?'<th style="width:16%">Rapporteur</th>':'')+
+    (c.colInsAction?'<th style="width:20%">Action</th>':'')+'</tr></thead><tbody>'+
+    xs.map(j=>'<tr><td>'+esc(dateVersFR(j.date))+'</td>'+
+      (c.colInsType?'<td>'+esc(j.type)+'</td>':'')+
+      '<td>'+esc(j.libelle)+'</td>'+
+      (c.colInsRapporteur?'<td>'+esc(j.rapporteur)+'</td>':'')+
+      (c.colInsAction?'<td>'+esc(j.action)+'</td>':'')+'</tr>').join("")+
+    '</tbody></table>';
+  return impBloc("Instances",xs.length+" instance"+(xs.length>1?"s":""),tab);
+}
+
+function impJournal(p){
+  const c=S.cfg;
+  let h="";
+  const jx=jalonsDe(p).filter(j=>j.genre==="Jalon");
+  if(jx.length){
+    h+='<table class="imp-tab" style="margin-bottom:11px"><thead><tr>'+
+      '<th style="width:11%">Date</th><th>Jalon</th>'+
+      (c.colJalAction?'<th style="width:22%">Action</th>':'')+'</tr></thead><tbody>'+
+      jx.map(j=>'<tr><td>'+esc(dateVersFR(j.date))+'</td><td>'+esc(j.libelle)+'</td>'+
+        (c.colJalAction?'<td>'+esc(j.action)+'</td>':'')+'</tr>').join("")+'</tbody></table>';
+  }
+  if(c.tblJournal && c.colJnlLien){
+    const js=journalDe(p);
+    if(!js.length) h+=impVide("Journal de bord vide.");
+    else h+='<table class="imp-tab"><thead><tr><th style="width:11%">Date</th>'+
+      (c.colJnlAction?'<th style="width:18%">Action</th>':'')+
+      (c.colJnlNature?'<th style="width:13%">Nature</th>':'')+
+      '<th>Commentaire</th>'+
+      (c.colJnlAuteur?'<th style="width:14%">Auteur</th>':'')+'</tr></thead><tbody>'+
+      js.map(j=>'<tr><td>'+esc(dateVersFR(j[c.colJnlDate]))+'</td>'+
+        (c.colJnlAction?'<td>'+esc(actionDeLigne(c.tblJournal,j,c.colJnlAction))+'</td>':'')+
+        (c.colJnlNature?'<td>'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</td>':'')+
+        '<td class="imp-texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+'</td>'+
+        (c.colJnlAuteur?'<td>'+esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</td>':'')+
+        '</tr>').join("")+'</tbody></table>';
+  }else{
+    const libre=lire(c.tblMain,p,c.colJournalTexte);
+    h+=libre?'<div class="imp-texte">'+esc(libre)+'</div>':impVide("Journal de bord vide.");
+  }
+  if(!h) h=impVide("Rien à afficher.");
+  return impBloc("Journal de bord et jalons","",h);
+}
+
+/* --- assemblage et impression -------------------------------------------- */
+
+function bandeauImpression(p){
+  const c=S.cfg;
+  const bribes=[lire(c.tblMain,p,c.colGroupement),
+                lire(c.tblMain,p,c.colPorteur)?"Porteur : "+lire(c.tblMain,p,c.colPorteur):"",
+                lire(c.tblMain,p,c.colPriorite),
+                interrompu(p)?"Interrompu":""].filter(Boolean);
+  const titre=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
+  return '<div class="imp-bande"><div>'+
+    '<div class="t">'+esc(titre)+'</div>'+
+    '<div class="m">'+esc(bribes.join(" · "))+'</div></div>'+
+    '<div class="d">SDIS de l\'Ain<br>'+esc(new Date().toLocaleDateString("fr-FR"))+'</div></div>';
+}
+
+function styleOrientation(){
+  let st=document.getElementById("style-impression");
+  if(!st){ st=document.createElement("style"); st.id="style-impression"; document.head.appendChild(st); }
+  st.textContent="@page{size:A4 "+(IMPR.orientation==="paysage"?"landscape":"portrait")+
+    ";margin:18mm 9mm 13mm;}";
+}
+
+function imprimerFiche(p){
+  const c=S.cfg;
+  const acts=actionsImpression(p);
+  const titre=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
+
+  let corps=bandeauImpression(p)+impChiffresCles(p,actionsDe(p));
+  const ajoute=(cle,html)=>{ if(IMPR.sections[cle]) corps+=html; };
+  ajoute("synthese",impSynthese(p));
+  ajoute("actions",impActions(p,acts));
+  ajoute("planning",impPlanning(p,acts));
+  ajoute("instances",impInstances(p));
+  ajoute("journal",impJournal(p));
+
+  styleOrientation();
+  $("#impression").innerHTML=corps;
+  $("#imp-tete").innerHTML='<b>'+esc(titre)+'</b><span>Fiche projet</span>';
+  $("#imp-pied").innerHTML='<span>Suivi des projets et actions — SDIS de l\'Ain</span>'+
+    '<span>Édité le '+esc(new Date().toLocaleDateString("fr-FR"))+'</span>';
+
+  const fin=()=>{
+    $("#impression").innerHTML=""; $("#imp-tete").innerHTML=""; $("#imp-pied").innerHTML="";
+    window.removeEventListener("afterprint",fin);
+  };
   window.addEventListener("afterprint",fin);
-  setTimeout(()=>{ window.print(); },60);
-  setTimeout(fin,60000);             // filet de sécurité si afterprint ne remonte pas
+  setTimeout(()=>window.print(),60);
+  setTimeout(fin,60000);
 }
 
 /* =======================================================================
@@ -2597,7 +2952,11 @@ async function demarrer(){
 $("#q").oninput=rendreListe;
 DATES_FILTRE.forEach(s=>$(s).onchange=rendreListe);
 $("#btn-panneau").onclick=()=>basculerPanneau();
-$("#btn-imprimer").onclick=imprimerProjet;
+$("#btn-imprimer").onclick=ouvrirImpression;
+$("#impr-annuler").onclick=()=>$("#voile-impr").classList.remove("ouvert");
+$("#impr-lancer").onclick=lancerImpression;
+$("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
+chargerOptionsImpr();
 try{ basculerPanneau(localStorage.getItem("cp-panneau-replie")==="1"); }
 catch(e){ majBoutonPanneau(); }
 brancherMenus();
@@ -2622,7 +2981,7 @@ document.addEventListener("keydown",e=>{
   }
   if((e.ctrlKey||e.metaKey) && (e.key==="p"||e.key==="P")){
     e.preventDefault();
-    imprimerProjet();
+    ouvrirImpression();
   }
 });
 

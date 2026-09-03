@@ -452,6 +452,48 @@ tbody tr.ligne-com:hover{background:transparent;}
 .toast.err{background:var(--rouge);}
 .accueil{display:flex;align-items:center;justify-content:center;height:100%;
   color:var(--gris);text-align:center;padding:30px;}
+/* ---------- Éditeur de pages additionnelles ---------- */
+.mp-editeur{border:1px solid var(--trait);border-radius:var(--rayon);padding:10px;
+  margin-bottom:12px;background:#fafafa;}
+.mp-tete{display:flex;justify-content:space-between;align-items:center;gap:8px;
+  flex-wrap:wrap;margin-bottom:8px;}
+.mp-titre{font-size:12px;font-weight:bold;color:#555;}
+.mp-outils{display:flex;gap:6px;flex-wrap:wrap;}
+.mp-btn{font-size:11.5px;border:1px solid #ccc;background:#fff;border-radius:4px;
+  padding:4px 10px;cursor:pointer;color:#333;display:inline-block;}
+.mp-btn:hover{border-color:var(--bleu);color:var(--bleu);}
+.mp-btn-danger:hover{border-color:#b91c1c;color:#b91c1c;}
+.mp-tog{font-size:12px;width:26px;height:26px;border:1px solid #ccc;background:#fff;
+  border-radius:4px;cursor:pointer;}
+.mp-lab{font-size:11px;color:#888;display:flex;align-items:center;gap:4px;}
+.mp-lab select{font-size:12px;padding:3px 4px;border:1px solid #ccc;border-radius:4px;}
+.mp-hint{font-size:11px;color:#999;font-style:italic;}
+.mp-canvas{position:relative;overflow:hidden;background:#fff;border:1px solid #ccc;
+  box-shadow:0 1px 3px rgba(12,18,32,.08);}
+.mp-stage{position:absolute;left:0;top:0;transform-origin:top left;background:#fff;
+  font-family:Tahoma,Geneva,sans-serif;}
+.mp-block{position:absolute;cursor:move;outline:1px dashed rgba(0,35,149,.25);}
+.mp-block.is-selected{outline:2px solid var(--bleu);}
+.mp-block .mp-text{width:100%;height:100%;overflow:hidden;}
+.mp-block .mp-text[contenteditable="true"]{cursor:text;outline:2px solid var(--bleu);
+  background:rgba(0,35,149,.03);}
+.mp-block.is-editing{cursor:text;outline:2px solid var(--bleu);}
+.mp-block.is-editing .mp-handle{display:none;}
+.mp-img-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  background:#f0f2f5;color:#98a2b3;font-size:16px;}
+.mp-handle{position:absolute;width:14px;height:14px;background:#fff;
+  border:2px solid var(--bleu);border-radius:50%;}
+.mp-handle-nw{left:-7px;top:-7px;cursor:nwse-resize;}
+.mp-handle-ne{right:-7px;top:-7px;cursor:nesw-resize;}
+.mp-handle-sw{left:-7px;bottom:-7px;cursor:nesw-resize;}
+.mp-handle-se{right:-7px;bottom:-7px;cursor:nwse-resize;}
+.mp-guide{position:absolute;display:none;background:var(--rouge);z-index:50;pointer-events:none;}
+.mp-guide-v{top:0;bottom:0;width:1px;}
+.mp-guide-h{left:0;right:0;height:1px;}
+.mp-inspecteur{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;
+  min-height:26px;}
+.mp-vide{padding:22px;text-align:center;color:var(--gris);font-size:12px;}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
 
 /* ---------- Champs de date (saisie jj/mm/aaaa) ---------- */
@@ -652,6 +694,23 @@ table.p-tab td{padding:5px 4px;border-bottom:1px solid #eef2f8;vertical-align:to
   </div>
 </div>
 
+<div class="voile" id="voile-pages">
+  <div class="modale" style="width:min(880px,100%)">
+    <header>Pages additionnelles</header>
+    <div class="corps-modale">
+      <p style="margin:0 0 12px;color:var(--gris);font-size:12px">
+        Ces pages sont ajoutées à la fin du PDF, dans le même gabarit que les autres.
+        Cliquez sur un bloc pour le déplacer ou le redimensionner par ses coins,
+        double-cliquez sur un texte pour l'écrire. La touche Suppr efface le bloc sélectionné.</p>
+      <div id="pages-liste"></div>
+      <button type="button" class="btn-2" id="pages-ajouter">+ Ajouter une page</button>
+    </div>
+    <footer>
+      <button class="btn" id="pages-fermer">Terminer</button>
+    </footer>
+  </div>
+</div>
+
 <div class="voile" id="voile-impr">
   <div class="modale" style="width:min(430px,100%)">
     <header>Imprimer la fiche projet</header>
@@ -664,6 +723,11 @@ table.p-tab td{padding:5px 4px;border-bottom:1px solid #eef2f8;vertical-align:to
         <h3>Instances sur la page de garde</h3>
         <p>Elles s'affichent en bas à droite, triées par date.</p>
         <div id="impr-instances" class="impr-liste"></div>
+      </div>
+      <div class="bloc-reglage">
+        <h3>Pages additionnelles</h3>
+        <p>Textes et images libres, ajoutés à la fin du document.</p>
+        <button type="button" class="btn-2" id="impr-pages">Ouvrir l'éditeur</button>
       </div>
       <div class="bloc-reglage" id="impr-bloc-portee">
         <h3>Actions</h3>
@@ -2624,6 +2688,12 @@ function ouvrirImpression(){
     '<label><input type="checkbox" data-sec="'+k+'"'+(IMPR.sections[k]?" checked":"")+'> '+l+'</label>').join("");
   document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
 
+  chargerPagesSup(S.projetSel);
+  const bp=$("#impr-pages");
+  if(bp) bp.textContent = pagesSup.length
+    ? "Ouvrir l'éditeur ("+pagesSup.length+" page"+(pagesSup.length>1?"s":"")+")"
+    : "Ouvrir l'éditeur";
+
   const xs=instancesDe(S.projetSel);
   const sel=IMPR.instancesGarde;
   $("#impr-instances").innerHTML = xs.length
@@ -3001,6 +3071,14 @@ function construirePages(p){
     }
   }
 
+  /* pages additionnelles, en fin de document */
+  chargerPagesSup(p);
+  pagesSup.forEach(pg=>{
+    const page=coquillePage(titre,"Page "+numero.n+"/…",false);
+    cont.appendChild(page); pages.push(page); numero.n++;
+    page.querySelector(".zone").innerHTML=mpCorpsPdf(pg);
+  });
+
   /* numérotation définitive (la page de garde n'est pas numérotée) */
   const total=pages.length-1;
   pages.slice(1).forEach((pg,i)=>{
@@ -3008,6 +3086,32 @@ function construirePages(p){
     if(n) n.textContent="Page "+(i+1)+"/"+total;
   });
   return pages;
+}
+
+/* Résolution de capture. 5 revient à environ 480 points par pouce sur une page A4
+   paysage : le texte reste net à l'écran comme à l'impression. Si la mémoire du
+   poste ne suit pas, on redescend automatiquement. */
+const ECHELLE_PDF=5;
+
+async function capturerPage(page,echelle){
+  const essais=[echelle,4,3,2].filter((v,i,t)=>t.indexOf(v)===i && v<=echelle);
+  let derniere;
+  for(const e of essais){
+    try{
+      return await html2canvas(page,{
+        scale:e, useCORS:true, backgroundColor:"#ffffff",
+        logging:false, imageTimeout:0,
+        width:1123, height:794, windowWidth:1123, windowHeight:794,
+        onclone:doc=>{                            // texte plus franc à la rasterisation
+          const st=doc.createElement("style");
+          st.textContent=".pdf-page,.pdf-page *{-webkit-font-smoothing:antialiased;"+
+                         "text-rendering:geometricPrecision;}";
+          doc.head.appendChild(st);
+        }
+      });
+    }catch(err){ derniere=err; }
+  }
+  throw derniere;
 }
 
 async function genererFichePDF(p){
@@ -3023,16 +3127,15 @@ async function genererFichePDF(p){
     await new Promise(r=>setTimeout(r,120));       // laisse le navigateur peindre
     const pdf=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",
                                       format:[1123,794],compress:true});
+    let echelle=ECHELLE_PDF;
     for(let i=0;i<pages.length;i++){
-      /* 3x + PNG : le texte reste net une fois le PDF agrandi ou imprimé */
-      const canvas=await html2canvas(pages[i],{
-        scale:3, useCORS:true, backgroundColor:"#ffffff",
-        logging:false, imageTimeout:0, width:1123, height:794,
-        windowWidth:1123, windowHeight:794
-      });
+      const canvas=await capturerPage(pages[i],echelle);
+      echelle=canvas.width/1123;                  // conserve l'échelle qui a tenu
       const img=canvas.toDataURL("image/png");
+      canvas.width=canvas.height=0;               // libère la mémoire au plus tôt
       if(i>0) pdf.addPage([1123,794],"landscape");
       pdf.addImage(img,"PNG",0,0,1123,794,undefined,"FAST");
+      toast("Génération du PDF… page "+(i+1)+"/"+pages.length);
     }
     const nom=(lire(c.tblMain,p,c.colLibelle)||"fiche_projet")
       .replace(/[^a-z0-9_\-]+/gi,"_").slice(0,60)+".pdf";
@@ -3045,6 +3148,454 @@ async function genererFichePDF(p){
     document.getElementById("pdf-pages").innerHTML="";
     if(btn){ btn.disabled=false; }
   }
+}
+
+/* =======================================================================
+   7 quater. Pages additionnelles (éditeur repris du widget PDF récap)
+   =======================================================================
+   Une page additionnelle = une liste de blocs {type:'texte'|'image', x, y, w, h, …}.
+   Les coordonnées sont en pixels dans la zone utile d'une page, converties en
+   pourcentages à l'impression pour rester justes quelle que soit la mise en page. */
+
+const MP_W = 1063;      // largeur utile d'une page (1123 moins les marges)
+const MP_H = 594;       // hauteur utile (794 moins en-tête, pied et marges)
+const MP_ECHELLE = 0.7; // échelle d'affichage de l'éditeur
+const MP_AIMANT = 8;    // tolérance du magnétisme, en pixels de la page
+const MP_TEXTE_DEFAUT = "Nouveau texte";
+
+const MP_COULEURS = [
+  {v:"#1a1a1a", l:"Noir (texte)"},
+  {v:"#002395", l:"Bleu France"},
+  {v:"#C0504D", l:"Rouge"},
+  {v:"#DF453D", l:"Rouge SDIS (logo)"},
+  {v:"#F79646", l:"Orange"},
+  {v:"#FFCC00", l:"Jaune"},
+  {v:"#9BBB59", l:"Vert"},
+  {v:"#595959", l:"Gris foncé"}
+];
+
+let pagesSup=[];                      // pages du projet actuellement sélectionné
+let mpSel={page:null,block:null};     // bloc sélectionné
+let mpDrag=null;                      // déplacement ou redimensionnement en cours
+
+/* --- persistance : une entrée par projet -------------------------------- */
+
+function clePagesSup(p){ return "cp-pages-"+(p?p.id:"0"); }
+
+function chargerPagesSup(p){
+  pagesSup=[];
+  try{
+    const t=JSON.parse(localStorage.getItem(clePagesSup(p))||"[]");
+    if(Array.isArray(t)) pagesSup=t;
+  }catch(e){}
+  pagesSup.forEach(pg=>{ if(!Array.isArray(pg.blocks)) pg.blocks=[]; });
+}
+
+function enregistrerPagesSup(p){
+  try{ localStorage.setItem(clePagesSup(p),JSON.stringify(pagesSup)); }
+  catch(e){ toast("Pages trop lourdes pour être conservées (images volumineuses).",true); }
+}
+
+/* --- rendu destiné au PDF ------------------------------------------------ */
+
+function mpStyleTexte(b){
+  return "font-size:"+(b.fontSize||13)+"px;font-weight:"+(b.bold?"bold":"normal")+
+    ";font-style:"+(b.italic?"italic":"normal")+
+    ";text-decoration:"+(b.underline?"underline":"none")+
+    ";color:"+(b.color||"#1a1a1a")+";";
+}
+function mpPct(v,total){ return (v/total*100).toFixed(3)+"%"; }
+function mpBoite(b){
+  return "position:absolute;left:"+mpPct(b.x,MP_W)+";top:"+mpPct(b.y,MP_H)+
+    ";width:"+mpPct(b.w,MP_W)+";height:"+mpPct(b.h,MP_H)+";box-sizing:border-box;";
+}
+function mpBlocPdf(b){
+  if(b.type==="image"){
+    if(!b.imageDataUrl) return "";
+    return '<div style="'+mpBoite(b)+'"><img src="'+b.imageDataUrl+
+      '" style="width:100%;height:100%;object-fit:contain;display:block"></div>';
+  }
+  return '<div style="'+mpBoite(b)+'overflow:hidden;white-space:pre-wrap;line-height:1.5;'+
+    mpStyleTexte(b)+'text-align:'+(b.align||"left")+'">'+esc(b.text||"")+'</div>';
+}
+function mpCorpsPdf(page){
+  const blocs=(page&&Array.isArray(page.blocks))?page.blocks:[];
+  if(!blocs.length)
+    return '<div style="font-size:11px;color:#999;font-style:italic">Page vierge.</div>';
+  return '<div style="position:relative;width:100%;height:100%">'+
+    blocs.map(mpBlocPdf).join("")+'</div>';
+}
+
+/* --- rendu dans l'éditeur ------------------------------------------------ */
+
+function mpPage(i){
+  const p=pagesSup[i];
+  if(!p) return null;
+  if(!Array.isArray(p.blocks)) p.blocks=[];
+  return p;
+}
+function mpScene(i){ return document.querySelector('.mp-stage[data-page="'+i+'"]'); }
+function mpBlocSel(){
+  if(mpSel.page===null||mpSel.block===null) return null;
+  const p=mpPage(mpSel.page);
+  return p?p.blocks[mpSel.block]:null;
+}
+
+function mpBlocEditeur(b,iPage,iBloc){
+  const choisi=(mpSel.page===iPage && mpSel.block===iBloc);
+  let dedans;
+  if(b.type==="image"){
+    dedans = b.imageDataUrl
+      ? '<img src="'+b.imageDataUrl+'" style="width:100%;height:100%;object-fit:contain;display:block;pointer-events:none">'
+      : '<div class="mp-img-empty">Image</div>';
+  }else{
+    dedans = '<div class="mp-text" style="white-space:pre-wrap;line-height:1.5;'+
+      mpStyleTexte(b)+'text-align:'+(b.align||"left")+'">'+esc(b.text||"")+'</div>';
+  }
+  const poignees = choisi
+    ? ["nw","ne","sw","se"].map(d=>'<div class="mp-handle mp-handle-'+d+'" data-dir="'+d+'"></div>').join("")
+    : "";
+  return '<div class="mp-block'+(choisi?" is-selected":"")+'" data-page="'+iPage+
+    '" data-block="'+iBloc+'" style="'+mpBoite(b)+'">'+dedans+poignees+'</div>';
+}
+
+function mpRedessiner(iPage){
+  const scene=mpScene(iPage);
+  if(!scene) return;
+  const p=mpPage(iPage);
+  scene.innerHTML=p.blocks.map((b,j)=>mpBlocEditeur(b,iPage,j)).join("")+
+    '<div class="mp-guide mp-guide-v"></div><div class="mp-guide mp-guide-h"></div>';
+  mpInspecteur(iPage);
+}
+
+function mpChoisir(iPage,iBloc){
+  const avant=mpSel.page;
+  mpSel={page:iPage,block:iBloc};
+  if(avant!==null && avant!==iPage) mpRedessiner(avant);
+  if(iPage!==null) mpRedessiner(iPage);
+}
+
+/* --- magnétisme : bords et centre de la page, bords des blocs voisins ---- */
+
+function mpAimanter(iPage,iBloc,x,y,w,h){
+  const p=mpPage(iPage);
+  const autres=p.blocks.filter((_,j)=>j!==iBloc);
+  const cx=[0,(MP_W-w)/2,MP_W-w], cy=[0,(MP_H-h)/2,MP_H-h];
+  autres.forEach(o=>{
+    cx.push(o.x,o.x+o.w-w,o.x+(o.w-w)/2,o.x+o.w,o.x-w);
+    cy.push(o.y,o.y+o.h-h,o.y+(o.h-h)/2,o.y+o.h,o.y-h);
+  });
+  let gx=null,gy=null;
+  cx.forEach(t=>{ if(Math.abs(x-t)<=MP_AIMANT){ x=t; if(gx===null) gx=t; } });
+  cy.forEach(t=>{ if(Math.abs(y-t)<=MP_AIMANT){ y=t; if(gy===null) gy=t; } });
+  return {x,y,gx:(gx!==null?x:null),gy:(gy!==null?y:null)};
+}
+function mpGuides(iPage,gx,gy){
+  const scene=mpScene(iPage);
+  if(!scene) return;
+  const v=scene.querySelector(".mp-guide-v"), h=scene.querySelector(".mp-guide-h");
+  if(v){ v.style.display=(gx===null)?"none":"block"; if(gx!==null) v.style.left=gx+"px"; }
+  if(h){ h.style.display=(gy===null)?"none":"block"; if(gy!==null) h.style.top=gy+"px"; }
+}
+
+/* --- déplacement et redimensionnement ----------------------------------- */
+
+function mpSourisBas(e,iPage){
+  const scene=mpScene(iPage);
+  if(!scene) return;
+  const poignee=e.target.closest(".mp-handle");
+  const blocEl=e.target.closest(".mp-block");
+  if(!blocEl){ mpChoisir(null,null); return; }
+  const iBloc=Number(blocEl.dataset.block);
+  const b=mpPage(iPage).blocks[iBloc];
+  if(!b) return;
+  if(e.target.isContentEditable) return;      // texte en cours de saisie
+  if(mpSel.page!==iPage||mpSel.block!==iBloc) mpChoisir(iPage,iBloc);
+  e.preventDefault();
+  mpDrag={iPage,iBloc,mode:poignee?"taille":"deplace",
+          dir:poignee?poignee.dataset.dir:null,
+          x0:e.clientX,y0:e.clientY,bouge:false,
+          o:{x:b.x,y:b.y,w:b.w,h:b.h}};
+}
+
+function mpSourisBouge(e){
+  if(!mpDrag) return;
+  const {iPage,iBloc,mode,dir,x0,y0,o}=mpDrag;
+  const b=mpPage(iPage).blocks[iBloc];
+  if(!b) return;
+  const dx=(e.clientX-x0)/MP_ECHELLE, dy=(e.clientY-y0)/MP_ECHELLE;
+  if(Math.abs(dx)>1||Math.abs(dy)>1) mpDrag.bouge=true;
+
+  if(mode==="deplace"){
+    const x=Math.max(0,Math.min(MP_W-o.w,o.x+dx));
+    const y=Math.max(0,Math.min(MP_H-o.h,o.y+dy));
+    const a=mpAimanter(iPage,iBloc,x,y,o.w,o.h);
+    b.x=a.x; b.y=a.y;
+    mpGuides(iPage,a.gx,a.gy);
+  }else{
+    const mini=30;
+    let x=o.x,y=o.y,w=o.w,h=o.h;
+    if(dir.includes("e")) w=Math.max(mini,o.w+dx);
+    if(dir.includes("s")) h=Math.max(mini,o.h+dy);
+    if(dir.includes("w")){ w=Math.max(mini,o.w-dx); x=o.x+(o.w-w); }
+    if(dir.includes("n")){ h=Math.max(mini,o.h-dy); y=o.y+(o.h-h); }
+    w=Math.min(w,MP_W-x); h=Math.min(h,MP_H-y);
+    b.x=Math.max(0,x); b.y=Math.max(0,y); b.w=w; b.h=h;
+  }
+  const scene=mpScene(iPage);
+  const el=scene&&scene.querySelector('.mp-block[data-block="'+iBloc+'"]');
+  if(el){
+    el.style.left=mpPct(b.x,MP_W); el.style.top=mpPct(b.y,MP_H);
+    el.style.width=mpPct(b.w,MP_W); el.style.height=mpPct(b.h,MP_H);
+  }
+}
+
+function mpSourisHaut(){
+  if(!mpDrag) return;
+  const iPage=mpDrag.iPage;
+  if(!mpDrag.bouge){ mpDrag=null; mpGuides(iPage,null,null); return; }
+  const b=mpPage(iPage).blocks[mpDrag.iBloc];
+  if(b){ b.x=Math.round(b.x); b.y=Math.round(b.y);
+         b.w=Math.round(b.w); b.h=Math.round(b.h); }
+  mpDrag=null;
+  mpGuides(iPage,null,null);
+  mpRedessiner(iPage);
+  enregistrerPagesSup(S.projetSel);
+}
+
+document.addEventListener("mousemove",mpSourisBouge);
+document.addEventListener("mouseup",mpSourisHaut);
+
+/* Suppr efface le bloc sélectionné, sauf pendant une saisie */
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Delete" && e.key!=="Backspace") return;
+  if(!$("#voile-pages").classList.contains("ouvert")) return;
+  if(mpSel.page===null||mpSel.block===null) return;
+  const a=document.activeElement;
+  if(a && (a.isContentEditable||a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT")) return;
+  e.preventDefault();
+  mpPage(mpSel.page).blocks.splice(mpSel.block,1);
+  const iPage=mpSel.page;
+  mpSel={page:iPage,block:null};
+  mpRedessiner(iPage);
+  enregistrerPagesSup(S.projetSel);
+});
+
+/* --- inspecteur : mise en forme du bloc sélectionné --------------------- */
+
+function mpInspecteur(iPage){
+  const box=document.querySelector('.mp-inspecteur[data-page="'+iPage+'"]');
+  if(!box) return;
+  const b=(mpSel.page===iPage)?mpBlocSel():null;
+  if(!b){
+    box.innerHTML='<span class="mp-hint">Cliquez sur un bloc pour le déplacer, '+
+      'le redimensionner par ses coins ou le mettre en forme.</span>';
+    return;
+  }
+  if(b.type==="image"){
+    box.innerHTML=
+      '<label class="mp-btn">Remplacer l\'image<input type="file" class="mpRemplacer" '+
+        'accept="image/*" style="display:none"></label>'+
+      '<button type="button" class="mp-btn mpAjuster">Ajuster aux proportions</button>'+
+      '<button type="button" class="mp-btn mp-btn-danger mpSupprBloc">Supprimer le bloc</button>';
+  }else{
+    box.innerHTML=
+      '<button type="button" class="mp-btn mpEcrire">Écrire le texte</button>'+
+      '<label class="mp-lab">Taille <select class="mpTaille">'+
+        [10,11,12,13,14,16,18,20,24,28,32,40].map(z=>
+          '<option value="'+z+'"'+((b.fontSize||14)===z?" selected":"")+'>'+z+'</option>').join("")+
+      '</select></label>'+
+      '<button type="button" class="mp-tog mpGras" style="font-weight:bold;'+
+        (b.bold?"border-color:#002395;background:#eef2f8;":"")+'">G</button>'+
+      '<button type="button" class="mp-tog mpItal" style="font-style:italic;'+
+        (b.italic?"border-color:#002395;background:#eef2f8;":"")+'">I</button>'+
+      '<button type="button" class="mp-tog mpSoul" style="text-decoration:underline;'+
+        (b.underline?"border-color:#002395;background:#eef2f8;":"")+'">S</button>'+
+      '<label class="mp-lab">Couleur <select class="mpCouleur">'+
+        MP_COULEURS.map(c=>'<option value="'+c.v+'"'+
+          ((b.color||"#1a1a1a")===c.v?" selected":"")+'>'+c.l+'</option>').join("")+
+      '</select></label>'+
+      '<label class="mp-lab">Alignement <select class="mpAlign">'+
+        [["left","Gauche"],["center","Centré"],["right","Droite"]].map(([v,l])=>
+          '<option value="'+v+'"'+((b.align||"left")===v?" selected":"")+'>'+l+'</option>').join("")+
+      '</select></label>'+
+      '<button type="button" class="mp-btn mp-btn-danger mpSupprBloc">Supprimer le bloc</button>';
+  }
+  mpBrancherInspecteur(box,iPage,b);
+}
+
+function mpBrancherInspecteur(box,iPage,b){
+  const valider=()=>{ mpRedessiner(iPage); enregistrerPagesSup(S.projetSel); };
+  const q=s=>box.querySelector(s);
+  const t=q(".mpTaille");  if(t) t.onchange=e=>{ b.fontSize=Number(e.target.value); valider(); };
+  const c=q(".mpCouleur"); if(c) c.onchange=e=>{ b.color=e.target.value; valider(); };
+  const a=q(".mpAlign");   if(a) a.onchange=e=>{ b.align=e.target.value; valider(); };
+  const g=q(".mpGras");    if(g) g.onclick=()=>{ b.bold=!b.bold; valider(); };
+  const i=q(".mpItal");    if(i) i.onclick=()=>{ b.italic=!b.italic; valider(); };
+  const u=q(".mpSoul");    if(u) u.onclick=()=>{ b.underline=!b.underline; valider(); };
+  const w=q(".mpEcrire");  if(w) w.onclick=()=>mpEcrire(iPage,mpSel.block);
+  const d=q(".mpSupprBloc");
+  if(d) d.onclick=()=>{
+    mpPage(iPage).blocks.splice(mpSel.block,1);
+    mpSel={page:iPage,block:null};
+    valider();
+  };
+  const j=q(".mpAjuster");
+  if(j) j.onclick=()=>{
+    if(!b.naturalRatio) return;
+    b.h=Math.round(b.w/b.naturalRatio);
+    if(b.y+b.h>MP_H) b.h=MP_H-b.y;
+    valider();
+  };
+  const r=q(".mpRemplacer");
+  if(r) r.onchange=e=>{
+    const f=e.target.files[0];
+    if(!f) return;
+    mpLireImage(f,(url,ratio)=>{ b.imageDataUrl=url; b.naturalRatio=ratio; valider(); });
+  };
+}
+
+function mpLireImage(fichier,fait){
+  const lect=new FileReader();
+  lect.onload=()=>{
+    const img=new Image();
+    img.onload=()=>fait(lect.result,img.naturalWidth/img.naturalHeight);
+    img.onerror=()=>fait(lect.result,1.5);
+    img.src=lect.result;
+  };
+  lect.readAsDataURL(fichier);
+}
+
+/* --- saisie du texte ----------------------------------------------------- */
+
+function mpEcrire(iPage,iBloc){
+  const scene=mpScene(iPage);
+  if(!scene) return;
+  const b=mpPage(iPage).blocks[iBloc];
+  if(!b||b.type!=="texte") return;
+  if(mpSel.page!==iPage||mpSel.block!==iBloc) mpChoisir(iPage,iBloc);
+
+  const blocEl=mpScene(iPage).querySelector('.mp-block[data-block="'+iBloc+'"]');
+  const texteEl=blocEl&&blocEl.querySelector(".mp-text");
+  if(!texteEl) return;
+
+  texteEl.setAttribute("contenteditable","true");
+  blocEl.classList.add("is-editing");
+  texteEl.focus();
+
+  const plage=document.createRange();
+  plage.selectNodeContents(texteEl);
+  const sel=window.getSelection();
+  if(sel){
+    sel.removeAllRanges();
+    if((b.text||"")!==MP_TEXTE_DEFAUT) plage.collapse(false);
+    sel.addRange(plage);
+  }
+  texteEl.onblur=()=>{
+    const brut=(texteEl.innerText!==undefined&&texteEl.innerText!==null)
+      ? texteEl.innerText : texteEl.textContent;
+    b.text=(brut||"").replace(/\u00a0/g," ");
+    texteEl.removeAttribute("contenteditable");
+    blocEl.classList.remove("is-editing");
+    mpRedessiner(iPage);
+    enregistrerPagesSup(S.projetSel);
+  };
+}
+
+/* --- création de blocs --------------------------------------------------- */
+
+function mpAjouterTexte(iPage){
+  const p=mpPage(iPage);
+  p.blocks.push({type:"texte",x:60,y:60+(p.blocks.length%5)*24,w:600,h:150,
+    text:MP_TEXTE_DEFAUT,fontSize:16,bold:false,italic:false,underline:false,
+    color:"#1a1a1a",align:"left"});
+  const i=p.blocks.length-1;
+  mpSel={page:iPage,block:i};
+  mpRedessiner(iPage);
+  enregistrerPagesSup(S.projetSel);
+  mpEcrire(iPage,i);
+}
+
+function mpAjouterImage(iPage,fichier){
+  mpLireImage(fichier,(url,ratio)=>{
+    const p=mpPage(iPage);
+    const w=Math.min(600,MP_W-120);
+    const h=Math.min(Math.round(w/(ratio||1.5)),MP_H-120);
+    p.blocks.push({type:"image",x:60,y:60,w,h,imageDataUrl:url,naturalRatio:ratio});
+    mpSel={page:iPage,block:p.blocks.length-1};
+    mpRedessiner(iPage);
+    enregistrerPagesSup(S.projetSel);
+  });
+}
+
+/* --- construction de l'interface ---------------------------------------- */
+
+function rendrePagesSup(){
+  const liste=$("#pages-liste");
+  if(!liste) return;
+  pagesSup.forEach(p=>{ if(!Array.isArray(p.blocks)) p.blocks=[]; });
+
+  if(!pagesSup.length){
+    liste.innerHTML='<div class="mp-vide">Aucune page additionnelle. '+
+      'Utilisez le bouton ci-dessous pour en créer une.</div>';
+    return;
+  }
+
+  liste.innerHTML=pagesSup.map((p,i)=>
+    '<div class="mp-editeur">'+
+      '<div class="mp-tete"><span class="mp-titre">Page additionnelle '+(i+1)+'</span>'+
+        '<span class="mp-outils">'+
+          '<button type="button" class="mp-btn mpAddTexte" data-page="'+i+'">+ Zone de texte</button>'+
+          '<label class="mp-btn">+ Image<input type="file" class="mpAddImage" data-page="'+i+
+            '" accept="image/*" style="display:none"></label>'+
+          '<button type="button" class="mp-btn mp-btn-danger mpSupprPage" data-page="'+i+
+            '">Supprimer la page</button>'+
+        '</span></div>'+
+      '<div class="mp-canvas" style="width:'+Math.round(MP_W*MP_ECHELLE)+
+        'px;height:'+Math.round(MP_H*MP_ECHELLE)+'px">'+
+        '<div class="mp-stage" data-page="'+i+'" style="width:'+MP_W+'px;height:'+MP_H+
+          'px;transform:scale('+MP_ECHELLE+')">'+
+          p.blocks.map((b,j)=>mpBlocEditeur(b,i,j)).join("")+
+          '<div class="mp-guide mp-guide-v"></div><div class="mp-guide mp-guide-h"></div>'+
+        '</div></div>'+
+      '<div class="mp-inspecteur" data-page="'+i+'"></div>'+
+    '</div>').join("");
+
+  liste.querySelectorAll(".mp-stage").forEach(scene=>{
+    const i=Number(scene.dataset.page);
+    scene.onmousedown=e=>mpSourisBas(e,i);
+    scene.ondblclick=e=>{
+      const el=e.target.closest(".mp-block");
+      if(el) mpEcrire(i,Number(el.dataset.block));
+    };
+  });
+  liste.querySelectorAll(".mpAddTexte").forEach(el=>{
+    el.onclick=e=>mpAjouterTexte(Number(e.target.dataset.page));
+  });
+  liste.querySelectorAll(".mpAddImage").forEach(el=>{
+    el.onchange=e=>{
+      const f=e.target.files[0];
+      if(f) mpAjouterImage(Number(e.target.dataset.page),f);
+      e.target.value="";
+    };
+  });
+  liste.querySelectorAll(".mpSupprPage").forEach(el=>{
+    el.onclick=e=>{
+      pagesSup.splice(Number(e.target.dataset.page),1);
+      mpSel={page:null,block:null};
+      rendrePagesSup();
+      enregistrerPagesSup(S.projetSel);
+    };
+  });
+  pagesSup.forEach((_,i)=>mpInspecteur(i));
+}
+
+function ouvrirPagesSup(){
+  if(!S.projetSel){ toast("Sélectionnez d'abord un projet.",true); return; }
+  chargerPagesSup(S.projetSel);
+  mpSel={page:null,block:null};
+  rendrePagesSup();
+  $("#voile-pages").classList.add("ouvert");
 }
 
 /* =======================================================================
@@ -3192,6 +3743,20 @@ $("#btn-panneau").onclick=()=>basculerPanneau();
 $("#btn-imprimer").onclick=ouvrirImpression;
 $("#impr-annuler").onclick=()=>$("#voile-impr").classList.remove("ouvert");
 $("#impr-lancer").onclick=lancerImpression;
+$("#impr-pages").onclick=ouvrirPagesSup;
+$("#pages-ajouter").onclick=()=>{
+  pagesSup.push({blocks:[]});
+  mpSel={page:pagesSup.length-1,block:null};
+  rendrePagesSup();
+  enregistrerPagesSup(S.projetSel);
+};
+$("#pages-fermer").onclick=()=>{
+  $("#voile-pages").classList.remove("ouvert");
+  const bp=$("#impr-pages");
+  if(bp) bp.textContent = pagesSup.length
+    ? "Ouvrir l'éditeur ("+pagesSup.length+" page"+(pagesSup.length>1?"s":"")+")"
+    : "Ouvrir l'éditeur";
+};
 $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
 chargerOptionsImpr();
 try{ basculerPanneau(localStorage.getItem("cp-panneau-replie")==="1"); }

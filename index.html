@@ -468,6 +468,16 @@ tbody tr.ligne-com:hover{background:transparent;}
 .note-texte{font-size:12.5px;line-height:1.5;white-space:pre-wrap;
   overflow-wrap:anywhere;color:var(--encre);}
 .note-pj{margin-top:8px;}
+.diag{margin:14px 0 0;padding:12px 14px;background:var(--fond);
+  border:1px solid var(--trait);border-radius:var(--rayon);
+  font-size:11.5px;color:var(--encre);text-align:left;}
+.diag-titre{font-weight:bold;color:var(--bleu);margin-bottom:8px;}
+.diag ul{margin:0 0 10px;padding-left:18px;line-height:1.7;}
+.diag p{margin:10px 0 0;color:var(--gris);line-height:1.5;}
+.diag-tab{width:auto;border-collapse:collapse;font-size:11.5px;}
+.diag-tab th,.diag-tab td{border:1px solid var(--trait);padding:4px 10px;
+  text-align:left;text-transform:none;letter-spacing:0;}
+.diag-tab th{background:#fff;color:var(--gris);font-weight:bold;}
 .note-choix{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;
   padding-top:9px;border-top:1px solid var(--trait);}
 .note-choix .btn-2.actif{border-color:var(--bleu);background:var(--bleu-clair);
@@ -2978,6 +2988,40 @@ function formulaireNote(p,n,dest,texte){
     '<button class="btn-2" data-annulform="'+n.id+'">Annuler</button></div></div>';
 }
 
+/* détail technique du rattachement, affiché quand rien ne correspond */
+function diagnosticNotes(p){
+  const c=S.cfg;
+  const info=infoCol(c.tblNote,c.colNoteLien);
+  const brut=v=>{
+    if(v===null||v===undefined) return "(vide)";
+    if(estListe(v)) return "["+v.slice(1).join(", ")+"]";
+    return JSON.stringify(v);
+  };
+  const lignes=S.data.notes.slice(0,8).map(n=>
+    '<tr><td>'+n.id+'</td><td>'+esc(brut(n[c.colNoteLien]))+'</td>'+
+    '<td>'+esc(c.colNoteAction?brut(n[c.colNoteAction]):"—")+'</td></tr>').join("");
+
+  return '<div class="diag">'+
+    '<div class="diag-titre">Diagnostic du rattachement</div>'+
+    '<ul>'+
+      '<li>Colonne de lien : <b>'+esc(c.colNoteLien||"(non paramétrée)")+'</b>'+
+        ' — type <b>'+esc(info?info.type:"inconnu (colonne absente de la table)")+'</b></li>'+
+      '<li>Ligne du projet affiché : identifiant <b>'+p.id+'</b>'+
+        (c.colProjKey?', clé <b>'+esc(cleProjet(p)||"(vide)")+'</b>':'')+'</li>'+
+      '<li>Comparaison utilisée : <b>'+
+        (info && /^Ref(List)?:/.test(info.type)
+          ? "identifiants de ligne (colonne Référence)"
+          : "clés texte (la colonne n\'est pas vue comme une Référence)")+'</b></li>'+
+    '</ul>'+
+    '<table class="diag-tab"><thead><tr><th>Note</th><th>Valeur de '+
+      esc(c.colNoteLien)+'</th><th>Valeur d\'action</th></tr></thead>'+
+      '<tbody>'+lignes+'</tbody></table>'+
+    '<p>Si la valeur de lien affiche un identifiant différent de <b>'+p.id+'</b>, '+
+      'la note pointe vers une autre ligne. Si elle affiche du texte alors que la '+
+      'comparaison se fait sur des identifiants, la colonne n\'est pas du bon type.</p>'+
+    '</div>';
+}
+
 function vueNotes(p){
   const c=S.cfg;
   if(!c.tblNote||!c.colNoteLien){
@@ -2992,10 +3036,8 @@ function vueNotes(p){
     $("#corps").innerHTML='<div class="carte"><div class="vide">'+
       '<b>Aucune note rattachée à ce projet</b>'+
       'La table contient '+S.data.notes.length+' note'+(S.data.notes.length>1?"s":"")+
-      ', mais aucune ne pointe vers « '+esc(lire(c.tblMain,p,c.colLibelle)||"ce projet")+' ». '+
-      'Vérifiez dans les réglages que la colonne « Lien vers le projet » est bien '+
-      esc(c.colNoteLien)+', et que cette colonne désigne la ligne du projet et non celle '+
-      'd\'une action.</div></div>';
+      ', mais aucune ne pointe vers « '+esc(lire(c.tblMain,p,c.colLibelle)||"ce projet")+' ».'+
+      '</div>'+diagnosticNotes(p)+'</div>';
     return;
   }
   const attente=notes.filter(estACaracteriser);

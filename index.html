@@ -458,6 +458,27 @@ tbody tr.ligne-com:hover{background:transparent;}
 .toast.err{background:var(--rouge);}
 .accueil{display:flex;align-items:center;justify-content:center;height:100%;
   color:var(--gris);text-align:center;padding:30px;}
+/* ---------- Blocs et ordre des pages du PDF ---------- */
+.bl-liste{display:flex;flex-direction:column;gap:5px;}
+.bl-ligne{border:1px solid var(--trait);border-radius:var(--rayon);padding:7px 9px;
+  background:#fff;display:grid;grid-template-columns:1fr auto;align-items:center;
+  gap:4px 8px;}
+.bl-tete{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin:0;}
+.bl-tete input{width:14px;height:14px;margin:0;flex:0 0 auto;}
+.bl-fleches{display:flex;gap:3px;}
+.bl-f{width:24px;height:22px;border:1px solid var(--trait);background:#fff;
+  border-radius:4px;cursor:pointer;font-size:9px;color:var(--gris);line-height:1;}
+.bl-f:hover:not(:disabled){border-color:var(--bleu);color:var(--bleu);}
+.bl-f:disabled{opacity:.3;cursor:default;}
+.bl-note{grid-column:1/-1;font-size:11px;color:var(--gris);font-style:italic;}
+.bl-sous{grid-column:1/-1;display:flex;gap:12px;flex-wrap:wrap;
+  padding:5px 0 0 21px;border-top:1px solid var(--trait);margin-top:4px;}
+.bl-sous label{display:flex;align-items:center;gap:6px;font-size:11.5px;
+  color:var(--gris);cursor:pointer;margin:0;}
+.bl-sous input{width:13px;height:13px;margin:0;}
+.impr-select{width:100%;padding:6px 8px;font-size:12px;border:1px solid var(--trait);
+  border-radius:var(--rayon);background:#fff;}
+
 /* ---------- Notes à caractériser ---------- */
 .notes-liste{display:flex;flex-direction:column;gap:10px;}
 .note{border:1px solid var(--trait);border-radius:var(--rayon);padding:10px 12px;
@@ -707,8 +728,15 @@ tbody tr.ligne-com:hover{background:transparent;}
     <header>Imprimer la fiche projet</header>
     <div class="corps-modale">
       <div class="bloc-reglage">
-        <h3>Sections à imprimer</h3>
-        <div id="impr-sections" class="impr-cases"></div>
+        <h3>Contenu et ordre des pages</h3>
+        <p>Décochez ce que vous ne voulez pas, déplacez les blocs avec ▲ et ▼.
+           Le premier bloc retenu porte le bandeau et le titre.</p>
+        <div id="impr-sections" class="bl-liste"></div>
+      </div>
+      <div class="bloc-reglage">
+        <h3>Taille du texte</h3>
+        <p>Un texte plus grand se répartit sur davantage de pages, rien n'est tronqué.</p>
+        <select id="impr-zoom" class="impr-select"></select>
       </div>
       <div class="bloc-reglage" id="impr-bloc-instances">
         <h3>Instances sur la page de garde</h3>
@@ -3259,24 +3287,56 @@ function brancherNotes(p){
    niveau de zoom, il est sélectionnable et copiable, et le fichier est léger.
    Le gabarit reprend celui du widget récap : A4 paysage 1123 x 794. */
 
-const SECTIONS_IMPR=[
-  ["synthese","Synthèse"],["actions","Actions et tâches"],
-  ["planning","Planning"],["instances","Instances"],["journal","Journal et jalons"]
+/* Blocs du document, dans l'ordre par défaut. Chacun peut être décoché ou
+   déplacé ; le premier bloc retenu reçoit le bandeau et le cartouche du titre. */
+const BLOCS_IMPR=[
+  ["synthese","Page de synthèse",
+    [["identite","Identité"],["planning","Planning"],["actions","Actions"]]],
+  ["detail","Actions MEO et tâches"],
+  ["instances","Instances"],
+  ["jalons","Jalons"],
+  ["journal","Journal de bord"],
+  ["sup","Pages additionnelles"]
 ];
+const ORDRE_DEFAUT=BLOCS_IMPR.map(b=>b[0]);
 
-const IMPR={sections:{synthese:true,actions:true,planning:true,instances:true,journal:true},
-            portee:"filtrees", instancesGarde:null};
+const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.45","Maximale"]];
+
+const IMPR={
+  sections:{synthese:true,identite:true,planning:true,actions:true,
+            detail:true,instances:true,jalons:true,journal:true,sup:true},
+  ordre:ORDRE_DEFAUT.slice(),
+  zoom:1,
+  portee:"filtrees",
+  instancesGarde:null
+};
 
 function chargerOptionsImpr(){
   try{
     const o=JSON.parse(localStorage.getItem("cp-impression")||"null");
-    if(o && o.sections) Object.assign(IMPR.sections,o.sections);
-    if(o && o.portee) IMPR.portee=o.portee;
+    if(!o) return;
+    if(o.sections) Object.assign(IMPR.sections,o.sections);
+    /* reprise d'un réglage enregistré par une version antérieure */
+    if(o.sections && o.sections.journal!==undefined && o.sections.jalons===undefined)
+      IMPR.sections.jalons=o.sections.journal;
+    if(o.sections && o.sections.actions!==undefined && o.sections.detail===undefined)
+      IMPR.sections.detail=o.sections.actions;
+    if(o.sections && o.sections.synthese!==undefined && o.sections.identite===undefined)
+      IMPR.sections.identite=o.sections.synthese;
+    if(Array.isArray(o.ordre)) IMPR.ordre=ordreValide(o.ordre);
+    if(o.zoom) IMPR.zoom=Number(o.zoom)||1;
+    if(o.portee) IMPR.portee=o.portee;
   }catch(e){}
 }
+/* garde les clés connues et complète les manquantes, pour survivre à une évolution */
+function ordreValide(liste){
+  const vus=liste.filter(k=>ORDRE_DEFAUT.includes(k));
+  ORDRE_DEFAUT.forEach(k=>{ if(!vus.includes(k)) vus.push(k); });
+  return vus;
+}
 function enregistrerOptionsImpr(){
-  try{ localStorage.setItem("cp-impression",
-    JSON.stringify({sections:IMPR.sections,portee:IMPR.portee})); }catch(e){}
+  try{ localStorage.setItem("cp-impression",JSON.stringify(
+    {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,portee:IMPR.portee})); }catch(e){}
 }
 
 function instancesDe(p){ return jalonsDe(p).filter(j=>j.genre==="Instance"); }
@@ -3285,12 +3345,16 @@ function ouvrirImpression(){
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
   if(nbModifs()){ toast("Enregistrez vos saisies avant de générer le PDF.",true); return; }
 
-  $("#impr-sections").innerHTML=SECTIONS_IMPR.map(([k,l])=>
-    '<label><input type="checkbox" data-sec="'+k+'"'+(IMPR.sections[k]?" checked":"")+'> '+l+'</label>').join("");
-  document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
-
   chargerPagesSup(S.projetSel);
   majBoutonPages();
+  rendreBlocsImpr();
+  const z=$("#impr-zoom");
+  if(z){
+    z.innerHTML=ZOOMS_IMPR.map(([v,l])=>'<option value="'+v+'">'+l+
+      ' ('+Math.round(Number(v)*100)+'&nbsp;%)</option>').join("");
+    z.value=String(IMPR.zoom);
+  }
+  document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
 
   const xs=instancesDe(S.projetSel);
   const sel=IMPR.instancesGarde;
@@ -3304,6 +3368,57 @@ function ouvrirImpression(){
   $("#voile-impr").classList.add("ouvert");
 }
 
+/* liste ordonnée des blocs effectivement imprimés */
+function blocsRetenus(){
+  return IMPR.ordre.filter(k=>{
+    if(!IMPR.sections[k]) return false;
+    if(k==="synthese")
+      return IMPR.sections.identite||IMPR.sections.planning||IMPR.sections.actions;
+    if(k==="sup") return pagesSup.length>0;
+    return true;
+  });
+}
+
+/* réglage des blocs : une ligne par bloc, cochable et déplaçable */
+function rendreBlocsImpr(){
+  const zone=$("#impr-sections");
+  if(!zone) return;
+  const n=IMPR.ordre.length;
+  zone.innerHTML=IMPR.ordre.map((cle,i)=>{
+    const def=BLOCS_IMPR.find(b=>b[0]===cle);
+    if(!def) return "";
+    const sous=def[2];
+    const detail = cle==="sup" && !pagesSup.length
+      ? '<span class="bl-note">aucune page créée</span>' : "";
+    return '<div class="bl-ligne">'+
+      '<label class="bl-tete"><input type="checkbox" data-sec="'+cle+'"'+
+        (IMPR.sections[cle]?" checked":"")+'> <span>'+esc(def[1])+'</span></label>'+
+      '<span class="bl-fleches">'+
+        '<button type="button" class="bl-f" data-monter="'+cle+'"'+(i===0?" disabled":"")+
+          ' title="Monter">▲</button>'+
+        '<button type="button" class="bl-f" data-descendre="'+cle+'"'+(i===n-1?" disabled":"")+
+          ' title="Descendre">▼</button>'+
+      '</span>'+detail+
+      (sous?'<div class="bl-sous">'+sous.map(([sk,sl])=>
+        '<label><input type="checkbox" data-sec="'+sk+'"'+
+        (IMPR.sections[sk]?" checked":"")+'> '+esc(sl)+'</label>').join("")+'</div>':'')+
+    '</div>';
+  }).join("");
+
+  zone.querySelectorAll("[data-monter]").forEach(b=>b.onclick=()=>deplacerBloc(b.dataset.monter,-1));
+  zone.querySelectorAll("[data-descendre]").forEach(b=>b.onclick=()=>deplacerBloc(b.dataset.descendre,1));
+  zone.querySelectorAll("[data-sec]").forEach(cb=>cb.onchange=()=>{
+    IMPR.sections[cb.dataset.sec]=cb.checked;
+  });
+}
+
+function deplacerBloc(cle,sens){
+  const i=IMPR.ordre.indexOf(cle), j=i+sens;
+  if(i<0||j<0||j>=IMPR.ordre.length) return;
+  IMPR.ordre[i]=IMPR.ordre[j]; IMPR.ordre[j]=cle;
+  rendreBlocsImpr();
+}
+
 function majBoutonPages(){
   const b=$("#impr-pages");
   if(b) b.textContent = pagesSup.length
@@ -3312,10 +3427,11 @@ function majBoutonPages(){
 }
 
 function retenirOptionsImpr(){
-  SECTIONS_IMPR.forEach(([k])=>{
-    const cb=document.querySelector('[data-sec="'+k+'"]');
-    if(cb) IMPR.sections[k]=cb.checked;
+  document.querySelectorAll("[data-sec]").forEach(cb=>{
+    IMPR.sections[cb.dataset.sec]=cb.checked;
   });
+  const z=$("#impr-zoom");
+  if(z) IMPR.zoom=Number(z.value)||1;
   const t=document.querySelector('[name=impr-portee]:checked');
   if(t) IMPR.portee=t.value;
   IMPR.instancesGarde=[...document.querySelectorAll('[data-ins]')]
@@ -3325,7 +3441,7 @@ function retenirOptionsImpr(){
 
 function lancerImpression(){
   retenirOptionsImpr();
-  if(!SECTIONS_IMPR.some(([k])=>IMPR.sections[k])){
+  if(!blocsRetenus().length){
     toast("Choisissez au moins une section à imprimer.",true); return;
   }
   $("#voile-impr").classList.remove("ouvert");
@@ -3382,6 +3498,12 @@ function actionsImpression(p){
 const PW=1123, PH=794, MX=30;                 // page et marges latérales
 const H_BANDEAU=122.93, H_PIED_IMG=119.64;
 
+/* Facteur d'échelle du texte. La pagination étant calculée à partir des
+   hauteurs réelles, agrandir le texte reporte simplement le contenu sur les
+   pages suivantes, sans jamais le rogner. */
+let PZ=1;
+function fz(v){ return Math.round(v*PZ*100)/100; }
+
 function pFont(pdf,taille,style,couleur){
   pdf.setFont("helvetica",style||"normal");
   pdf.setFontSize(taille);
@@ -3390,17 +3512,17 @@ function pFont(pdf,taille,style,couleur){
 /* écrit une chaîne ; renvoie la largeur occupée */
 function pTexte(pdf,x,y,s,o){
   o=o||{};
-  pFont(pdf,o.taille||11,o.style,o.couleur);
+  pFont(pdf,fz(o.taille||11),o.style,o.couleur);
   pdf.text(String(s==null?"":s),x,y,{align:o.align||"left",baseline:o.baseline||"alphabetic"});
   return pdf.getTextWidth(String(s==null?"":s));
 }
 function pLargeur(pdf,s,taille,style){
-  pFont(pdf,taille||11,style);
+  pFont(pdf,fz(taille||11),style);
   return pdf.getTextWidth(String(s==null?"":s));
 }
 /* découpe un texte à une largeur donnée ; renvoie un tableau de lignes */
 function pDecoupe(pdf,s,largeur,taille,style){
-  pFont(pdf,taille||11,style);
+  pFont(pdf,fz(taille||11),style);
   const t=String(s==null?"":s);
   if(!t) return [""];
   return pdf.splitTextToSize(t,largeur);
@@ -3418,7 +3540,7 @@ function pAplat(pdf,x,y,w,h,couleur,rayon){
 /* pastille arrondie avec son libellé centré ; renvoie sa largeur */
 function pPastille(pdf,x,y,libelle,fond,coul,taille){
   taille=taille||11;
-  const w=pLargeur(pdf,libelle,taille,"bold")+20, h=taille+6;
+  const w=pLargeur(pdf,libelle,taille,"bold")+fz(20), h=fz(taille+6);
   pAplat(pdf,x,y,w,h,fond,h/2);
   pTexte(pdf,x+w/2,y+h/2,libelle,{taille,style:"bold",couleur:coul,align:"center",baseline:"middle"});
   return w;
@@ -3463,7 +3585,7 @@ function pageGarde(ctx,p){
 
   const titre=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
   const lignes=pDecoupe(pdf,titre,621-28,24,"bold");
-  const hl=30, y0=411+112/2-(lignes.length-1)*hl/2;
+  const hl=fz(30), y0=411+112/2-(lignes.length-1)*hl/2;
   lignes.forEach((l,i)=>pTexte(pdf,471+621/2,y0+i*hl,l,
     {taille:24,style:"bold",couleur:"#ffffff",align:"center",baseline:"middle"}));
 
@@ -3471,7 +3593,7 @@ function pageGarde(ctx,p){
   const xs=instancesDe(p).filter(j=>!sel || sel.includes(j.table+":"+j.id));
   if(xs.length){
     const t = xs.length>18 ? 9 : (xs.length>10 ? 10.5 : 12.5);
-    const hi= xs.length>18 ? 11.7 : (xs.length>10 ? 14.7 : 19.4);
+    const hi= fz(xs.length>18 ? 11.7 : (xs.length>10 ? 14.7 : 19.4));
     const xd=PW-60;
     let y=PH-60-(xs.length-1)*hi;
     xs.forEach(j=>{
@@ -3499,7 +3621,7 @@ function docPage(ctx){
 
   if(premiere){
     pdf.addImage(IMG_BANDEAU_HAUT,"PNG",0,0,PW,H_BANDEAU,undefined,"FAST");
-    const hc=33.5, yc=H_BANDEAU/2-hc/2;
+    const hc=Math.max(33.5,fz(33.5)), yc=H_BANDEAU/2-hc/2;
     pAplat(pdf,230,yc,PW-16-230,hc,"#ffffff",3);
     pTexte(pdf,230+(PW-16-230)/2,yc+hc/2,ctx.titre,
       {taille:15,style:"bold",couleur:PDFC.bleu,align:"center",baseline:"middle"});
@@ -3518,7 +3640,7 @@ function docPage(ctx){
   ctx.premiere=false;
   ctx.numeros=ctx.numeros||[];
   ctx.numeros.push({page:ctx.pages,y:ctx.y+10});  // emplacement du « Page n/N »
-  ctx.y+=13+12;                                   // .proj-title-row : marge de 12
+  ctx.y+=fz(13)+12;                                   // .proj-title-row : marge de 12
   return ctx.y;
 }
 
@@ -3529,8 +3651,8 @@ function dessinerColonneGauche(ctx,p,x,y,w){
   const av=pct(p[c.colAvancement]), inter=interrompu(p);
 
   pDonut(pdf,x+44,y+44,38,12,av,bandesImpr(av,inter).fill);
-  pTexte(pdf,x+100,y+40.6,"Avancement",{taille:12,couleur:PDFC.gris});
-  pTexte(pdf,x+100,y+55,"global",{taille:12,couleur:PDFC.gris});
+  pTexte(pdf,x+100,y+44-fz(9),"Avancement",{taille:12,couleur:PDFC.gris});
+  pTexte(pdf,x+100,y+44+fz(9),"global",{taille:12,couleur:PDFC.gris});
   y+=88+14;
 
   const badges=[
@@ -3549,17 +3671,17 @@ function dessinerColonneGauche(ctx,p,x,y,w){
     if(!valeur && !pastille) return;
     const lc=pLargeur(pdf,cle+" ",12,"normal");
     let lignes=[""], h;
-    if(pastille){ h=7+7+18; }
+    if(pastille){ h=7+7+fz(18); }
     else{
       lignes=pDecoupe(pdf,valeur,w-22-lc,12,"bold");
-      h=7+7+lignes.length*15;
+      h=7+7+lignes.length*fz(15);
     }
     if(y+h>ctx.yBas) return;                     // l'identité tient sur la page 1
     pAplat(pdf,x,y,w,h,PDFC.fondBadge,6);
-    pTexte(pdf,x+11,y+7+11,cle,{taille:12,couleur:PDFC.gris});
+    pTexte(pdf,x+11,y+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
     if(pastille) pPastille(pdf,x+11+lc,y+7+2,pastille,
         pastillePleineCouleurs(pastille).fond,pastillePleineCouleurs(pastille).coul,11);
-    else lignes.forEach((l,i)=>pTexte(pdf,x+11+lc,y+7+11+i*15,l,
+    else lignes.forEach((l,i)=>pTexte(pdf,x+11+lc,y+7+fz(11)+i*fz(15),l,
         {taille:12,style:"bold",couleur:PDFC.bleu}));
     y+=h+7;
   });
@@ -3567,14 +3689,14 @@ function dessinerColonneGauche(ctx,p,x,y,w){
   const com=lire(t,p,c.colCommentaire);
   if(com && y<ctx.yBas-40){
     y+=9;                                        // .badge-list : marge de 16 au total
-    pTexte(pdf,x,y+10,"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
-    y+=14+6;
+    pTexte(pdf,x,y+fz(10),"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
+    y+=fz(14)+6;
     const lignes=pDecoupe(pdf,com,w-22,11,"normal");
-    const h=Math.min(9+9+lignes.length*16,ctx.yBas-y);
+    const h=Math.min(9+9+lignes.length*fz(16),ctx.yBas-y);
     pAplat(pdf,x,y,w,h,PDFC.fondCom,6);
     pAplat(pdf,x,y,3,h,PDFC.bleu,0);
     lignes.forEach((l,i)=>{
-      const yy=y+9+12+i*16;
+      const yy=y+9+fz(12)+i*fz(16);
       if(yy<y+h) pTexte(pdf,x+11,yy,l,{taille:11,couleur:"#333333"});
     });
     y+=h;
@@ -3591,15 +3713,15 @@ function libelleColonneBrut(tableId,colId){
 
 function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const pdf=ctx.pdf, c=S.cfg;
-  pTexte(pdf,x,y+10,"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
-  y+=14+6;
+  pTexte(pdf,x,y+fz(10),"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
+  y+=fz(14)+6;
 
   const datees=acts.map(a=>({a,
       d:Number(a[c.colDebut])||null,
       f:Number(a[c.colFin]||a[c.colEch])||null})).filter(z=>z.d||z.f);
   if(!datees.length){
-    pTexte(pdf,x,y+8,"Aucune date renseignée sur les actions.",{taille:11,couleur:PDFC.vide});
-    return y+22;
+    pTexte(pdf,x,y+fz(8),"Aucune date renseignée sur les actions.",{taille:11,couleur:PDFC.vide});
+    return y+fz(22);
   }
 
   const an=new Date().getUTCFullYear();
@@ -3610,13 +3732,13 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const pos=ts=>posPlanning(per,ts)/per.length*wp;
 
   const dense = datees.length>20, compact = !dense && datees.length>12;
-  const hl = dense?13:(compact?17:22), hb = dense?9:(compact?11:14), db = dense?2:(compact?3:4);
+  const hl = fz(dense?13:(compact?17:22)), hb = dense?9:(compact?11:14), db = dense?2:(compact?3:4);
   const mb = dense?1:(compact?2:3);
 
   const lu=wp/per.length;
-  per.forEach((u,i)=>pTexte(pdf,xp+lu*i+lu/2,y+8,u.label,
+  per.forEach((u,i)=>pTexte(pdf,xp+lu*i+lu/2,y+fz(8),u.label,
     {taille:9.5,couleur:PDFC.gris,align:"center"}));
-  y+=11;
+  y+=fz(11);
   pFiletH(pdf,xp,x+w,y,PDFC.filet);
   const yHaut=y+5;
   y=yHaut;
@@ -3656,17 +3778,17 @@ function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
     nouvellePage=false;
 
     /* titre de section */
-    pTexte(pdf,x,ctx.y+10,premierBloc?titre:titre+" (suite)",
+    pTexte(pdf,x,ctx.y+fz(10),premierBloc?titre:titre+" (suite)",
       {taille:12,style:"bold",couleur:PDFC.bleu});
-    ctx.y+=14+6;
+    ctx.y+=fz(14)+6;
 
     /* en-tête */
     let cx=x;
     cols.forEach(co=>{
-      pTexte(pdf,cx+4,ctx.y+13,co.titre,{taille:11,style:"bold",couleur:PDFC.gris});
+      pTexte(pdf,cx+4,ctx.y+fz(13),co.titre,{taille:11,style:"bold",couleur:PDFC.gris});
       cx+=co.w;
     });
-    ctx.y+=18;
+    ctx.y+=fz(18);
     pFiletH(pdf,x,x+largeur,ctx.y,PDFC.traitFort,1);
     ctx.y+=1;
 
@@ -3680,7 +3802,7 @@ function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
         if(v && v.type==="texte")
           nb=Math.max(nb,pDecoupe(pdf,v.t,co.w-8,v.taille||11,v.style).length);
       });
-      const hl=nb*13.5+10;
+      const hl=nb*fz(13.5)+10;
       if(ctx.y+hl>ctx.yBas) break;
 
       if(li.fond) pAplat(pdf,x,ctx.y,largeur,hl,li.fond,0);
@@ -3692,7 +3814,7 @@ function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
         if(v){
           if(v.type==="pastille") pPastille(pdf,cx+4,ctx.y+5,v.t,v.fond,v.coul,11);
           else pDecoupe(pdf,v.t,co.w-8,v.taille||11,v.style).forEach((l,k)=>
-            pTexte(pdf,cx+4,ctx.y+15+k*13.5,l,
+            pTexte(pdf,cx+4,ctx.y+fz(15)+k*fz(13.5),l,
               {taille:v.taille||11,style:v.style,couleur:v.couleur||PDFC.encre}));
         }
         cx+=co.w;
@@ -3824,53 +3946,54 @@ function construireDoc(p){
     const acts=actionsImpression(p);
     const numeros=new Map(); acts.forEach((a,i)=>numeros.set(a.id,i+1));
     const ctx=docNouveau(titre);
+    PZ=Number(IMPR.zoom)||1;
 
     pageGarde(ctx,p);
 
-    /* page 1 : identité à gauche, planning et actions à droite */
+    chargerPagesSup(p);
     const xd=MX+250+24, wd=PW-MX-xd;
-    if(IMPR.sections.synthese || IMPR.sections.planning || IMPR.sections.actions){
-      docPage(ctx);
-      const yDep=ctx.y;
-      if(IMPR.sections.synthese) dessinerColonneGauche(ctx,p,MX,yDep,250);
-      ctx.y=yDep;
-      if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xd,ctx.y,wd);
-      if(IMPR.sections.actions){
-        dessinerTableau(ctx,"Actions",
-          [{cle:"num",titre:"#",w:26},{cle:"action",titre:"Action",w:wd-26-130-80-92},
-           {cle:"porteur",titre:"Porteur",w:130},{cle:"ech",titre:"Échéance",w:80},
-           {cle:"avct",titre:"Avancement",w:92}],
-          lignesActionsSynthese(p,acts,numeros),xd,wd,false);
-        dessinerTableau(ctx,"Actions MEO et tâches",
-          [{cle:"lib",titre:"Action / Tâche",w:430},{cle:"resp",titre:"Responsable",w:120},
-           {cle:"avct",titre:"Avancement",w:100},{cle:"com",titre:"Commentaire",w:413}],
-          lignesActionsDetail(p,acts),MX,PW-2*MX,true);
-      }
-    }
 
-    if(IMPR.sections.instances){
-      const l=lignesInstancesPdf(p);
-      if(l.length) dessinerTableau(ctx,"Instances",
+    const dessiner={
+      synthese:()=>{
+        docPage(ctx);
+        const yDep=ctx.y;
+        if(IMPR.sections.identite) dessinerColonneGauche(ctx,p,MX,yDep,250);
+        ctx.y=yDep;
+        const xg=IMPR.sections.identite?xd:MX;
+        const wg=IMPR.sections.identite?wd:(PW-2*MX);
+        if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
+        if(IMPR.sections.actions)
+          dessinerTableau(ctx,"Actions",
+            [{cle:"num",titre:"#",w:26},{cle:"action",titre:"Action",w:wg-26-130-80-92},
+             {cle:"porteur",titre:"Porteur",w:130},{cle:"ech",titre:"Échéance",w:80},
+             {cle:"avct",titre:"Avancement",w:92}],
+            lignesActionsSynthese(p,acts,numeros),xg,wg,false);
+      },
+      detail:()=>dessinerTableau(ctx,"Actions MEO et tâches",
+        [{cle:"lib",titre:"Action / Tâche",w:430},{cle:"resp",titre:"Responsable",w:120},
+         {cle:"avct",titre:"Avancement",w:100},{cle:"com",titre:"Commentaire",w:413}],
+        lignesActionsDetail(p,acts),MX,PW-2*MX,true),
+      instances:()=>dessinerTableau(ctx,"Instances",
         [{cle:"date",titre:"Date",w:90},{cle:"type",titre:"Type",w:130},
          {cle:"objet",titre:"Objet",w:PW-2*MX-90-130-150-190},
          {cle:"rap",titre:"Rapporteur",w:150},{cle:"action",titre:"Action",w:190}],
-        l,MX,PW-2*MX,true);
-    }
-    if(IMPR.sections.journal){
-      const j=lignesJalonsPdf(p);
-      if(j.length) dessinerTableau(ctx,"Jalons",
+        lignesInstancesPdf(p),MX,PW-2*MX,true),
+      jalons:()=>dessinerTableau(ctx,"Jalons",
         [{cle:"date",titre:"Date",w:90},{cle:"jalon",titre:"Jalon",w:PW-2*MX-90-190},
-         {cle:"action",titre:"Action",w:190}],j,MX,PW-2*MX,true);
-      const n=lignesJournalPdf(p);
-      if(n.length) dessinerTableau(ctx,"Journal de bord",
+         {cle:"action",titre:"Action",w:190}],
+        lignesJalonsPdf(p),MX,PW-2*MX,true),
+      journal:()=>dessinerTableau(ctx,"Journal de bord",
         [{cle:"date",titre:"Date",w:90},{cle:"action",titre:"Action",w:160},
          {cle:"nature",titre:"Nature",w:120},
          {cle:"texte",titre:"Commentaire",w:PW-2*MX-90-160-120-130},
-         {cle:"auteur",titre:"Auteur",w:130}],n,MX,PW-2*MX,true);
-    }
+         {cle:"auteur",titre:"Auteur",w:130}],
+        lignesJournalPdf(p),MX,PW-2*MX,true),
+      sup:()=>dessinerPagesSup(ctx)
+    };
 
-    chargerPagesSup(p);
-    dessinerPagesSup(ctx);
+    blocsRetenus().forEach(cle=>{ if(dessiner[cle]) dessiner[cle](); });
+
+
 
     /* numérotation : « Page n/N » une fois le total connu */
     const total=ctx.numeros.length;

@@ -56,7 +56,14 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   flex:0 0 290px;width:290px;max-width:32%;
   background:#fff;border-right:1px solid var(--trait);
   display:flex;flex-direction:column;min-height:0;
+  transition:flex-basis .18s ease,width .18s ease;
 }
+/* panneau replié */
+body.panneau-replie .panneau{
+  flex:0 0 0;width:0;min-width:0;border-right:none;overflow:hidden;
+}
+body.panneau-replie .panneau>*{display:none;}
+.btn-top.bascule{padding:3px 8px;font-weight:bold;}
 .contenu{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
 
 /* ---------- Liste des projets ---------- */
@@ -342,8 +349,14 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-fond{position:absolute;left:230px;right:0;top:23px;bottom:0;display:flex;pointer-events:none;}
 .pl-fond div{flex:1;border-left:1px solid #f1f4f8;}
 .pl-fond div.fin-annee{border-right:1px solid #e4e9f0;}
-.pl-auj{position:absolute;top:23px;bottom:0;width:0;border-left:2px solid #E30613;
+/* le trait « aujourd'hui » est positionné dans la zone des barres (après la colonne
+   des libellés de 230 px), exactement comme .pl-fond : sinon il est décalé. */
+.pl-auj-zone{position:absolute;left:230px;right:0;top:23px;bottom:0;
   pointer-events:none;z-index:2;}
+.pl-auj{position:absolute;top:0;bottom:0;width:0;border-left:2px solid #E30613;}
+.pl-auj::after{content:"";position:absolute;top:-4px;left:-4px;
+  border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:5px solid #E30613;}
 .pl-ligne{display:flex;align-items:center;height:29px;border-bottom:1px solid #f4f6f9;position:relative;}
 .pl-nom{flex:0 0 230px;padding-right:12px;font-size:11.5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -406,13 +419,54 @@ tbody tr.ligne-com:hover{background:transparent;}
 .accueil{display:flex;align-items:center;justify-content:center;height:100%;
   color:var(--gris);text-align:center;padding:30px;}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+
+/* ---------- Champs de date (saisie jj/mm/aaaa) ---------- */
+.date-fr{font-variant-numeric:tabular-nums;}
+.date-fr::placeholder{color:#aab2c0;}
+.date-fr.date-ko,td .date-fr.date-ko{border-color:var(--rouge)!important;
+  background:#FDF3F3!important;color:var(--rouge);}
+.filtre-plage .date-fr{width:104px;flex:0 0 auto;}
+
+/* ---------- Impression du projet sélectionné ---------- */
+#impression{display:none;}
+#impression .imp-entete{border-bottom:2px solid var(--bleu);padding-bottom:9px;margin-bottom:16px;
+  display:flex;gap:14px;align-items:flex-start;}
+#impression .imp-entete h1{margin:0 0 4px;font-size:17px;color:var(--bleu);line-height:1.25;}
+#impression .imp-meta{font-size:11px;color:var(--gris);line-height:1.6;}
+#impression .imp-bloc{margin-bottom:18px;}
+#impression .imp-titre{margin:0 0 9px;font-size:12px;color:var(--bleu);
+  text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--trait);
+  padding-bottom:4px;}
+#impression .imp-val{display:block;min-height:14px;line-height:1.45;
+  white-space:pre-wrap;overflow-wrap:anywhere;}
+#impression .carte{page-break-inside:auto;break-inside:auto;}
+#impression .fige{background:transparent;border:none;padding:0;color:var(--encre);}
+#impression .vide{padding:12px;}
+
+@media print{
+  @page{size:A4 portrait;margin:11mm 9mm;}
+  html,body{height:auto!important;overflow:visible!important;display:block!important;
+    background:#fff!important;font-size:11px;}
+  .topbar,.layout,.barre-enr,.voile,.toast{display:none!important;}
+  #impression{display:block!important;}
+  #impression table{font-size:10px;}
+  #impression th,#impression td{padding:3px 5px;}
+  #impression tr,#impression .jnl,#impression .jalon{page-break-inside:avoid;break-inside:avoid;}
+  #impression .imp-bloc{page-break-inside:auto;}
+  #impression .planning{overflow:visible!important;}
+  #impression .pl-grille{min-width:0!important;}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
 </style>
 </head>
 <body>
 
 <div class="topbar">
+  <button class="btn-top bascule" id="btn-panneau"
+          title="Replier / déplier la liste des projets" aria-expanded="true">◀ Projets</button>
   <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
   <div class="spacer"></div>
+  <button class="btn-top" id="btn-imprimer" title="Imprimer la fiche du projet sélectionné">Imprimer</button>
   <button class="btn-top" id="btn-actualiser">Actualiser</button>
 </div>
 
@@ -443,9 +497,11 @@ tbody tr.ligne-com:hover{background:transparent;}
         </div>
         <div class="filtre-date">
           <span>Échéance du</span>
-          <input id="f-ech-du" type="date" aria-label="Échéance à partir du">
+          <input id="f-ech-du" type="text" class="date-fr" inputmode="numeric" maxlength="10"
+                 placeholder="jj/mm/aaaa" autocomplete="off" aria-label="Échéance à partir du">
           <span>au</span>
-          <input id="f-ech-au" type="date" aria-label="Échéance jusqu'au">
+          <input id="f-ech-au" type="text" class="date-fr" inputmode="numeric" maxlength="10"
+                 placeholder="jj/mm/aaaa" autocomplete="off" aria-label="Échéance jusqu'au">
         </div>
       </div>
     </div>
@@ -481,6 +537,8 @@ tbody tr.ligne-com:hover{background:transparent;}
     </footer>
   </div>
 </div>
+
+<div id="impression" aria-hidden="true"></div>
 
 <div class="toast" id="toast"></div>
 
@@ -568,6 +626,7 @@ const S = {
   ouverts:{},
   brouillon:{},               // saisies en attente : "table|ligne|colonne" -> {t,r,c,v}
   deverrouille:false,
+  panneauReplie:false,        // panneau latéral gauche replié ?
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
 };
@@ -611,6 +670,46 @@ function isoVersDate(iso){
   if(!iso) return null;
   const [a,m,j]=iso.split("-").map(Number);
   return Date.UTC(a,m-1,j)/1000;
+}
+
+/* --- saisie des dates au format jj/mm/aaaa ---------------------------------
+   frVersDate renvoie : un nombre (secondes epoch), null si le champ est vide,
+   undefined si la saisie n'est pas une date valable.                        */
+function frVersDate(s){
+  const t=String(s==null?"":s).trim();
+  if(!t) return null;
+  let j,m,a;
+  const chiffres=t.replace(/\D/g,"");
+  if(/^\d+$/.test(t) && (chiffres.length===8 || chiffres.length===6)){
+    j=+chiffres.slice(0,2); m=+chiffres.slice(2,4); a=+chiffres.slice(4);   // 05032026 / 050326
+  }else{
+    const x=t.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2}|\d{4})$/);
+    if(!x) return undefined;
+    j=+x[1]; m=+x[2]; a=+x[3];
+  }
+  if(a<100) a += (a<70 ? 2000 : 1900);          // 26 -> 2026, 98 -> 1998
+  if(m<1||m>12||j<1||j>31) return undefined;
+  const d=new Date(Date.UTC(a,m-1,j));
+  if(d.getUTCFullYear()!==a || d.getUTCMonth()!==m-1 || d.getUTCDate()!==j) return undefined;
+  return d.getTime()/1000;
+}
+/* pour les filtres : une saisie incomplète ou fautive vaut « pas de filtre » */
+function dateFiltre(s){ const v=frVersDate(s); return v===undefined ? null : v; }
+/* remet une saisie libre au format jj/mm/aaaa (chaîne vide si non exploitable) */
+function normaliserDateFR(s){
+  const v=frVersDate(s);
+  return (v===undefined || v===null) ? "" : dateVersFR(v);
+}
+function dateDuJourFR(){
+  const n=new Date();
+  return String(n.getDate()).padStart(2,"0")+"/"+
+         String(n.getMonth()+1).padStart(2,"0")+"/"+n.getFullYear();
+}
+/* champ de saisie de date : toujours jj/mm/aaaa, quelle que soit la langue du navigateur */
+function champDateFR(attrs,classes,valeurAffichee){
+  return '<input type="text" class="date-fr'+(classes?" "+classes:"")+'" inputmode="numeric" '+
+    'maxlength="10" placeholder="jj/mm/aaaa" autocomplete="off" '+(attrs||"")+
+    ' value="'+esc(valeurAffichee||"")+'">';
 }
 
 /* --- avancement --- */
@@ -1062,7 +1161,7 @@ function projetsFiltres(){
   const q=$("#q").value.trim().toLowerCase();
   const g=MENUS["m-groupement"].sel, po=MENUS["m-porteur"].sel;
   const pr=MENUS["m-priorite"].sel, et=MENUS["m-etat"].sel, av=MENUS["m-avct"].sel;
-  const ecDu=isoVersDate($("#f-ech-du").value), ecAu=isoVersDate($("#f-ech-au").value);
+  const ecDu=dateFiltre($("#f-ech-du").value), ecAu=dateFiltre($("#f-ech-au").value);
   return projets().filter(p=>{
     if(g.length && !g.includes(lire(c.tblMain,p,c.colGroupement))) return false;
     if(po.length && !po.includes(lire(c.tblMain,p,c.colPorteur))) return false;
@@ -1129,6 +1228,9 @@ const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches
                ["instances","Instances"],["planning","Planning"],
                ["journal","Journal de bord & Jalons"]];
 
+/* table des fonctions de rendu, partagée par l'affichage et l'impression */
+const VUES={};   // remplie plus bas, une fois les fonctions vueXxx déclarées
+
 function urlSure(u){
   const s=String(u||"").trim();
   if(!s) return "";
@@ -1176,8 +1278,7 @@ function rendreProjet(){
     S.onglet=b.dataset.o; rendreProjet();
   });
 
-  ({synthese:vueSynthese, actions:vueActions, taches:vueTaches,
-    instances:vueInstances, planning:vuePlanning, journal:vueJournal})[S.onglet](p);
+  VUES[S.onglet](p);
 }
 
 /* --- éditeur de champ générique --- */
@@ -1199,7 +1300,7 @@ function editeur(tableId,ligne,colId,opts){
       ids.map(id=>'<option value="'+id+'"'+(String(v)===id?" selected":"")+'>'+esc(map[id])+'</option>').join("")+'</select>';
   }
   if(info.type.startsWith("Date"))
-    return '<input class="edit'+mk+'" type="date" data-k="date" '+attr+' value="'+dateVersISO(v)+'">';
+    return champDateFR('data-k="date" '+attr,"edit"+mk,dateVersFR(v));
   if(info.type==="Choice")
     return '<select class="edit'+mk+'" data-k="txt" '+attr+'><option value=""></option>'+
       info.choices.map(o=>'<option'+(String(v)===o?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
@@ -1253,7 +1354,17 @@ function brancherEditeurs(){
     el.onchange=()=>{
       const {t,r,c,k}=el.dataset;
       let v=el.value;
-      if(k==="date") v=isoVersDate(v);
+      if(k==="date"){
+        const d=frVersDate(v);
+        if(d===undefined){                       // saisie fautive : rien n'est envoyé à Grist
+          el.classList.add("date-ko");
+          toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true);
+          return;
+        }
+        el.classList.remove("date-ko");
+        el.value = d===null ? "" : dateVersFR(d);   // on réaffiche en jj/mm/aaaa
+        v=d;
+      }
       else if(k==="num") v=v===""?null:Number(v);
       else if(k==="ref") v=Number(v)||0;
       else if(k==="bool") v=v===""?null:v==="1";
@@ -1304,8 +1415,8 @@ function barreFiltres(prefixe,etat,porteurs,total,affiches,menuId,libelleDate){
        ["100","100 %"],["sans","Non renseigné"]]
         .map(([v,l])=>'<option value="'+v+'"'+(etat.avct===v?" selected":"")+'>'+l+'</option>').join("")+'</select>'+
     '<span class="filtre-plage">'+libelleDate+' du '+
-      '<input id="'+prefixe+'-du" type="date" value="'+esc(etat.du)+'"> au '+
-      '<input id="'+prefixe+'-au" type="date" value="'+esc(etat.au)+'"></span>'+
+      champDateFR('id="'+prefixe+'-du"','',etat.du)+' au '+
+      champDateFR('id="'+prefixe+'-au"','',etat.au)+'</span>'+
     (actif
       ? '<button class="btn-raz" id="'+prefixe+'-raz">Réinitialiser</button>'+
         '<span class="decompte">'+affiches+' sur '+total+'</span>'
@@ -1319,9 +1430,9 @@ function brancherFiltres(prefixe,etat,rendu,menuId){
   const av=$("#"+prefixe+"-avct");
   if(av) av.onchange=()=>{ etat.avct=av.value; rendu(); };
   const du=$("#"+prefixe+"-du");
-  if(du) du.onchange=()=>{ etat.du=du.value; rendu(); };
+  if(du) du.onchange=()=>{ etat.du=normaliserDateFR(du.value); rendu(); };
   const au=$("#"+prefixe+"-au");
-  if(au) au.onchange=()=>{ etat.au=au.value; rendu(); };
+  if(au) au.onchange=()=>{ etat.au=normaliserDateFR(au.value); rendu(); };
   const raz=$("#"+prefixe+"-raz");
   if(raz) raz.onclick=()=>{
     etat.porteur=""; etat.avct=""; etat.du=""; etat.au="";
@@ -1342,7 +1453,7 @@ function menuActions(id,actions,rendu){
 }
 
 function dansPlage(valeur,du,au){
-  const d=isoVersDate(du), a=isoVersDate(au);
+  const d=dateFiltre(du), a=dateFiltre(au);
   if(d===null && a===null) return true;
   const e=Number(valeur)||null;
   if(!e) return false;
@@ -1365,7 +1476,7 @@ function champVierge(tableId,colId,id){
         ids.map(i=>'<option value="'+i+'">'+esc(map[i])+'</option>').join("")+'</select>';
     }
   }
-  if(info.type.startsWith("Date")) return '<input id="'+id+'" type="date">';
+  if(info.type.startsWith("Date")) return champDateFR('id="'+id+'"','','');
   if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
     return '<input id="'+id+'" type="number" step="any">';
   return '<input id="'+id+'" type="text">';
@@ -1377,7 +1488,7 @@ function valeurChamp(id,tableId,colId){
   const info=infoCol(tableId,colId), v=el.value;
   if(!info) return v;
   if(info.type.startsWith("Ref:")) return Number(v)||0;
-  if(info.type.startsWith("Date")) return isoVersDate(v);
+  if(info.type.startsWith("Date")){ const d=frVersDate(v); return d===undefined?null:d; }
   if(info.type.startsWith("Numeric")||info.type.startsWith("Int")) return v===""?null:Number(v);
   return v;
 }
@@ -1838,8 +1949,8 @@ function carteAjout(p,prefixe,titre,cles,extras,libelleChamp,bouton){
     ? '<div class="champ"><label>Action concernée</label>'+
       champAction(p,prefixe+"-action",null)+'</div>' : "";
   return '<div class="carte"><h2>'+titre+'</h2><div class="grille colonne">'+
-    '<div class="champ"><label>Date</label><input id="'+prefixe+'-date" type="date" value="'+
-      new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="champ"><label>Date</label>'+
+      champDateFR('id="'+prefixe+'-date"','',dateDuJourFR())+'</div>'+
     '<div class="champ"><label>'+libelleChamp+'</label>'+
       champVierge(c[cles.table],c[cles.lib],prefixe+"-libelle")+'</div>'+
     action+sup+
@@ -1855,7 +1966,11 @@ function brancherAjout(p,prefixe,cles,extras,alerte){
     if(!lib){ toast(alerte,true); return; }
     const info=infoCol(c[cles.table],c[cles.lien]);
     const champs={[c[cles.lib]]:lib};
-    if(c[cles.date]) champs[c[cles.date]]=isoVersDate($("#"+prefixe+"-date").value);
+    if(c[cles.date]){
+      const d=frVersDate($("#"+prefixe+"-date").value);
+      if(d===undefined){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
+      champs[c[cles.date]]=d;
+    }
     extras.forEach(e=>{
       if(!c[e.cle] || !$("#"+prefixe+"-"+e.id)) return;
       const v=valeurChamp(prefixe+"-"+e.id,c[cles.table],c[e.cle]);
@@ -2097,9 +2212,12 @@ function vuePlanning(p){
   const fond='<div class="pl-fond">'+per.map(x=>
     '<div'+(x.fin_annee?' class="fin-annee"':'')+'></div>').join("")+'</div>';
 
-  const auj=Math.floor(Date.now()/1000);
-  const marqueur=(auj>=per[0].debut && auj<=per[per.length-1].fin)
-    ? '<div class="pl-auj" style="left:'+pos(auj)+'%" title="Aujourd\'hui"></div>' : '';
+  /* aujourd'hui, ramené à minuit UTC pour rester dans le même repère que les périodes */
+  const n0=new Date();
+  const auj=Date.UTC(n0.getFullYear(),n0.getMonth(),n0.getDate())/1000;
+  const marqueur=(auj>=per[0].debut && auj<per[per.length-1].fin)
+    ? '<div class="pl-auj-zone"><div class="pl-auj" style="left:'+pos(auj)+'%" title="Aujourd\'hui — '+
+      esc(n0.toLocaleDateString("fr-FR"))+'"></div></div>' : '';
 
   const rangs=lignes.map(o=>{
     const b=bornes(o), r=o.r, tache=o.tache;
@@ -2176,8 +2294,8 @@ function vueJournal(p){
   $("#corps").innerHTML=
     '<div class="duo"><div class="duo-ajout">'+
     '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille colonne">'+
-      '<div class="champ"><label>Date</label><input id="j-date" type="date" value="'+
-        new Date().toISOString().slice(0,10)+'"></div>'+
+      '<div class="champ"><label>Date</label>'+
+        champDateFR('id="j-date"','',dateDuJourFR())+'</div>'+
       (c.colJnlAction?'<div class="champ"><label>Action concernée</label>'+
         champAction(p,"j-action",null)+'</div>':'')+
       (c.colJnlAuteur?'<div class="champ"><label>Collaborateur</label>'+
@@ -2211,7 +2329,11 @@ function vueJournal(p){
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }
     const info=infoCol(c.tblJournal,c.colJnlLien);
     const champs={[c.colJnlTexte]:texte};
-    if(c.colJnlDate) champs[c.colJnlDate]=isoVersDate($("#j-date").value);
+    if(c.colJnlDate){
+      const d=frVersDate($("#j-date").value);
+      if(d===undefined){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
+      champs[c.colJnlDate]=d;
+    }
     if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=valeurChamp("j-auteur",c.tblJournal,c.colJnlAuteur);
     if(c.colJnlNature && $("#j-nature")) champs[c.colJnlNature]=valeurChamp("j-nature",c.tblJournal,c.colJnlNature);
     if(c.colJnlAction && $("#j-action")){
@@ -2229,6 +2351,110 @@ function vueJournal(p){
     await supprimer(c.tblJournal,Number(b.dataset.supj));
     await charger(); rendreProjet();
   });
+}
+
+/* on renseigne la table des vues une fois toutes les fonctions déclarées */
+Object.assign(VUES,{
+  synthese:vueSynthese, actions:vueActions, taches:vueTaches,
+  instances:vueInstances, planning:vuePlanning, journal:vueJournal
+});
+
+/* =======================================================================
+   7 bis. Panneau latéral repliable
+   ======================================================================= */
+
+function majBoutonPanneau(){
+  const b=$("#btn-panneau");
+  if(!b) return;
+  b.textContent = S.panneauReplie ? "▶ Projets" : "◀ Projets";
+  b.setAttribute("aria-expanded", S.panneauReplie ? "false" : "true");
+  b.title = S.panneauReplie ? "Déplier la liste des projets" : "Replier la liste des projets";
+}
+
+function basculerPanneau(force){
+  S.panneauReplie = (force===undefined) ? !S.panneauReplie : !!force;
+  document.body.classList.toggle("panneau-replie", S.panneauReplie);
+  majBoutonPanneau();
+  try{ localStorage.setItem("cp-panneau-replie", S.panneauReplie?"1":"0"); }catch(e){}
+}
+
+/* =======================================================================
+   7 ter. Impression de la fiche du projet sélectionné
+   ======================================================================= */
+
+/* remplace les champs de saisie par du texte simple et retire les commandes */
+function aplatirImpression(zone){
+  zone.querySelectorAll("input,select,textarea").forEach(el=>{
+    const s=document.createElement("span");
+    s.className="imp-val";
+    if(el.tagName==="SELECT"){
+      const o=el.options[el.selectedIndex];
+      s.textContent=o?o.text:"";
+    }else if(el.type==="checkbox"||el.type==="radio"){
+      s.textContent=el.checked?"Oui":"Non";
+    }else if(el.type==="date"){
+      const v=el.getAttribute("value")||el.value||"";
+      s.textContent=v?v.split("-").reverse().join("/"):"";
+    }else{
+      s.textContent=(el.tagName==="TEXTAREA"? el.textContent : (el.getAttribute("value")||el.value))||"";
+    }
+    el.replaceWith(s);
+  });
+  zone.querySelectorAll(".barre-actions,.barre-filtres,.pl-controle,.pj-ajout,"+
+                        ".btn,.btn-2,.btn-sup,.chevron,.f-histo,.msel,.histo-rien")
+      .forEach(el=>el.remove());
+  /* les commentaires repliés doivent apparaître sur le papier */
+  zone.querySelectorAll(".ligne-com").forEach(tr=>tr.style.display="");
+}
+
+function enteteImpression(p){
+  const c=S.cfg;
+  const a=pct(p[c.colAvancement]), i=interrompu(p);
+  const bribes=[];
+  if(lire(c.tblMain,p,c.colGroupement)) bribes.push(esc(lire(c.tblMain,p,c.colGroupement)));
+  if(lire(c.tblMain,p,c.colPorteur))    bribes.push("Porteur : "+esc(lire(c.tblMain,p,c.colPorteur)));
+  if(lire(c.tblMain,p,c.colPriorite))   bribes.push("Priorité : "+esc(lire(c.tblMain,p,c.colPriorite)));
+  bribes.push("Avancement : "+(a==null?"—":a+" %"));
+  if(i) bribes.push("Interrompu");
+  return '<div class="imp-entete">'+donut(a,54,i)+
+    '<div><h1>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</h1>'+
+    '<div class="imp-meta">'+bribes.join(" · ")+'<br>'+
+    'Suivi des projets et actions — SDIS de l\'Ain · imprimé le '+
+    esc(new Date().toLocaleDateString("fr-FR"))+'</div></div></div>';
+}
+
+function imprimerProjet(){
+  const p=S.projetSel;
+  if(!p){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
+  if(nbModifs()){ toast("Enregistrez vos saisies avant d'imprimer.",true); return; }
+
+  const ongletAvant=S.onglet, verrouAvant=S.deverrouille;
+  S.deverrouille=false;              // fiche en consultation : plus lisible sur papier
+
+  let html="";
+  try{
+    html = ONGLETS.map(([k,l])=>{
+      S.onglet=k;
+      VUES[k](p);
+      return '<section class="imp-bloc"><h2 class="imp-titre">'+l+'</h2>'+
+             $("#corps").innerHTML+'</section>';
+    }).join("");
+  }catch(e){
+    toast("Impression impossible : "+e.message,true);
+  }finally{
+    S.onglet=ongletAvant; S.deverrouille=verrouAvant;
+    rendreProjet();                  // on remet l'écran dans son état d'origine
+  }
+  if(!html) return;
+
+  const zone=$("#impression");
+  zone.innerHTML=enteteImpression(p)+html;
+  aplatirImpression(zone);
+
+  const fin=()=>{ zone.innerHTML=""; window.removeEventListener("afterprint",fin); };
+  window.addEventListener("afterprint",fin);
+  setTimeout(()=>{ window.print(); },60);
+  setTimeout(fin,60000);             // filet de sécurité si afterprint ne remonte pas
 }
 
 /* =======================================================================
@@ -2368,6 +2594,10 @@ async function demarrer(){
 
 $("#q").oninput=rendreListe;
 DATES_FILTRE.forEach(s=>$(s).onchange=rendreListe);
+$("#btn-panneau").onclick=()=>basculerPanneau();
+$("#btn-imprimer").onclick=imprimerProjet;
+try{ basculerPanneau(localStorage.getItem("cp-panneau-replie")==="1"); }
+catch(e){ majBoutonPanneau(); }
 brancherMenus();
 $("#btn-raz").onclick=reinitialiserFiltres;
 $("#btn-enr-brouillon").onclick=enregistrerBrouillon;
@@ -2388,6 +2618,10 @@ document.addEventListener("keydown",e=>{
     e.preventDefault();
     if(nbModifs()) enregistrerBrouillon();
   }
+  if((e.ctrlKey||e.metaKey) && (e.key==="p"||e.key==="P")){
+    e.preventDefault();
+    imprimerProjet();
+  }
 });
 
 /* on ne quitte pas la page en laissant des saisies non enregistrées */
@@ -2397,6 +2631,24 @@ window.addEventListener("beforeunload",e=>{
 $("#btn-annuler").onclick=()=>$("#voile").classList.remove("ouvert");
 $("#btn-enregistrer").onclick=enregistrerReglages;
 $("#voile").onclick=e=>{ if(e.target===$("#voile")) $("#voile").classList.remove("ouvert"); };
+
+/* Saisie des dates : les « / » s'ajoutent tout seuls, et la valeur est remise
+   au format jj/mm/aaaa dès qu'on quitte le champ. */
+document.addEventListener("input",e=>{
+  const el=e.target;
+  if(!el.classList || !el.classList.contains("date-fr")) return;
+  el.classList.remove("date-ko");
+  if(e.inputType && e.inputType.startsWith("delete")) return;
+  if(/^\d{2}$/.test(el.value) || /^\d{2}\/\d{2}$/.test(el.value)) el.value+="/";
+});
+document.addEventListener("focusout",e=>{
+  const el=e.target;
+  if(!el.classList || !el.classList.contains("date-fr")) return;
+  const d=frVersDate(el.value);
+  if(d===undefined){ el.classList.add("date-ko"); return; }
+  el.classList.remove("date-ko");
+  el.value = d===null ? "" : dateVersFR(d);
+});
 
 document.addEventListener("click",e=>{
   if(!e.target.closest(".msel"))

@@ -467,6 +467,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 .note-tete .date{font-size:11.5px;color:var(--gris);font-weight:bold;}
 .note-texte{font-size:12.5px;line-height:1.5;white-space:pre-wrap;
   overflow-wrap:anywhere;color:var(--encre);}
+.note-pj{margin-top:8px;}
 .note-choix{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;
   padding-top:9px;border-top:1px solid var(--trait);}
 .note-choix .btn-2.actif{border-color:var(--bleu);background:var(--bleu-clair);
@@ -750,8 +751,10 @@ const DEF = {
   colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
   colInsType:"", colInsRapporteur:"", colInsAction:"",
-  tblNote:"", colNoteLien:"", colNoteAuteur:"", colNoteDate:"", colNoteTexte:"",
-  colNoteStatut:"", colNoteDestination:"", colNoteLigne:"", colNoteTraitee:"",
+  tblNote:"", colNoteLien:"Projet", colNoteAction:"Action_MEO", colNoteAuteur:"Auteur",
+  colNoteDate:"Date", colNoteTexte:"Texte", colNoteStatut:"Statut",
+  colNoteDestination:"Destination", colNoteLigne:"Ligne_creee", colNoteTraitee:"Traite_le",
+  colNotePJ:"Piece_jointe",
   btnLibelle:"", btnUrl:"", mdpHash:""
 };
 
@@ -795,8 +798,10 @@ const CHAMPS_REGLAGES = [
     ["colInsType","Type"],["colInsRapporteur","Rapporteur"]
   ]},
   {bloc:"Table des notes de réunion", tableKey:"tblNote", champs:[
-    ["colNoteLien","Lien vers le projet"],["colNoteAuteur","Auteur"],
+    ["colNoteLien","Lien vers le projet"],["colNoteAction","Lien vers l'action (facultatif)"],
+    ["colNoteAuteur","Auteur"],
     ["colNoteDate","Date"],["colNoteTexte","Texte libre"],
+    ["colNotePJ","Pièces jointes"],
     ["colNoteStatut","Statut"],["colNoteDestination","Destination retenue"],
     ["colNoteLigne","Ligne créée (texte)"],["colNoteTraitee","Date de traitement"]
   ]}
@@ -1053,7 +1058,7 @@ async function charger(){
     [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction"]],
     [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction","colJalCommentaire"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
-    [c.tblNote,["colNoteAuteur","colNoteTexte","colNoteStatut","colNoteDestination"]]
+    [c.tblNote,["colNoteAuteur","colNoteTexte","colNoteStatut","colNoteDestination","colNoteAction"]]
   ];
   for(const [table,cles] of aResoudre){
     if(!table) continue;
@@ -1863,7 +1868,8 @@ function ligneDe(tableId,rowId){
     : tableId===c.tblTache ? S.data.taches
     : tableId===c.tblJournal ? S.data.journal
     : tableId===c.tblJalon ? S.data.jalons
-    : tableId===c.tblInstance ? S.data.instances : [];
+    : tableId===c.tblInstance ? S.data.instances
+    : tableId===c.tblNote ? S.data.notes : [];
   return source.find(r=>r.id===Number(rowId))||null;
 }
 
@@ -2751,6 +2757,29 @@ async function majLigne(tableId,rowId,champs){
   }catch(e){ toast("Échec de l'enregistrement : "+e.message,true); return false; }
 }
 
+/* action désignée sur la note, si la colonne est renseignée */
+function actionDeNote(note){
+  const c=S.cfg;
+  if(!c.colNoteAction||!note) return null;
+  const v=note[c.colNoteAction];
+  const l=estListe(v)?v.slice(1):[v];
+  const brut=l.find(x=>x!==null&&x!=="");
+  if(!brut) return null;
+  const info=infoCol(c.tblNote,c.colNoteAction);
+  if(info && /^Ref(List)?:/.test(info.type))
+    return S.data.main.find(r=>r.id===Number(brut))||null;
+  return S.data.main.find(r=>txt(r[c.colActKey])===txt(brut))||null;
+}
+
+/* recopie l'action vers la colonne « action » de la table cible */
+function poserLienAction(champs,tableId,colAction,action){
+  if(!colAction||!action) return;
+  const info=infoCol(tableId,colAction);
+  if(info && info.type.startsWith("Ref:")) champs[colAction]=action.id;
+  else if(info && info.type.startsWith("RefList:")) champs[colAction]=["L",action.id];
+  else champs[colAction]=action[S.cfg.colActKey];
+}
+
 /* renseigne une colonne de liaison, quel que soit son type */
 function poserLien(champs,tableId,colLien,projet,cle){
   const info=infoCol(tableId,colLien);
@@ -2779,6 +2808,8 @@ async function classerNote(p,note,dest,extra){
   const auteur=c.colNoteAuteur?txt(lire(c.tblNote,note,c.colNoteAuteur)).trim():"";
   const date=Number(note[c.colNoteDate])||null;
   const cle=cleProjet(p);
+  /* action éventuellement désignée sur la note, reportée vers la ligne créée */
+  const actNote=actionDeNote(note);
   let table=null, id=null;
 
   if(dest==="journal"){
@@ -2787,6 +2818,7 @@ async function classerNote(p,note,dest,extra){
     if(c.colJnlTexte)  champs[c.colJnlTexte]=texte;
     if(c.colJnlDate)   champs[c.colJnlDate]=date;
     if(c.colJnlAuteur && auteur) champs[c.colJnlAuteur]=auteur;
+    poserLienAction(champs,c.tblJournal,c.colJnlAction,actNote);
     poserLien(champs,c.tblJournal,c.colJnlLien,p,cle);
     table=c.tblJournal; id=await ajouter(table,champs);
   }
@@ -2796,6 +2828,7 @@ async function classerNote(p,note,dest,extra){
     if(c.colInsLibelle) champs[c.colInsLibelle]=texte;
     if(c.colInsDate)    champs[c.colInsDate]=date;
     if(c.colInsRapporteur && auteur) champs[c.colInsRapporteur]=auteur;
+    poserLienAction(champs,c.tblInstance,c.colInsAction,actNote);
     poserLien(champs,c.tblInstance,c.colInsLien,p,cle);
     table=c.tblInstance; id=await ajouter(table,champs);
   }
@@ -2804,6 +2837,7 @@ async function classerNote(p,note,dest,extra){
     const champs={};
     if(c.colJalLibelle) champs[c.colJalLibelle]=texte;
     if(c.colJalDate)    champs[c.colJalDate]=date;
+    poserLienAction(champs,c.tblJalon,c.colJalAction,actNote);
     poserLien(champs,c.tblJalon,c.colJalLien,p,cle);
     table=c.tblJalon; id=await ajouter(table,champs);
   }
@@ -2867,16 +2901,20 @@ function ligneNoteHtml(p,n,enAttente){
   const auteur=c.colNoteAuteur?lire(c.tblNote,n,c.colNoteAuteur):"";
   const texte=txt(lire(c.tblNote,n,c.colNoteTexte));
   const dest=c.colNoteDestination?lire(c.tblNote,n,c.colNoteDestination):"";
+  const act=actionDeNote(n);
+  const libAct=act?(lire(c.tblMain,act,c.colLibelle)||"(sans libellé)"):"";
   const ouvert=(S.noteOuverte && S.noteOuverte.id===n.id)?S.noteOuverte.dest:null;
 
   let h='<div class="note'+(enAttente?"":" note-traitee")+'" data-note="'+n.id+'">'+
     '<div class="note-tete">'+
       (date?'<span class="date">'+esc(date)+'</span>':'')+
       (auteur?'<span class="pastille p-nature">'+esc(auteur)+'</span>':'')+
+      (libAct?'<span class="pastille p-action" title="'+esc(libAct)+'">'+esc(libAct)+'</span>':'')+
       (!enAttente?'<span class="pastille '+(estSansSuite(n)?"p-Interrompu":"p-action")+'">'+
         esc(estSansSuite(n)?"Sans suite":("Classée : "+(dest||"?")))+'</span>':'')+
     '</div>'+
-    '<div class="note-texte">'+esc(texte)+'</div>';
+    '<div class="note-texte">'+esc(texte)+'</div>'+
+    (c.colNotePJ?'<div class="note-pj">'+blocPJ(c.tblNote,n,c.colNotePJ)+'</div>':'');
 
   if(enAttente){
     h+='<div class="note-choix">'+
@@ -2897,6 +2935,7 @@ function ligneNoteHtml(p,n,enAttente){
 function formulaireNote(p,n,dest,texte){
   const c=S.cfg;
   const propose=esc(texte.split("\n")[0].slice(0,120));
+  const act=actionDeNote(n);           // l'action de la note sert de proposition
   let h='<div class="note-form"><div class="grille colonne">';
 
   if(dest==="action"||dest==="tache"){
@@ -2905,7 +2944,8 @@ function formulaireNote(p,n,dest,texte){
     if(dest==="tache")
       h+='<div class="champ pleine"><label>Action de rattachement</label>'+
          '<select id="nf-action"><option value="">— choisir —</option>'+
-         actionsDe(p).map(a=>'<option value="'+a.id+'">'+
+         actionsDe(p).map(a=>'<option value="'+a.id+'"'+
+           (act&&act.id===a.id?" selected":"")+'>'+
            esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>').join("")+
          '</select></div>';
     const colP=dest==="tache"?c.colTachePorteur:c.colPorteur;
@@ -2916,10 +2956,11 @@ function formulaireNote(p,n,dest,texte){
     h+='<div class="champ"><label>Échéance</label>'+champDateFR('id="nf-ech"','','')+'</div>';
   }
   else if(dest==="commentaire"){
-    const opts=['<option value="P">Le projet — '+
+    const opts=['<option value="P"'+(act?"":" selected")+'>Le projet — '+
       esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</option>'];
     actionsDe(p).forEach(a=>{
-      opts.push('<option value="A:'+a.id+'">Action — '+
+      opts.push('<option value="A:'+a.id+'"'+(act&&act.id===a.id?" selected":"")+
+        '>Action — '+
         esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>');
       if(c.tblTache&&c.colTacheCommentaire) tachesDe(a).forEach(t=>
         opts.push('<option value="T:'+t.id+'">&nbsp;&nbsp;Tâche — '+
@@ -2967,6 +3008,7 @@ function vueNotes(p){
       : '');
 
   brancherNotes(p);
+  brancherPJ();
 }
 
 function brancherNotes(p){

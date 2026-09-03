@@ -503,10 +503,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 .right-col{flex:1;min-width:0;}
 
 .donut-row{display:flex;gap:12px;align-items:center;margin-bottom:14px;}
-.p-donut{position:relative;width:88px;height:88px;flex:0 0 auto;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;}
-.p-donut i{width:64px;height:64px;border-radius:50%;background:#fff;font-style:normal;
-  display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;}
+.p-donut{width:88px;height:88px;flex:0 0 auto;display:block;}
 .donut-label{font-size:12px;color:#5f5e5a;line-height:1.35;}
 
 .badge-list{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
@@ -519,7 +516,8 @@ tbody tr.ligne-com:hover{background:transparent;}
   line-height:1.45;margin-bottom:14px;border-left:3px solid var(--bleu);
   white-space:pre-wrap;overflow-wrap:anywhere;}
 .rien{font-size:11px;color:#999;margin-bottom:14px;}
-.pct-badge{padding:2px 10px;border-radius:8px;font-weight:bold;display:inline-block;font-size:11px;}
+.pct-badge{padding:2px 10px;border-radius:8px;font-weight:bold;display:inline-block;
+  font-size:11px;white-space:nowrap;}
 
 /* planning */
 .gantt-wrap{margin-bottom:16px;position:relative;}
@@ -548,7 +546,6 @@ table.p-tab td{padding:5px 4px;border-bottom:1px solid #eef2f8;vertical-align:to
 .l-action td{background:#f7f9fc;border-top:1px solid #b9c6dc;font-weight:bold;}
 .l-tache td{color:#5f5e5a;font-size:10.5px;}
 .l-tache td:nth-child(2){padding-left:18px;}
-.retard{color:var(--rouge);font-weight:bold;}
 </style>
 </head>
 <body>
@@ -2683,6 +2680,25 @@ function pastillePleineImpr(v){
   else if(/poursuite/.test(t)) fond="#8064A2";
   return '<span class="pct-badge" style="background:'+fond+';color:'+coul+'">'+esc(s)+'</span>';
 }
+/* donut d'avancement dessiné en SVG : html2canvas ne sait pas rendre conic-gradient */
+function donutSvgImpr(av,inter){
+  /* couleurs littérales : var() ne se résout pas dans un SVG rasterisé */
+  const co = inter ? "#808080"
+    : av==null ? "#c9d0da"
+    : av>=100  ? "#9BBB59"
+    : av>=50   ? "#FFCC00"
+    : av>=1    ? "#F79646" : "#C0504D";
+  const v=av==null?0:Math.max(0,Math.min(100,av));
+  const r=38, circ=2*Math.PI*r;                 // anneau de 12 px : coeur blanc de 64 px
+  return '<svg class="p-donut" width="88" height="88" viewBox="0 0 88 88" aria-hidden="true">'+
+    '<circle cx="44" cy="44" r="'+r+'" fill="none" stroke="#e6e6e6" stroke-width="12"/>'+
+    '<circle cx="44" cy="44" r="'+r+'" fill="none" stroke="'+co+'" stroke-width="12" '+
+      'stroke-dasharray="'+(circ*v/100)+' '+circ+'" transform="rotate(-90 44 44)"/>'+
+    '<text x="44" y="44" text-anchor="middle" dominant-baseline="central" '+
+      'font-family="Tahoma,Geneva,sans-serif" font-size="16" font-weight="bold" fill="#1a1a1a">'+
+      (av==null?"–":av+"%")+'</text></svg>';
+}
+
 function badgeImpr(cle,valeurHtml){
   if(!valeurHtml) return "";
   return '<div class="badge-item"><span class="k">'+esc(cle)+'</span> '+
@@ -2692,11 +2708,6 @@ function badgeImpr(cle,valeurHtml){
 function aujourdHuiUTC(){
   const n=new Date();
   return Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/1000;
-}
-function impEnRetard(ech,av,inter){
-  const e=Number(ech)||null;
-  if(!e || inter || av===100) return false;
-  return e < aujourdHuiUTC();
 }
 function actionsImpression(p){
   const c=S.cfg, t=c.tblMain, toutes=actionsDe(p);
@@ -2752,11 +2763,7 @@ function coquillePage(titre,numero,premiere){
 function colonneGauche(p){
   const c=S.cfg, t=c.tblMain;
   const av=pct(p[c.colAvancement]), inter=interrompu(p);
-  const cd=bandesImpr(av,inter);
-  const v=av==null?0:Math.max(0,Math.min(100,av));
-  let h='<div class="donut-row">'+
-    '<div class="p-donut" style="background:conic-gradient('+cd.fill+' 0% '+v+'%,#e6e6e6 '+v+'% 100%)">'+
-    '<i>'+(av==null?"–":av+"%")+'</i></div>'+
+  let h='<div class="donut-row">'+donutSvgImpr(av,inter)+
     '<div class="donut-label">Avancement<br>global</div></div>';
   h+='<div class="badge-list">'+
     badgeImpr("Nature",esc(lire(t,p,c.colNature)))+
@@ -2816,11 +2823,10 @@ function lignesActionsSynthese(p,acts,numeros){
   const c=S.cfg, t=c.tblMain;
   return acts.map(r=>{
     const av=pct(r[c.colAvancement]), inter=interrompu(r);
-    const retard=impEnRetard(r[c.colEch],av,inter);
     return '<tr><td>'+(numeros.get(r.id)||"")+'</td>'+
       '<td>'+esc(lire(t,r,c.colLibelle)||"(action sans libellé)")+'</td>'+
       '<td>'+esc(lire(t,r,c.colPorteur))+'</td>'+
-      '<td'+(retard?' class="retard"':'')+'>'+esc(dateVersFR(r[c.colEch]))+'</td>'+
+      '<td>'+esc(dateVersFR(r[c.colEch]))+'</td>'+
       '<td>'+pastilleAvctImpr(av,inter)+'</td></tr>';
   });
 }
@@ -3015,12 +3021,18 @@ async function genererFichePDF(p){
   try{
     const pages=construirePages(p);
     await new Promise(r=>setTimeout(r,120));       // laisse le navigateur peindre
-    const pdf=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",format:[1123,794]});
+    const pdf=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",
+                                      format:[1123,794],compress:true});
     for(let i=0;i<pages.length;i++){
-      const canvas=await html2canvas(pages[i],{scale:2,useCORS:true,backgroundColor:"#ffffff"});
-      const img=canvas.toDataURL("image/jpeg",0.95);
+      /* 3x + PNG : le texte reste net une fois le PDF agrandi ou imprimé */
+      const canvas=await html2canvas(pages[i],{
+        scale:3, useCORS:true, backgroundColor:"#ffffff",
+        logging:false, imageTimeout:0, width:1123, height:794,
+        windowWidth:1123, windowHeight:794
+      });
+      const img=canvas.toDataURL("image/png");
       if(i>0) pdf.addPage([1123,794],"landscape");
-      pdf.addImage(img,"JPEG",0,0,1123,794);
+      pdf.addImage(img,"PNG",0,0,1123,794,undefined,"FAST");
     }
     const nom=(lire(c.tblMain,p,c.colLibelle)||"fiche_projet")
       .replace(/[^a-z0-9_\-]+/gi,"_").slice(0,60)+".pdf";

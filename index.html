@@ -131,6 +131,7 @@ body.panneau-replie .panneau>*{display:none;}
 .p-P3{background:#fdf4d6;color:#8a6d00;}
 .p-Termine{background:#eaf2dc;color:#5f7a2a;}
 .p-Interrompu{background:#e9eaec;color:#595959;}
+.p-Poursuite{background:#EDE3F7;color:#6B3FA0;}
 .p-neutre{background:#eef1f5;color:#4b5462;}
 .p-jalon{background:var(--bleu-clair);color:var(--bleu);}
 .p-instance{background:#fdeadb;color:#b4611f;}
@@ -767,7 +768,8 @@ function pastillePriorite(v){
   const s=txt(v).trim();
   if(!s) return "";
   const cl = /^P1/i.test(s)?"p-P1" : /^P2/i.test(s)?"p-P2" : /^P3/i.test(s)?"p-P3"
-    : /termin/i.test(s)?"p-Termine" : /interromp/i.test(s)?"p-Interrompu" : "p-neutre";
+    : /termin/i.test(s)?"p-Termine" : /interromp/i.test(s)?"p-Interrompu"
+    : /poursuite/i.test(s)?"p-Poursuite" : "p-neutre";
   return '<span class="pastille '+cl+'">'+esc(s)+'</span>';
 }
 

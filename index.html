@@ -105,6 +105,13 @@ body.panneau-replie .panneau>*{display:none;}
 .msel-pan label:hover{background:var(--bleu-survol);}
 .msel-pan .msel-tout{font-weight:bold;border-bottom:1px solid var(--trait);
   margin-bottom:4px;padding-bottom:6px;}
+.msel-rech{position:sticky;top:-7px;background:#fff;padding:0 0 6px;margin:-1px 0 2px;z-index:1;}
+.msel-rech input{width:100%;box-sizing:border-box;padding:6px 8px;font-size:12px;
+  border:1px solid var(--trait);border-radius:var(--rayon);background:var(--fond);}
+.msel-rech input:focus{outline:none;border-color:var(--bleu);background:#fff;}
+.msel-rien{padding:8px 6px;font-size:11.5px;color:var(--gris);}
+.msel-compte{padding:6px 6px 0;font-size:11px;color:var(--gris);
+  border-top:1px solid var(--trait);margin-top:4px;}
 .filtre-date{grid-column:1/-1;display:flex;align-items:center;gap:6px;
   font-size:11px;color:var(--gris);white-space:nowrap;}
 .filtre-date input{flex:1;min-width:0;padding:5px 6px;border:1px solid var(--trait);
@@ -1254,7 +1261,14 @@ const MENUS={
     ["0","0 %"],["1-49","1 à 49 %"],["50-99","50 à 99 %"],["100","100 %"],["sans","Non renseigné"]]}
 };
 
-function rendreMenu(id){
+/* comparaison souple : sans accent, sans casse, pour la recherche dans les menus */
+function sansAccent(s){
+  return txt(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+}
+
+const MSEL_SEUIL_RECHERCHE=8;   // au-delà, un champ de recherche apparaît
+
+function majEtiquetteMenu(id){
   const m=MENUS[id], wrap=$("#"+id);
   if(!wrap) return;
   const n=m.sel.length;
@@ -1262,15 +1276,58 @@ function rendreMenu(id){
     : n===1 ? (m.opts.find(o=>o[0]===m.sel[0])||[,m.sel[0]])[1]
     : n+" sélectionnés";
   wrap.querySelector(".msel-btn").textContent=etiq+" ▾";
-  wrap.querySelector(".msel-pan").innerHTML=
-    '<label class="msel-tout"><input type="checkbox" data-tout'+(n===0?" checked":"")+'>'+
-      '<span class="msel-txt">'+esc(m.tous)+'</span></label>'+
-    m.opts.map(([v,l])=>'<label title="'+esc(l)+'"><input type="checkbox" value="'+esc(v)+'"'+
-      (m.sel.includes(v)?" checked":"")+'><span class="msel-txt">'+esc(l)+'</span></label>').join("");
-  wrap.querySelectorAll(".msel-pan input").forEach(inp=>inp.onchange=()=>{
+}
+
+function rendreMenu(id){
+  const m=MENUS[id], wrap=$("#"+id);
+  if(!wrap) return;
+  majEtiquetteMenu(id);
+
+  const pan=wrap.querySelector(".msel-pan");
+  const avecRecherche = m.opts.length>MSEL_SEUIL_RECHERCHE;
+  pan.innerHTML =
+    (avecRecherche
+      ? '<div class="msel-rech"><input type="search" class="msel-q" '+
+        'placeholder="Rechercher un mot clé…" value="'+esc(m.q||"")+'" '+
+        'aria-label="Filtrer la liste"></div>' : '')+
+    '<div class="msel-liste"></div>';
+
+  if(avecRecherche){
+    const q=pan.querySelector(".msel-q");
+    q.oninput=()=>{ m.q=q.value; rendreOptionsMenu(id); };
+    q.onkeydown=e=>{
+      if(e.key==="Escape"){ e.stopPropagation(); m.q=""; q.value=""; rendreOptionsMenu(id); }
+    };
+  }
+  rendreOptionsMenu(id);
+}
+
+/* n'actualise que la liste, pour ne pas perdre le curseur pendant la frappe */
+function rendreOptionsMenu(id){
+  const m=MENUS[id], wrap=$("#"+id);
+  if(!wrap) return;
+  const zone=wrap.querySelector(".msel-liste");
+  if(!zone) return;
+  const n=m.sel.length;
+  const q=sansAccent(m.q||"").trim();
+  const vus = q ? m.opts.filter(([v,l])=>sansAccent(l).includes(q)) : m.opts;
+
+  zone.innerHTML=
+    (q ? '' :
+      '<label class="msel-tout"><input type="checkbox" data-tout'+(n===0?" checked":"")+'>'+
+      '<span class="msel-txt">'+esc(m.tous)+'</span></label>')+
+    (vus.length
+      ? vus.map(([v,l])=>'<label title="'+esc(l)+'"><input type="checkbox" value="'+esc(v)+'"'+
+          (m.sel.includes(v)?" checked":"")+'><span class="msel-txt">'+esc(l)+'</span></label>').join("")
+      : '<div class="msel-rien">Aucun résultat pour « '+esc(m.q)+' »</div>')+
+    (q ? '<div class="msel-compte">'+vus.length+' sur '+m.opts.length+'</div>' : '');
+
+  zone.querySelectorAll("input").forEach(inp=>inp.onchange=()=>{
     if(inp.hasAttribute("data-tout")) m.sel=[];
     else m.sel = inp.checked ? m.sel.concat([inp.value]) : m.sel.filter(x=>x!==inp.value);
-    rendreMenu(id);
+    /* on ne reconstruit que l'étiquette et la liste : le curseur reste dans la recherche */
+    majEtiquetteMenu(id);
+    rendreOptionsMenu(id);
     (m.maj||rendreListe)();
   });
 }
@@ -1283,6 +1340,10 @@ function brancherMenu(id){
     const ouvrir=pan.hidden;
     document.querySelectorAll(".msel-pan").forEach(x=>x.hidden=true);
     pan.hidden=!ouvrir;
+    if(ouvrir){
+      const q=pan.querySelector(".msel-q");
+      if(q) q.focus();
+    }
   };
   rendreMenu(id);
 }

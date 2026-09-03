@@ -2982,10 +2982,22 @@ function vueNotes(p){
   const c=S.cfg;
   if(!c.tblNote||!c.colNoteLien){
     $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Table des notes non paramétrée</b>'+
-      'Ouvrez les réglages pour indiquer la table des notes de réunion et sa colonne de liaison.</div></div>';
+      'Ouvrez les réglages, bloc « Table des notes de réunion », et indiquez la table '+
+      'ainsi que sa colonne « Lien vers le projet ».</div></div>';
     return;
   }
   const notes=notesDe(p);
+  /* diagnostic : des notes existent, mais aucune ne se rattache à ce projet */
+  if(!notes.length && S.data.notes.length){
+    $("#corps").innerHTML='<div class="carte"><div class="vide">'+
+      '<b>Aucune note rattachée à ce projet</b>'+
+      'La table contient '+S.data.notes.length+' note'+(S.data.notes.length>1?"s":"")+
+      ', mais aucune ne pointe vers « '+esc(lire(c.tblMain,p,c.colLibelle)||"ce projet")+' ». '+
+      'Vérifiez dans les réglages que la colonne « Lien vers le projet » est bien '+
+      esc(c.colNoteLien)+', et que cette colonne désigne la ligne du projet et non celle '+
+      'd\'une action.</div></div>';
+    return;
+  }
   const attente=notes.filter(estACaracteriser);
   const classees=notes.filter(n=>!estACaracteriser(n));
 
@@ -4343,8 +4355,12 @@ function devineDefauts(){
   }
   if(c.tblMain){
     const ids=colonnesDe(c.tblMain).map(x=>x.colId);
-    Object.keys(DEF).forEach(k=>{
-      if(k.startsWith("col") && !c[k] && ids.includes(DEF[k])) c[k]=DEF[k];
+    /* on ne complète que les colonnes de la table principale : chercher les
+       colonnes des autres tables ici les rattacherait au mauvais endroit */
+    const clesMain=(CHAMPS_REGLAGES.find(b=>b.tableKey==="tblMain")||{champs:[]})
+      .champs.map(x=>x[0]);
+    clesMain.forEach(k=>{
+      if(!c[k] && DEF[k] && ids.includes(DEF[k])) c[k]=DEF[k];
     });
     if(!c.colLibelle){
       const pref=["Libelle","Libellé","Libelle_Action","Titre","Projet_Action","Nom","Intitule"];
@@ -4355,6 +4371,25 @@ function devineDefauts(){
     const t=S.meta.tables.find(x=>/tache|tâche/i.test(x));
     if(t) c.tblTache=t;
   }
+  /* table des notes : repérée à sa signature, sinon à son nom */
+  if(!c.tblNote){
+    const signature=t=>{
+      const ids=colonnesDe(t).map(x=>x.colId);
+      return ids.includes("Destination") && ids.includes("Ligne_creee");
+    };
+    c.tblNote = S.meta.tables.find(signature)
+             || S.meta.tables.find(x=>/^notes?$/i.test(x)) || "";
+  }
+  /* chaque bloc complète ses colonnes depuis SA table */
+  CHAMPS_REGLAGES.forEach(bloc=>{
+    if(bloc.tableKey==="tblMain") return;
+    const tid=c[bloc.tableKey];
+    if(!tid) return;
+    const ids=colonnesDe(tid).map(x=>x.colId);
+    bloc.champs.forEach(([k])=>{
+      if(!c[k] && DEF[k] && ids.includes(DEF[k])) c[k]=DEF[k];
+    });
+  });
   if(c.tblTache){
     const ids=colonnesDe(c.tblTache).map(x=>x.colId);
     if(!c.colTacheLibelle) c.colTacheLibelle=ids.find(i=>/libell|titre|nom|tache/i.test(i))||"";

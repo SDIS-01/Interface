@@ -482,7 +482,6 @@ tbody tr.ligne-com:hover{background:transparent;}
   padding-top:9px;border-top:1px solid var(--trait);}
 .note-choix .btn-2.actif{border-color:var(--bleu);background:var(--bleu-clair);
   color:var(--bleu);font-weight:bold;}
-.note-espace{flex:1;}
 .note-rien{color:var(--gris);}
 .note-form{margin-top:10px;padding:11px;background:var(--bleu-survol);
   border-radius:var(--rayon);}
@@ -2858,10 +2857,15 @@ async function marquerNote(note,statut,destination,tableCible,idCree){
 async function classerNote(p,note,dest,extra){
   const c=S.cfg;
   extra=extra||{};
-  const texte=txt(lire(c.tblNote,note,c.colNoteTexte)).trim();
-  const auteur=c.colNoteAuteur?txt(lire(c.tblNote,note,c.colNoteAuteur)).trim():"";
-  const date=Number(note[c.colNoteDate])||null;
+  /* les valeurs saisies l'emportent ; la note ne sert que de proposition */
+  const texte=(extra.texte!==undefined&&extra.texte!==null)
+    ? extra.texte : txt(lire(c.tblNote,note,c.colNoteTexte)).trim();
+  const auteur=(extra.auteur!==undefined&&extra.auteur!==null&&extra.auteur!=="")
+    ? extra.auteur : (c.colNoteAuteur?txt(lire(c.tblNote,note,c.colNoteAuteur)).trim():"");
+  const date=(extra.date!==undefined) ? extra.date : (Number(note[c.colNoteDate])||null);
   const cle=cleProjet(p);
+  /* action retenue dans le formulaire, à défaut celle portée par la note */
+  const actForm=extra.action?S.data.main.find(r=>r.id===Number(extra.action)):null;
   /* action éventuellement désignée sur la note, reportée vers la ligne créée */
   const actNote=actionDeNote(note);
   let table=null, id=null;
@@ -2872,7 +2876,10 @@ async function classerNote(p,note,dest,extra){
     if(c.colJnlTexte)  champs[c.colJnlTexte]=texte;
     if(c.colJnlDate)   champs[c.colJnlDate]=date;
     if(c.colJnlAuteur && auteur) champs[c.colJnlAuteur]=auteur;
-    poserLienDeNote(champs,c.tblJournal,c.colJnlAction,c.colNoteAction,note,
+    if(c.colJnlNature && extra.nature) champs[c.colJnlNature]=extra.nature;
+    if(actForm) poserLienAction(champs,c.tblJournal,c.colJnlAction,actForm);
+    else if(!extra.actionVidee)
+      poserLienDeNote(champs,c.tblJournal,c.colJnlAction,c.colNoteAction,note,
                     ()=>poserLienAction(champs,c.tblJournal,c.colJnlAction,actNote));
     poserLienDeNote(champs,c.tblJournal,c.colJnlLien,c.colNoteLien,note,
                     ()=>poserLien(champs,c.tblJournal,c.colJnlLien,p,cle));
@@ -2881,10 +2888,13 @@ async function classerNote(p,note,dest,extra){
   else if(dest==="instance"){
     if(!c.tblInstance||!c.colInsLien){ toast("Table des instances non paramétrée.",true); return; }
     const champs={};
-    if(c.colInsLibelle) champs[c.colInsLibelle]=texte;
+    if(c.colInsLibelle) champs[c.colInsLibelle]=extra.libelle||texte;
     if(c.colInsDate)    champs[c.colInsDate]=date;
+    if(c.colInsType && extra.type) champs[c.colInsType]=extra.type;
     if(c.colInsRapporteur && auteur) champs[c.colInsRapporteur]=auteur;
-    poserLienDeNote(champs,c.tblInstance,c.colInsAction,c.colNoteAction,note,
+    if(actForm) poserLienAction(champs,c.tblInstance,c.colInsAction,actForm);
+    else if(!extra.actionVidee)
+      poserLienDeNote(champs,c.tblInstance,c.colInsAction,c.colNoteAction,note,
                     ()=>poserLienAction(champs,c.tblInstance,c.colInsAction,actNote));
     poserLienDeNote(champs,c.tblInstance,c.colInsLien,c.colNoteLien,note,
                     ()=>poserLien(champs,c.tblInstance,c.colInsLien,p,cle));
@@ -2893,9 +2903,12 @@ async function classerNote(p,note,dest,extra){
   else if(dest==="jalon"){
     if(!c.tblJalon||!c.colJalLien){ toast("Table des jalons non paramétrée.",true); return; }
     const champs={};
-    if(c.colJalLibelle) champs[c.colJalLibelle]=texte;
+    if(c.colJalLibelle) champs[c.colJalLibelle]=extra.libelle||texte;
     if(c.colJalDate)    champs[c.colJalDate]=date;
-    poserLienDeNote(champs,c.tblJalon,c.colJalAction,c.colNoteAction,note,
+    if(c.colJalCommentaire && extra.texte) champs[c.colJalCommentaire]=extra.texte;
+    if(actForm) poserLienAction(champs,c.tblJalon,c.colJalAction,actForm);
+    else if(!extra.actionVidee)
+      poserLienDeNote(champs,c.tblJalon,c.colJalAction,c.colNoteAction,note,
                     ()=>poserLienAction(champs,c.tblJalon,c.colJalAction,actNote));
     poserLienDeNote(champs,c.tblJalon,c.colJalLien,c.colNoteLien,note,
                     ()=>poserLien(champs,c.tblJalon,c.colJalLien,p,cle));
@@ -2909,6 +2922,7 @@ async function classerNote(p,note,dest,extra){
     if(c.colPorteur && extra.porteur) champs[c.colPorteur]=extra.porteur;
     if(c.colDebut && extra.debut!==null && extra.debut!==undefined) champs[c.colDebut]=extra.debut;
     if(c.colEch   && extra.ech!==null   && extra.ech!==undefined)   champs[c.colEch]=extra.ech;
+    if(c.colCommentaire && extra.texte) champs[c.colCommentaire]=extra.texte;
     table=t; id=await ajouter(table,champs);
   }
   else if(dest==="tache"){
@@ -2919,6 +2933,7 @@ async function classerNote(p,note,dest,extra){
     if(c.colTacheLibelle) champs[c.colTacheLibelle]=extra.libelle;
     if(c.colTachePorteur && extra.porteur) champs[c.colTachePorteur]=extra.porteur;
     if(c.colTacheFin && extra.ech!==null && extra.ech!==undefined) champs[c.colTacheFin]=extra.ech;
+    if(c.colTacheCommentaire && extra.texte) champs[c.colTacheCommentaire]=extra.texte;
     const info=infoCol(c.tblTache,c.colTacheLien);
     if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
@@ -2980,7 +2995,6 @@ function ligneNoteHtml(p,n,enAttente){
     h+='<div class="note-choix">'+
       NOTE_DESTINATIONS.map(([k,l])=>'<button class="btn-2'+(ouvert===k?" actif":"")+
         '" data-dest="'+k+'" data-n="'+n.id+'">'+esc(l)+'</button>').join("")+
-      '<span class="note-espace"></span>'+
       '<button class="btn-2 note-rien" data-rien="'+n.id+'">Sans suite</button>'+
     '</div>';
     if(ouvert) h+=formulaireNote(p,n,ouvert,texte);
@@ -2991,46 +3005,87 @@ function ligneNoteHtml(p,n,enAttente){
   return h+'</div>';
 }
 
-/* complément demandé pour action, tâche et commentaire */
+/* complément demandé avant tout classement : rien n'est écrit sans validation */
 function formulaireNote(p,n,dest,texte){
   const c=S.cfg;
-  const propose=esc(texte.split("\n")[0].slice(0,120));
-  const act=actionDeNote(n);           // l'action de la note sert de proposition
+  const act=actionDeNote(n);                       // proposition tirée de la note
+  const dateFR=c.colNoteDate?dateVersFR(n[c.colNoteDate]):"";
+  const auteur=c.colNoteAuteur?txt(lire(c.tblNote,n,c.colNoteAuteur)).trim():"";
+  const uneLigne=esc(texte.split("\n")[0].slice(0,150));
+  S.notePrefill={};
+
+  const champDate=(lib)=>'<div class="champ"><label>'+lib+'</label>'+
+    champDateFR('id="nf-date"','',dateFR)+'</div>';
+  const champActions=(lib,requis)=>'<div class="champ pleine"><label>'+lib+'</label>'+
+    '<select id="nf-action"><option value="">'+(requis?"— choisir —":"— aucune —")+'</option>'+
+    actionsDe(p).map(a=>'<option value="'+a.id+'"'+(act&&act.id===a.id?" selected":"")+'>'+
+      esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>').join("")+
+    '</select></div>';
+  const champTexte=(lib,val)=>'<div class="champ pleine"><label>'+lib+'</label>'+
+    '<textarea id="nf-texte" class="auto-h">'+esc(val)+'</textarea></div>';
+  const champLib=(lib)=>'<div class="champ pleine"><label>'+lib+'</label>'+
+    '<input type="text" id="nf-lib" value="'+uneLigne+'"></div>';
+  /* champ repris du modèle de la colonne cible, prérempli après affichage */
+  const champCol=(tid,col,id,lib,val)=>{
+    if(!col) return "";
+    if(val) S.notePrefill[id]=val;
+    return '<div class="champ"><label>'+lib+'</label>'+champVierge(tid,col,id)+'</div>';
+  };
+
   let h='<div class="note-form"><div class="grille colonne">';
 
-  if(dest==="action"||dest==="tache"){
-    h+='<div class="champ pleine"><label>Libellé'+(dest==="tache"?" de la tâche":" de l\'action")+
-       '</label><input type="text" id="nf-lib" value="'+propose+'"></div>';
-    if(dest==="tache")
-      h+='<div class="champ pleine"><label>Action de rattachement</label>'+
-         '<select id="nf-action"><option value="">— choisir —</option>'+
-         actionsDe(p).map(a=>'<option value="'+a.id+'"'+
-           (act&&act.id===a.id?" selected":"")+'>'+
-           esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>').join("")+
-         '</select></div>';
-    const colP=dest==="tache"?c.colTachePorteur:c.colPorteur;
-    const tP  =dest==="tache"?c.tblTache:c.tblMain;
-    if(colP) h+='<div class="champ"><label>Porteur</label>'+champVierge(tP,colP,"nf-porteur")+'</div>';
-    if(dest==="action" && c.colDebut)
-      h+='<div class="champ"><label>Date de début</label>'+champDateFR('id="nf-debut"','','')+'</div>';
-    h+='<div class="champ"><label>Échéance</label>'+champDateFR('id="nf-ech"','','')+'</div>';
+  if(dest==="journal"){
+    h+=champDate("Date");
+    if(c.colJnlAction) h+=champActions("Action concernée",false);
+    h+=champCol(c.tblJournal,c.colJnlAuteur,"nf-auteur","Collaborateur",auteur);
+    h+=champCol(c.tblJournal,c.colJnlNature,"nf-nature","Nature / origine","");
+    h+=champTexte("Commentaire",texte);
+  }
+  else if(dest==="instance"){
+    h+=champDate("Date de l'instance");
+    h+=champLib("Objet");
+    h+=champCol(c.tblInstance,c.colInsType,"nf-type","Type","");
+    h+=champCol(c.tblInstance,c.colInsRapporteur,"nf-rapporteur","Rapporteur",auteur);
+    if(c.colInsAction) h+=champActions("Action concernée",false);
+  }
+  else if(dest==="jalon"){
+    h+=champDate("Date du jalon");
+    h+=champLib("Libellé du jalon");
+    if(c.colJalAction) h+=champActions("Action concernée",false);
+    if(c.colJalCommentaire) h+=champTexte("Commentaire",texte);
+  }
+  else if(dest==="action"){
+    h+=champLib("Libellé de l'action");
+    h+=champCol(c.tblMain,c.colPorteur,"nf-porteur","Porteur","");
+    if(c.colDebut) h+='<div class="champ"><label>Date de début</label>'+
+      champDateFR('id="nf-debut"','','')+'</div>';
+    if(c.colEch) h+='<div class="champ"><label>Échéance prévue</label>'+
+      champDateFR('id="nf-ech"','','')+'</div>';
+    if(c.colCommentaire) h+=champTexte("Commentaire",texte);
+  }
+  else if(dest==="tache"){
+    h+=champLib("Libellé de la tâche");
+    h+=champActions("Action de rattachement",true);
+    h+=champCol(c.tblTache,c.colTachePorteur,"nf-porteur","Porteur","");
+    if(c.colTacheFin) h+='<div class="champ"><label>Échéance</label>'+
+      champDateFR('id="nf-ech"','','')+'</div>';
+    if(c.colTacheCommentaire) h+=champTexte("Commentaire",texte);
   }
   else if(dest==="commentaire"){
     const opts=['<option value="P"'+(act?"":" selected")+'>Le projet — '+
       esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</option>'];
     actionsDe(p).forEach(a=>{
       opts.push('<option value="A:'+a.id+'"'+(act&&act.id===a.id?" selected":"")+
-        '>Action — '+
-        esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>');
+        '>Action — '+esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>');
       if(c.tblTache&&c.colTacheCommentaire) tachesDe(a).forEach(t=>
         opts.push('<option value="T:'+t.id+'">&nbsp;&nbsp;Tâche — '+
           esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+'</option>'));
     });
     h+='<div class="champ pleine"><label>Ligne à commenter</label>'+
        '<select id="nf-cible">'+opts.join("")+'</select></div>'+
-       '<div class="champ pleine"><p class="note-aide">Le texte de la note sera ajouté '+
-       'à la suite du commentaire existant, précédé de la date et de l\'auteur. '+
-       'Rien n\'est effacé.</p></div>';
+       champTexte("Texte ajouté",texte)+
+       '<div class="champ pleine"><p class="note-aide">Le texte sera ajouté à la suite '+
+       'du commentaire existant, précédé de la date et de l\'auteur. Rien n\'est effacé.</p></div>';
   }
 
   return h+'</div><div class="note-form-btns">'+
@@ -3038,38 +3093,19 @@ function formulaireNote(p,n,dest,texte){
     '<button class="btn-2" data-annulform="'+n.id+'">Annuler</button></div></div>';
 }
 
-/* détail technique du rattachement, affiché quand rien ne correspond */
-function diagnosticNotes(p){
-  const c=S.cfg;
-  const info=infoCol(c.tblNote,c.colNoteLien);
-  const brut=v=>{
-    if(v===null||v===undefined) return "(vide)";
-    if(estListe(v)) return "["+v.slice(1).join(", ")+"]";
-    return JSON.stringify(v);
-  };
-  const lignes=S.data.notes.slice(0,8).map(n=>
-    '<tr><td>'+n.id+'</td><td>'+esc(brut(n[c.colNoteLien]))+'</td>'+
-    '<td>'+esc(c.colNoteAction?brut(n[c.colNoteAction]):"—")+'</td></tr>').join("");
-
-  return '<div class="diag">'+
-    '<div class="diag-titre">Diagnostic du rattachement</div>'+
-    '<ul>'+
-      '<li>Colonne de lien : <b>'+esc(c.colNoteLien||"(non paramétrée)")+'</b>'+
-        ' — type <b>'+esc(info?info.type:"inconnu (colonne absente de la table)")+'</b></li>'+
-      '<li>Ligne du projet affiché : identifiant <b>'+p.id+'</b>'+
-        (c.colProjKey?', clé <b>'+esc(cleProjet(p)||"(vide)")+'</b>':'')+'</li>'+
-      '<li>Comparaison utilisée : <b>'+
-        (info && /^Ref(List)?:/.test(info.type)
-          ? "identifiants de ligne (colonne Référence)"
-          : "clés texte (la colonne n\'est pas vue comme une Référence)")+'</b></li>'+
-    '</ul>'+
-    '<table class="diag-tab"><thead><tr><th>Note</th><th>Valeur de '+
-      esc(c.colNoteLien)+'</th><th>Valeur d\'action</th></tr></thead>'+
-      '<tbody>'+lignes+'</tbody></table>'+
-    '<p>Si la valeur de lien affiche un identifiant différent de <b>'+p.id+'</b>, '+
-      'la note pointe vers une autre ligne. Si elle affiche du texte alors que la '+
-      'comparaison se fait sur des identifiants, la colonne n\'est pas du bon type.</p>'+
-    '</div>';
+/* renseigne les champs dont la valeur ne peut pas être posée dans le HTML
+   (listes de choix, références) : on essaie la valeur, puis le libellé */
+function appliquerPrefill(){
+  const pf=S.notePrefill||{};
+  Object.keys(pf).forEach(id=>{
+    const el=$("#"+id), v=pf[id];
+    if(!el||!v) return;
+    if(el.tagName!=="SELECT"){ el.value=v; return; }
+    const opts=[...el.options];
+    const exact=opts.find(o=>o.value===String(v)) ||
+                opts.find(o=>o.textContent.trim()===String(v).trim());
+    if(exact) el.value=exact.value;
+  });
 }
 
 function vueNotes(p){
@@ -3113,6 +3149,65 @@ function vueNotes(p){
 
   brancherNotes(p);
   brancherPJ();
+  appliquerPrefill();
+  brancherAutoHauteur();
+}
+
+/* relit le formulaire ; renvoie null et signale l'erreur si la saisie ne va pas */
+function lireFormulaireNote(dest){
+  const c=S.cfg, extra={};
+  const val=id=>$("#"+id)?$("#"+id).value.trim():"";
+  const dateDe=(id,libelle)=>{
+    if(!$("#"+id)) return {ok:true,v:undefined};
+    const d=frVersDate($("#"+id).value);
+    if(d===undefined){ toast(libelle+" invalide : saisissez-la au format jj/mm/aaaa.",true);
+                       return {ok:false}; }
+    return {ok:true,v:d};
+  };
+
+  const d=dateDe("nf-date","Date");
+  if(!d.ok) return null;
+  if(d.v!==undefined) extra.date=d.v;
+
+  if($("#nf-texte")) extra.texte=$("#nf-texte").value.trim();
+
+  if($("#nf-action")){
+    extra.action=val("nf-action");
+    extra.actionVidee=!extra.action;                     // choix explicite d'aucune action
+    if(dest==="tache" && !extra.action){
+      toast("Choisissez l'action de rattachement.",true); return null;
+    }
+  }
+
+  if(dest==="instance"||dest==="jalon"||dest==="action"||dest==="tache"){
+    extra.libelle=val("nf-lib");
+    if(!extra.libelle){ toast("Saisissez un libellé.",true); return null; }
+  }
+  if(dest==="journal" && !extra.texte){
+    toast("Saisissez un commentaire.",true); return null;
+  }
+  if(dest==="commentaire"){
+    extra.cible=val("nf-cible");
+    if(!extra.cible){ toast("Choisissez la ligne à commenter.",true); return null; }
+    if(!extra.texte){ toast("Le texte à ajouter est vide.",true); return null; }
+  }
+
+  if($("#nf-auteur"))     extra.auteur=valeurChamp("nf-auteur",c.tblJournal,c.colJnlAuteur);
+  if($("#nf-rapporteur")) extra.auteur=valeurChamp("nf-rapporteur",c.tblInstance,c.colInsRapporteur);
+  if($("#nf-nature"))     extra.nature=valeurChamp("nf-nature",c.tblJournal,c.colJnlNature);
+  if($("#nf-type"))       extra.type=valeurChamp("nf-type",c.tblInstance,c.colInsType);
+  if($("#nf-porteur")){
+    const tP=dest==="tache"?c.tblTache:c.tblMain;
+    const cP=dest==="tache"?c.colTachePorteur:c.colPorteur;
+    extra.porteur=valeurChamp("nf-porteur",tP,cP);
+  }
+
+  const db=dateDe("nf-debut","Date de début"); if(!db.ok) return null;
+  if(db.v!==undefined) extra.debut=db.v;
+  const ec=dateDe("nf-ech","Échéance");        if(!ec.ok) return null;
+  if(ec.v!==undefined) extra.ech=ec.v;
+
+  return extra;
 }
 
 function brancherNotes(p){
@@ -3121,12 +3216,6 @@ function brancherNotes(p){
 
   document.querySelectorAll("[data-dest]").forEach(b=>b.onclick=()=>{
     const id=Number(b.dataset.n), dest=b.dataset.dest;
-    const note=S.data.notes.find(n=>n.id===id);
-    /* les destinations sans complément se classent d'un seul clic */
-    if(dest==="journal"||dest==="instance"||dest==="jalon"){
-      classerNote(p,note,dest);
-      return;
-    }
     S.noteOuverte=(S.noteOuverte && S.noteOuverte.id===id && S.noteOuverte.dest===dest)
       ? null : {id,dest};
     vueNotes(p);
@@ -3137,32 +3226,10 @@ function brancherNotes(p){
   });
 
   document.querySelectorAll("[data-valider]").forEach(b=>b.onclick=async()=>{
-    const c=S.cfg;
     const note=S.data.notes.find(n=>n.id===Number(b.dataset.valider));
-    const dest=b.dataset.vd, extra={};
-    if(dest==="action"||dest==="tache"){
-      extra.libelle=($("#nf-lib")?$("#nf-lib").value:"").trim();
-      if(!extra.libelle){ toast("Saisissez un libellé.",true); return; }
-      if(dest==="tache"){
-        extra.action=$("#nf-action")?$("#nf-action").value:"";
-        if(!extra.action){ toast("Choisissez l'action de rattachement.",true); return; }
-      }
-      const colP=dest==="tache"?c.colTachePorteur:c.colPorteur;
-      const tP  =dest==="tache"?c.tblTache:c.tblMain;
-      if(colP && $("#nf-porteur")) extra.porteur=valeurChamp("nf-porteur",tP,colP);
-      if($("#nf-debut")){
-        const d=frVersDate($("#nf-debut").value);
-        if(d===undefined){ toast("Date de début invalide (jj/mm/aaaa).",true); return; }
-        extra.debut=d;
-      }
-      if($("#nf-ech")){
-        const d=frVersDate($("#nf-ech").value);
-        if(d===undefined){ toast("Échéance invalide (jj/mm/aaaa).",true); return; }
-        extra.ech=d;
-      }
-    }
-    if(dest==="commentaire") extra.cible=$("#nf-cible")?$("#nf-cible").value:"";
-    await classerNote(p,note,dest,extra);
+    const extra=lireFormulaireNote(b.dataset.vd);
+    if(!extra) return;                                   // saisie incomplète
+    await classerNote(p,note,b.dataset.vd,extra);
   });
 
   document.querySelectorAll("[data-rien]").forEach(b=>b.onclick=async()=>{

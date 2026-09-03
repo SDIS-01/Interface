@@ -424,6 +424,15 @@ tbody tr.ligne-com:hover{background:transparent;}
 .impr-cases label:hover,.impr-radio:hover{background:var(--bleu-survol);}
 .impr-cases input,.impr-radio input{width:14px;height:14px;margin:0;flex:0 0 auto;}
 
+/* ---------- Saisie d'un mot de passe (masqué, avec œil) ---------- */
+.mdp-boite{position:relative;display:flex;align-items:center;}
+.mdp-boite input{width:100%;padding-right:36px;letter-spacing:.06em;}
+.mdp-oeil{position:absolute;right:3px;top:50%;transform:translateY(-50%);
+  background:none;border:none;padding:5px 6px;line-height:0;border-radius:4px;
+  color:var(--gris);}
+.mdp-oeil:hover{color:var(--bleu);background:var(--bleu-clair);}
+.mdp-oeil svg{display:block;}
+
 /* ---------- Divers ---------- */
 .toast{
   position:fixed;bottom:16px;right:16px;background:var(--encre);color:#fff;
@@ -631,6 +640,26 @@ tbody tr.ligne-com:hover{background:transparent;}
 <div id="imp-tete" aria-hidden="true"></div>
 <div id="impression" aria-hidden="true"></div>
 <div id="imp-pied" aria-hidden="true"></div>
+
+<div class="voile" id="voile-mdp">
+  <div class="modale" style="width:min(390px,100%)">
+    <header>Mot de passe</header>
+    <div class="corps-modale">
+      <p id="mdp-invite" style="margin:0 0 12px;color:var(--gris);font-size:12px"></p>
+      <div class="champ"><label>Mot de passe</label>
+        <div class="mdp-boite">
+          <input type="password" id="mdp-saisie" autocomplete="current-password">
+          <button type="button" class="mdp-oeil" data-cible="mdp-saisie"
+                  aria-label="Afficher le mot de passe" aria-pressed="false"></button>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-2" id="mdp-annuler">Annuler</button>
+      <button class="btn" id="mdp-ok">Valider</button>
+    </footer>
+  </div>
+</div>
 
 <div class="voile" id="voile-impr">
   <div class="modale" style="width:min(430px,100%)">
@@ -1814,9 +1843,74 @@ async function empreinte(txtClair){
   return "s"+h.toString(16);
 }
 
+/* --- saisie masquée du mot de passe, avec œil pour l'afficher --- */
+
+const OEIL_VOIR='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '+
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '+
+  'aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>'+
+  '<circle cx="12" cy="12" r="3"/></svg>';
+const OEIL_MASQUER='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '+
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '+
+  'aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-6.4 0-10-7-10-7'+
+  'a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.4 0 10 7 10 7'+
+  'a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>'+
+  '<line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+function majOeil(b){
+  const inp=document.getElementById(b.dataset.cible);
+  if(!inp) return;
+  const visible = inp.type==="text";
+  b.innerHTML = visible ? OEIL_MASQUER : OEIL_VOIR;
+  b.setAttribute("aria-pressed", visible?"true":"false");
+  b.setAttribute("aria-label", visible?"Masquer le mot de passe":"Afficher le mot de passe");
+  b.title = b.getAttribute("aria-label");
+}
+
+/* les boutons apparaissent au fil des rendus : on les branche par délégation */
+document.addEventListener("click",e=>{
+  const b=e.target.closest && e.target.closest(".mdp-oeil");
+  if(!b) return;
+  e.preventDefault();
+  const inp=document.getElementById(b.dataset.cible);
+  if(!inp) return;
+  const pos=inp.selectionStart;
+  inp.type = inp.type==="password" ? "text" : "password";
+  majOeil(b);
+  inp.focus();
+  try{ inp.setSelectionRange(pos,pos); }catch(err){}
+});
+
+/* fenêtre de saisie : renvoie le texte saisi, ou null si l'on annule */
+function demanderMotDePasse(invite){
+  return new Promise(resoudre=>{
+    const voile=$("#voile-mdp"), inp=$("#mdp-saisie");
+    $("#mdp-invite").textContent=invite;
+    inp.value=""; inp.type="password";
+    document.querySelectorAll('.mdp-oeil[data-cible="mdp-saisie"]').forEach(majOeil);
+    voile.classList.add("ouvert");
+    setTimeout(()=>inp.focus(),40);
+
+    const fermer=v=>{
+      voile.classList.remove("ouvert");
+      inp.value=""; inp.type="password";
+      $("#mdp-ok").onclick=null; $("#mdp-annuler").onclick=null;
+      voile.onclick=null; inp.onkeydown=null;
+      document.removeEventListener("keydown",surEchap,true);
+      resoudre(v);
+    };
+    const surEchap=ev=>{ if(ev.key==="Escape"){ ev.preventDefault(); fermer(null); } };
+
+    $("#mdp-ok").onclick=()=>fermer(inp.value);
+    $("#mdp-annuler").onclick=()=>fermer(null);
+    voile.onclick=ev=>{ if(ev.target===voile) fermer(null); };
+    inp.onkeydown=ev=>{ if(ev.key==="Enter"){ ev.preventDefault(); fermer(inp.value); } };
+    document.addEventListener("keydown",surEchap,true);
+  });
+}
+
 async function motDePasseValide(invite){
   if(!S.cfg.mdpHash) return true;              // aucun mot de passe défini
-  const saisi=prompt(invite);
+  const saisi=await demanderMotDePasse(invite);
   if(saisi===null) return false;               // annulation
   if(await empreinte(saisi)===S.cfg.mdpHash) return true;
   toast("Mot de passe incorrect",true);
@@ -2864,9 +2958,11 @@ function rendreReglages(){
   'Il n\'est pas stocké en clair, mais ce verrou reste un garde-fou contre la fausse manœuvre, '+
   'pas une sécurité : les données restent modifiables depuis la vue Grist classique.</p>'+
   '<div class="grille">'+
-    '<div class="champ"><label>Nouveau mot de passe</label>'+
+    '<div class="champ"><label>Nouveau mot de passe</label><div class="mdp-boite">'+
     '<input type="password" id="mdp-nouveau" autocomplete="new-password" placeholder="'+
-      (c.mdpHash?"Mot de passe défini — laisser vide pour le conserver":"Aucun mot de passe défini")+'"></div>'+
+      (c.mdpHash?"Mot de passe défini — laisser vide pour le conserver":"Aucun mot de passe défini")+'">'+
+    '<button type="button" class="mdp-oeil" data-cible="mdp-nouveau" '+
+      'aria-label="Afficher le mot de passe" aria-pressed="false"></button></div></div>'+
     '<div class="champ"><label>&nbsp;</label><label style="font-weight:normal;text-transform:none;'+
       'display:flex;align-items:center;gap:7px;font-size:12px">'+
       '<input type="checkbox" id="mdp-retirer"> Retirer le mot de passe</label></div>'+
@@ -2889,6 +2985,7 @@ function rendreReglages(){
       });
     };
   });
+  document.querySelectorAll(".mdp-oeil").forEach(majOeil);   // dessine l'icône
 }
 
 async function enregistrerReglages(){
@@ -2974,6 +3071,7 @@ async function demarrer(){
 
 $("#q").oninput=rendreListe;
 DATES_FILTRE.forEach(s=>$(s).onchange=rendreListe);
+document.querySelectorAll(".mdp-oeil").forEach(majOeil);
 $("#btn-panneau").onclick=()=>basculerPanneau();
 $("#btn-imprimer").onclick=ouvrirImpression;
 $("#impr-annuler").onclick=()=>$("#voile-impr").classList.remove("ouvert");

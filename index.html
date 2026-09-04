@@ -151,7 +151,6 @@ body.panneau-replie .panneau>*{display:none;}
 .p-Interrompu{background:#e9eaec;color:#595959;}
 .p-Poursuite{background:#EDE3F7;color:#6B3FA0;}
 .p-neutre{background:#eef1f5;color:#4b5462;}
-.p-jalon{background:var(--bleu-clair);color:var(--bleu);}
 .p-instance{background:#fdeadb;color:#b4611f;}
 .p-nature{background:#eef1f5;color:#4b5462;max-width:150px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
@@ -161,6 +160,27 @@ body.panneau-replie .panneau>*{display:none;}
   text-overflow:ellipsis;white-space:nowrap;}
 .p-delai{background:#fdf3e0;color:#8a5a12;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
+.carte-ech h2{display:flex;align-items:center;gap:9px;}
+.ech-alerte{background:#c62828;color:#fff;border-radius:10px;padding:2px 9px;
+  font-size:10.5px;font-weight:bold;letter-spacing:0;text-transform:none;}
+.ech-liste{display:flex;flex-direction:column;gap:6px;}
+.ech{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;cursor:pointer;
+  border:1px solid var(--trait);border-left:4px solid var(--gris);border-radius:var(--rayon);
+  background:#fff;padding:8px 11px;font-size:12px;color:var(--encre);}
+.ech:hover{background:var(--bleu-survol);}
+.ech-date{flex:0 0 auto;font-weight:bold;}
+.ech-delta{flex:0 0 auto;font-size:11px;color:var(--gris);}
+.ech-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ech-clore{flex:0 0 auto;border:1px solid var(--trait);border-radius:12px;padding:3px 10px;
+  font-size:10.5px;font-weight:bold;color:var(--gris);background:#fff;}
+.ech-clore:hover{background:var(--vert);border-color:var(--vert);color:#fff;}
+.ech-depasse{border-left-color:#c62828;background:#fdf4f4;}
+.ech-depasse .ech-date,.ech-depasse .ech-delta{color:#c62828;}
+.ech-proche{border-left-color:var(--orange);}
+.ech-proche .ech-delta{color:#8a5a12;}
+.ech-avenir{border-left-color:var(--bleu-clair);}
+.ech-note{color:var(--gris);font-size:11px;margin:9px 0 0;}
+.jnl-vise{background:#fff8e1;box-shadow:inset 3px 0 0 var(--orange);}
 .jnl-fil{border-bottom:1px solid #eef1f5;}
 .jnl-fil .jnl{border-bottom:0;}
 .jnl-rep{margin-left:26px;padding-top:6px;padding-bottom:6px;
@@ -407,11 +427,12 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-rep-instance::before{background:#c62828;}
 .pl-rep-delai::before{background:#1f1f1f;}
 .pl-rep.actif::before{outline:2px solid var(--bleu);outline-offset:2px;}
-.pl-bulle{position:absolute;z-index:6;max-width:320px;background:#fff;
+.pl-bulle{position:absolute;z-index:6;max-width:380px;background:#fff;
   border:1px solid var(--traitFort,#b9c6dc);border-radius:5px;padding:9px 11px;
   box-shadow:0 6px 18px rgba(0,0,0,.16);font-size:11.5px;line-height:1.5;}
-.pl-bulle b{display:block;color:var(--bleu);margin-bottom:3px;}
-.pl-bulle .pl-bulle-txt{white-space:pre-wrap;color:var(--encre);}
+.pl-bulle b{display:block;color:var(--bleu);margin-bottom:4px;padding-right:16px;}
+.pl-bulle .pl-bulle-txt{white-space:pre-wrap;color:var(--encre);
+  max-height:200px;overflow:auto;}
 .pl-bulle .pl-bulle-meta{color:var(--gris);margin-top:5px;}
 .pl-bulle-fermer{position:absolute;top:3px;right:5px;border:0;background:none;
   color:var(--gris);cursor:pointer;font-size:13px;line-height:1;padding:2px;}
@@ -441,7 +462,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 .jnl .texte{flex:1;white-space:pre-wrap;line-height:1.5;}
 .jnl .auteur{color:var(--gris);font-size:11px;}
 
-/* ---------- Tableaux d'historique (jalons, instances) ---------- */
+/* ---------- Tableaux d'historique (instances) ---------- */
 .tab-histo .col-date{width:88px;}
 .tab-histo .cel-date{color:var(--bleu);font-weight:bold;font-size:11.5px;white-space:nowrap;}
 .tab-histo .cel-texte{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45;}
@@ -449,9 +470,6 @@ tbody tr.ligne-com:hover{background:transparent;}
 .tab-histo tr.ligne-histo:hover{background:var(--bleu-survol);}
 .tab-histo .pastille{margin:0;max-width:100%;}
 
-/* ---------- Jalons ---------- */
-.jalon{display:flex;gap:11px;align-items:baseline;padding:7px 0;border-bottom:1px solid #eef1f5;}
-.jalon .date{flex:0 0 82px;color:var(--bleu);font-weight:bold;font-size:11.5px;}
 
 /* ---------- Réglages ---------- */
 .voile{
@@ -870,8 +888,7 @@ const DEF = {
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
-  colJnlReponse:"Reponse_a",
-  tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"", colJalAction:"",
+  colJnlReponse:"Reponse_a", colJnlTraite:"Traité",
   colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
   colInsType:"", colInsRapporteur:"", colInsAction:"",
@@ -907,14 +924,8 @@ const CHAMPS_REGLAGES = [
     ["colJnlDate","Date"],["colJnlTexte","Commentaire"],
     ["colJnlAuteur","Auteur de la saisie"],["colJnlNature","Nature / origine"],
     ["colJnlCollab","Collaborateur concerné"],["colJnlDelai","Délai d'exécution"],
-    ["colJnlReponse","Réponse à (même table)"]
-  ]},
-  {bloc:"Table des jalons", tableKey:"tblJalon", champs:[
-    ["colJalLien","Lien vers le projet"],["colJalAction","Lien vers l'action (facultatif)"],
-    ["colJalDate","Date"],
-    ["colJalLibelle","Libellé saisi à l'ajout"],
-    ["colJalHisto","Colonne affichée dans l'historique"],
-    ["colJalCommentaire","Commentaire"]
+    ["colJnlReponse","Réponse à (même table)"],
+    ["colJnlTraite","Échéance traitée (case à cocher)"]
   ]},
   {bloc:"Table des instances", tableKey:"tblInstance", champs:[
     ["colInsLien","Lien vers le projet"],["colInsAction","Lien vers l'action (facultatif)"],
@@ -936,7 +947,7 @@ const CHAMPS_REGLAGES = [
 const S = {
   cfg:Object.assign({},DEF),
   meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
-  data:{main:[],taches:[],journal:[],jalons:[],instances:[],notes:[]},
+  data:{main:[],taches:[],journal:[],instances:[],notes:[]},
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
   onglet:"synthese",
@@ -1202,7 +1213,6 @@ async function charger(){
 
   S.data.taches   = await lireTable(c.tblTache);
   S.data.journal  = await lireTable(c.tblJournal);
-  S.data.jalons   = await lireTable(c.tblJalon);
   S.data.instances= await lireTable(c.tblInstance);
   S.data.notes    = await lireTable(c.tblNote);
   await chargerPJ();
@@ -1212,7 +1222,6 @@ async function charger(){
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
     [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction","colJnlCollab","colJnlReponse"]],
-    [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction","colJalCommentaire"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
     [c.tblNote,["colNoteLien","colNoteAuteur","colNoteTexte","colNoteStatut",
                 "colNoteDestination","colNoteAction"]]
@@ -1370,18 +1379,8 @@ function dateDepuisTexte(s){
   return m ? Date.UTC(+m[3],+m[2]-1,+m[1])/1000 : null;
 }
 
-function jalonsDe(p){
+function instancesDe(p){
   const c=S.cfg, out=[];
-  if(c.tblJalon && c.colJalLien)
-    S.data.jalons.filter(j=>lieA(c.tblJalon,j,c.colJalLien,p.id,cleProjet(p))).forEach(j=>{
-      const lib=lire(c.tblJalon,j,c.colJalHisto||c.colJalLibelle);
-      out.push({
-        id:j.id, table:c.tblJalon, genre:"Jalon", brut:j,
-        date:Number(j[c.colJalDate])||dateDepuisTexte(lib),
-        libelle:lib,
-        action:actionDeLigne(c.tblJalon,j,c.colJalAction)
-      });
-    });
   if(c.tblInstance && c.colInsLien)
     S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
@@ -1689,7 +1688,7 @@ function rendreListe(){
 
 const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
                ["instances","Instances"],["planning","Planning"],
-               ["journal","Journal de bord & Jalons"],["notes","Notes"]];
+               ["journal","Journal de bord"],["notes","Notes"]];
 
 /* table des fonctions de rendu, partagée par l'affichage et l'impression */
 const VUES={};   // remplie plus bas, une fois les fonctions vueXxx déclarées
@@ -1718,11 +1717,11 @@ function rendreProjet(){
   }
   const a=pct(p[c.colAvancement]), i=interrompu(p);
   const acts=actionsDe(p);
-  const jx=jalonsDe(p);
+  const jx=instancesDe(p);
   const nb={actions:acts.length,
             taches:porteursDeTaches(p).reduce((n,x)=>n+tachesDe(x).length,0),
-            instances:jx.filter(j=>j.genre==="Instance").length,
-            journal:journalDe(p).length+jx.filter(j=>j.genre==="Jalon").length,
+            instances:jx.length,
+            journal:journalDe(p).length,
             notes:notesDe(p).filter(estACaracteriser).length};
 
   $("#entete").innerHTML=
@@ -1765,9 +1764,19 @@ function editeur(tableId,ligne,colId,opts){
   }
   if(info.type.startsWith("Date"))
     return champDateFR('data-k="date" '+attr,"edit"+mk,dateVersFR(v));
-  if(info.type==="Choice")
+  if(info.type==="Choice"){
+    /* Sur une colonne de statut, seul « Interrompu » est proposé à la saisie.
+       Une valeur déjà présente en base reste offerte, pour ne pas l'effacer
+       silencieusement à la première ouverture de la liste. */
+    let choix=info.choices;
+    if(estColStatut(tableId,colId)){
+      choix=info.choices.filter(o=>valeurInterrompu(o));
+      const actuel=txt(v);
+      if(actuel && !choix.includes(actuel)) choix=[actuel].concat(choix);
+    }
     return '<select class="edit'+mk+'" data-k="txt" '+attr+'><option value=""></option>'+
-      info.choices.map(o=>'<option'+(String(v)===o?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
+      choix.map(o=>'<option'+(String(v)===o?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select>';
+  }
   if(info.type==="Bool")
     return '<select class="edit'+mk+'" data-k="bool" '+attr+'><option value="">–</option>'+
       '<option value="1"'+(v?" selected":"")+'>Oui</option><option value="0"'+(v===false?" selected":"")+'>Non</option></select>';
@@ -1794,6 +1803,14 @@ function brancherAutoHauteur(racine){
 }
 
 /* le statut pilote la couleur de l'avancement : on la remet à jour sans tout réafficher */
+/* Colonnes de statut : celle de la table principale et celle des tâches. */
+function estColStatut(tableId,colId){
+  const c=S.cfg;
+  return (tableId===c.tblMain  && colId===c.colStatut) ||
+         (tableId===c.tblTache && colId===c.colTacheStatut);
+}
+function valeurInterrompu(valeur){ return /interromp/i.test(txt(valeur)); }
+
 function rafraichirAvctLigne(el){
   const c=S.cfg, t=el.dataset.t, col=el.dataset.c, r=Number(el.dataset.r);
   const surMain = t===c.tblMain && col===c.colStatut;
@@ -1957,7 +1974,7 @@ function valeurChamp(id,tableId,colId){
   return v;
 }
 
-/* --- Action concernée (jalons, instances, journal de bord) --- */
+/* --- Action concernée (instances, journal de bord) --- */
 
 function libelleAction(a){
   const c=S.cfg;
@@ -2004,7 +2021,7 @@ function actionDeLigne(tableId,ligne,colId){
   }).filter(Boolean).join(", ");
 }
 
-/* --- Filtre « action » des historiques (jalons, instances, journal de bord) --- */
+/* --- Filtre « action » des historiques (instances, journal de bord) --- */
 
 const SANS_ACTION="\u0001sans";   // valeur réservée : entrées sans action
 
@@ -2134,7 +2151,6 @@ function ligneDe(tableId,rowId){
   const source = tableId===c.tblMain ? S.data.main
     : tableId===c.tblTache ? S.data.taches
     : tableId===c.tblJournal ? S.data.journal
-    : tableId===c.tblJalon ? S.data.jalons
     : tableId===c.tblInstance ? S.data.instances
     : tableId===c.tblNote ? S.data.notes : [];
   return source.find(r=>r.id===Number(rowId))||null;
@@ -2554,7 +2570,7 @@ function vueTaches(p){
   });
 }
 
-/* --- Jalons et instances --- */
+/* --- Instances --- */
 function carteAjout(p,prefixe,titre,cles,extras,libelleChamp,bouton){
   const c=S.cfg;
   if(!c[cles.table] || !c[cles.lien])
@@ -2607,11 +2623,8 @@ function brancherAjout(p,prefixe,cles,extras,alerte){
   };
 }
 
-const CLES_JALON={table:"tblJalon",lien:"colJalLien",date:"colJalDate",
-                  lib:"colJalLibelle",action:"colJalAction"};
 const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",
                      lib:"colInsLibelle",action:"colInsAction"};
-const EXTRAS_JALON=[{cle:"colJalCommentaire",id:"commentaire",libelle:"Commentaire"}];
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
@@ -2631,41 +2644,6 @@ function ligneRienHisto(nbCol){
     'Aucune entrée pour cette action.</td></tr>';
 }
 
-/* Jalons : tableau, commentaire dans une sous-ligne dépliable */
-function tableauJalons(jalons){
-  const c=S.cfg, id="fh-jalons";
-  const configuree=!!(c.tblJalon&&c.colJalLien);
-  const filtre=filtreHisto(id,actionsPresentes(jalons),jalons.some(e=>!e.action));
-  const avecAction=!!c.colJalAction, avecCom=!!c.colJalCommentaire;
-  const nbCol=2+(avecAction?1:0)+(avecCom?1:0)+1;
-  const corps = !jalons.length
-    ? videHisto(configuree,"Le premier jalon s'ajoute ci-dessus.")
-    : '<table class="tab-histo"><thead><tr>'+
-        (avecCom?'<th class="col-chevron"></th>':'')+
-        '<th class="col-date">Date</th><th>Jalon</th>'+
-        (avecAction?'<th class="col-etroite">Action</th>':'')+
-        '<th style="width:34px"></th></tr></thead><tbody>'+
-        jalons.map(j=>{
-          const cle=j.table+":"+j.id, ouvert=!!S.ouverts[cle];
-          return '<tr class="ligne-histo'+(avecCom?" ligne-repli":"")+'" '+
-            'data-act="'+esc(j.action||"")+'"'+(avecCom?' data-repli="'+esc(cle)+'"':'')+'>'+
-            (avecCom?'<td class="col-chevron"><span class="chevron">'+(ouvert?"▾":"▸")+'</span></td>':'')+
-            '<td class="col-date cel-date">'+esc(dateVersFR(j.date)||"—")+'</td>'+
-            '<td class="cel-texte">'+esc(j.libelle)+'</td>'+
-            (avecAction?'<td>'+(j.action
-              ? '<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>'
-              : '<span class="cel-vide">—</span>')+'</td>':'')+
-            '<td>'+btnSupHisto(j)+'</td></tr>'+
-            (avecCom
-              ? '<tr class="ligne-com" data-sous="'+esc(cle)+'"'+(ouvert?'':' style="display:none"')+
-                '><td colspan="'+nbCol+'"><label>Commentaire</label>'+
-                editeur(c.tblJalon,j.brut,c.colJalCommentaire,{multi:true})+'</td></tr>'
-              : '');
-        }).join("")+
-        ligneRienHisto(nbCol)+'</tbody></table>';
-  return '<div class="carte">'+teteHisto("Historique des jalons",filtre)+
-    '<div class="histo-liste" id="'+id+'-liste">'+corps+'</div></div>';
-}
 
 /* Instances : tableau, une colonne par information */
 function tableauInstances(instances){
@@ -2708,28 +2686,11 @@ function brancherSuppressionHisto(){
   });
 }
 
-/* les jalons sont présentés avec le journal de bord */
-function blocJalons(p){
-  const jalons=jalonsDe(p).filter(j=>j.genre==="Jalon");
-  return '<div class="duo">'+
-    '<div class="duo-ajout">'+
-      carteAjout(p,"jl","Ajouter un jalon",CLES_JALON,EXTRAS_JALON,
-                 "Libellé du jalon","Ajouter le jalon")+
-    '</div>'+
-    '<div class="duo-histo">'+tableauJalons(jalons)+'</div>'+
-  '</div>';
-}
 
-function brancherJalons(p){
-  brancherAjout(p,"jl",CLES_JALON,EXTRAS_JALON,"Indiquez le libellé du jalon avant d'ajouter.");
-  brancherEditeurs();
-  brancherRepli();
-  brancherSuppressionHisto();
-}
 
 /* l'onglet ne contient plus que les instances */
 function vueInstances(p){
-  const instances=jalonsDe(p).filter(j=>j.genre==="Instance");
+  const instances=instancesDe(p);
 
   $("#corps").innerHTML =
     '<div class="duo">'+
@@ -2779,26 +2740,33 @@ function posPlanning(per,ts){
 function reperesPlanning(p){
   const c=S.cfg, out=[];
 
+  /* Instance : le libellé, celui-là même qui figure dans la colonne « Instance »
+     de l'historique. Le type et le rapporteur passent en pied de bulle. */
   instancesDe(p).forEach(j=>{
     const ts=Number(j.date);
     if(!ts) return;
-    const type=txt(j.type).trim();
     out.push({ts,genre:"instance",
-      titre:(type||j.libelle||"Instance")+" - "+dateVersFR(ts),
-      detail:j.libelle&&j.libelle!==type?j.libelle:"",
-      meta:j.rapporteur?"Rapporteur : "+j.rapporteur:""});
+      titre:dateVersFR(ts),
+      detail:j.libelle||"(instance sans libellé)",
+      meta:[j.type?txt(j.type).trim():"",
+            j.rapporteur?"Rapporteur : "+j.rapporteur:"",
+            j.action?"Action : "+j.action:""].filter(Boolean).join(" — ")});
   });
 
+  /* Délai d'exécution : la date et le commentaire complet de l'entrée. */
   if(c.tblJournal && c.colJnlLien && c.colJnlDelai)
     journalDe(p).forEach(j=>{
       const ts=Number(j[c.colJnlDelai]);
       if(!ts) return;
+      if(c.colJnlTraite && j[c.colJnlTraite]===true) return;   // échéance close
       const collab=c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):"";
       const auteur=c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"";
+      const nature=c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):"";
       out.push({ts,genre:"delai",
-        titre:"Délai - "+dateVersFR(ts),
+        titre:dateVersFR(ts),
         detail:lire(c.tblJournal,j,c.colJnlTexte)||"(entrée sans commentaire)",
-        meta:[collab?"Collaborateur concerné : "+collab:"",
+        meta:[nature,
+              collab?"Collaborateur concerné : "+collab:"",
               auteur?"Saisi par "+auteur:"",
               j[c.colJnlDate]?"le "+dateVersFR(j[c.colJnlDate]):""]
              .filter(Boolean).join(" — ")});
@@ -2876,7 +2844,7 @@ function vuePlanning(p){
   const bande = visibles.length
     ? '<div class="pl-reperes">'+visibles.map((r,i)=>
         '<button type="button" class="pl-rep pl-rep-'+r.genre+'" data-rep="'+i+'"'+
-        ' style="left:'+pos(r.ts)+'%" title="'+esc(r.titre)+'"></button>').join("")+'</div>'
+        ' style="left:'+pos(r.ts)+'%" title="'+esc(r.titre+" — "+r.detail)+'"></button>').join("")+'</div>'
     : '';
 
   const marqueur=(auj>=per[0].debut && auj<per[per.length-1].fin)
@@ -2974,6 +2942,80 @@ function brancherPlanning(p){
 }
 
 /* --- Journal de bord --- */
+/* Une échéance est une entrée de journal portant un délai d'exécution et dont la
+   case « Traité » n'est pas cochée. Elle reste affichée tant que rien ne la clôt,
+   même largement dépassée : c'est le principe retenu. */
+function echeancesDe(p){
+  const c=S.cfg;
+  if(!(c.tblJournal && c.colJnlLien && c.colJnlDelai)) return [];
+  const auj=aujourdHuiUTC();
+  return journalDe(p)
+    .filter(j=>Number(j[c.colJnlDelai]) && !(c.colJnlTraite && j[c.colJnlTraite]===true))
+    .map(j=>{
+      const ts=Number(j[c.colJnlDelai]);
+      const jours=Math.round((ts-auj)/86400);
+      return {j,ts,jours,
+        etat: jours<0 ? "depasse" : (jours<=7 ? "proche" : "avenir")};
+    })
+    .sort((a,b)=>a.ts-b.ts);
+}
+
+function blocEcheances(p){
+  const c=S.cfg;
+  const ech=echeancesDe(p);
+  if(!ech.length) return "";
+  const nbD=ech.filter(e=>e.etat==="depasse").length;
+  const jrs=e=>e.jours<0
+    ? "en retard de "+(-e.jours)+" j"
+    : (e.jours===0 ? "aujourd'hui" : "dans "+e.jours+" j");
+  return '<div class="carte carte-ech">'+
+    '<h2>Échéances'+
+      (nbD?'<span class="ech-alerte">'+nbD+' dépassée'+(nbD>1?"s":"")+'</span>':'')+
+    '</h2>'+
+    '<div class="ech-liste">'+ech.map(e=>
+      '<button type="button" class="ech ech-'+e.etat+'" data-echj="'+e.j.id+'">'+
+        '<span class="ech-date">'+esc(dateVersFR(e.ts))+'</span>'+
+        '<span class="ech-delta">'+esc(jrs(e))+'</span>'+
+        (c.colJnlCollab&&lire(c.tblJournal,e.j,c.colJnlCollab)
+          ? '<span class="pastille p-collab">'+esc(lire(c.tblJournal,e.j,c.colJnlCollab))+'</span>':'')+
+        '<span class="ech-txt">'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</span>'+
+        (c.colJnlTraite
+          ? '<span class="ech-clore" data-clorej="'+e.j.id+'" title="Marquer cette échéance comme traitée">Traité</span>'
+          : '')+
+      '</button>').join("")+'</div>'+
+    (c.colJnlTraite?'':'<p class="ech-note">Paramétrez la colonne « Échéance traitée » '+
+      'pour pouvoir clore une échéance.</p>')+
+    '</div>';
+}
+
+function brancherEcheances(p){
+  document.querySelectorAll("[data-echj]").forEach(b=>b.onclick=async(e)=>{
+    const clore=e.target.closest("[data-clorej]");
+    const id=Number(b.dataset.echj);
+    if(clore){
+      e.stopPropagation();
+      const c=S.cfg;
+      if(!c.colJnlTraite) return;
+      await grist.docApi.applyUserActions([["UpdateRecord",c.tblJournal,id,
+        {[c.colJnlTraite]:true}]]);
+      const ligne=ligneDe(c.tblJournal,id);
+      if(ligne) ligne[c.colJnlTraite]=true;
+      toast("Échéance close");
+      rendreProjet();
+      charger().then(rendreProjet).catch(err=>console.warn(err.message));
+      return;
+    }
+    /* sinon : on rejoint l'entrée dans le journal, sans la dupliquer */
+    const cible=document.querySelector('.jnl-fil [data-repj="'+id+'"],'+
+                                       '.jnl-fil [data-supj="'+id+'"]');
+    const fil=cible?cible.closest(".jnl-fil"):null;
+    if(!fil) return;
+    fil.scrollIntoView({behavior:"smooth",block:"center"});
+    fil.classList.add("jnl-vise");
+    setTimeout(()=>fil.classList.remove("jnl-vise"),1600);
+  });
+}
+
 function vueJournal(p){
   const c=S.cfg;
   if(!c.tblJournal||!c.colJnlLien){
@@ -2981,11 +3023,9 @@ function vueJournal(p){
     $("#corps").innerHTML='<div class="carte"><h2>Journal de bord</h2>'+
       '<div class="champ">'+editeur(t,p,c.colJournalTexte,{multi:true})+'</div>'+
       '<p style="color:var(--gris);font-size:11.5px;margin:10px 0 0">Pour un journal daté ligne à ligne, '+
-      'paramétrez la table du journal dans les réglages.</p></div>'+
-      blocJalons(p);
+      'paramétrez la table du journal dans les réglages.</p></div>';
     brancherEditeurs();
     brancherFiltresHisto();
-    brancherJalons(p);
     return;
   }
   const js=journalDe(p);
@@ -3048,11 +3088,10 @@ function vueJournal(p){
         '</div>').join("")+
         '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
-    '</div></div></div></div>'+
-    blocJalons(p);
+    '</div></div></div></div>';
   brancherAutoHauteur();
   brancherFiltresHisto();
-  brancherJalons(p);
+  brancherEcheances(p);
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }
@@ -3153,7 +3192,7 @@ const IMG_PAGE_GARDE   = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxoAAAJT
    6 bis. Notes de réunion à caractériser
    =======================================================================
    Une note saisie en réunion depuis un formulaire Grist est reprise ici et
-   classée vers une destination unique : journal, instance, jalon, action,
+   classée vers une destination unique : journal, instance, action,
    tâche ou commentaire. La note n'est jamais supprimée : elle garde la trace
    de ce qu'elle a produit, et le classement peut être annulé. */
 
@@ -3162,7 +3201,6 @@ const NOTE_STATUTS={attente:"À caractériser", traitee:"Traitée", sansSuite:"S
 const NOTE_DESTINATIONS=[
   ["journal",   "Journal de bord", "tblJournal",  "colJnlLien"],
   ["instance",  "Instance",        "tblInstance", "colInsLien"],
-  ["jalon",     "Jalon",           "tblJalon",    "colJalLien"],
   ["action",    "Action",          "tblMain",     "colLibelle"],
   ["tache",     "Tâche",           "tblTache",    "colTacheLien"],
   ["commentaire","Commentaire",    "tblMain",     "colCommentaire"]
@@ -3333,20 +3371,6 @@ async function classerNote(p,note,dest,extra){
                     ()=>poserLien(champs,c.tblInstance,c.colInsLien,p,cle));
     table=c.tblInstance; id=await ajouter(table,champs);
   }
-  else if(dest==="jalon"){
-    if(!c.tblJalon||!c.colJalLien){ toast("Table des jalons non paramétrée.",true); return; }
-    const champs={};
-    if(c.colJalLibelle) champs[c.colJalLibelle]=extra.libelle||texte;
-    if(c.colJalDate)    champs[c.colJalDate]=date;
-    if(c.colJalCommentaire && extra.texte) champs[c.colJalCommentaire]=extra.texte;
-    if(actForm) poserLienAction(champs,c.tblJalon,c.colJalAction,actForm);
-    else if(!extra.actionVidee)
-      poserLienDeNote(champs,c.tblJalon,c.colJalAction,c.colNoteAction,note,
-                    ()=>poserLienAction(champs,c.tblJalon,c.colJalAction,actNote));
-    poserLienDeNote(champs,c.tblJalon,c.colJalLien,c.colNoteLien,note,
-                    ()=>poserLien(champs,c.tblJalon,c.colJalLien,p,cle));
-    table=c.tblJalon; id=await ajouter(table,champs);
-  }
   else if(dest==="action"){
     const t=c.tblMain, champs={[c.colLibelle]:extra.libelle};
     const infoN=infoCol(t,c.colNature);
@@ -3480,12 +3504,6 @@ function formulaireNote(p,n,dest,texte){
     h+=champCol(c.tblInstance,c.colInsType,"nf-type","Type","");
     h+=champCol(c.tblInstance,c.colInsRapporteur,"nf-rapporteur","Rapporteur",auteur);
     if(c.colInsAction) h+=champActions("Action concernée",false);
-  }
-  else if(dest==="jalon"){
-    h+=champDate("Date du jalon");
-    h+=champLib("Libellé du jalon");
-    if(c.colJalAction) h+=champActions("Action concernée",false);
-    if(c.colJalCommentaire) h+=champTexte("Commentaire",texte);
   }
   else if(dest==="action"){
     h+=champLib("Libellé de l'action");
@@ -3673,7 +3691,7 @@ function lireFormulaireNote(dest){
     }
   }
 
-  if(dest==="instance"||dest==="jalon"||dest==="action"||dest==="tache"){
+  if(dest==="instance"||dest==="action"||dest==="tache"){
     extra.libelle=val("nf-lib");
     if(!extra.libelle){ toast("Saisissez un libellé.",true); return null; }
   }
@@ -3760,7 +3778,6 @@ const BLOCS_IMPR=[
     [["identite","Identité"],["planning","Planning"],["actions","Actions"]]],
   ["detail","Actions MEO et tâches"],
   ["instances","Instances"],
-  ["jalons","Jalons"],
   ["journal","Journal de bord"],
   ["sup","Pages additionnelles"]
 ];
@@ -3770,7 +3787,7 @@ const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.4
 
 const IMPR={
   sections:{synthese:true,identite:true,planning:true,actions:true,
-            detail:true,instances:true,jalons:true,journal:true,sup:true},
+            detail:true,instances:true,journal:true,sup:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
   lisible:true,          // texte borné à 14–18 pt
@@ -3785,8 +3802,6 @@ function chargerOptionsImpr(){
     if(!o) return;
     if(o.sections) Object.assign(IMPR.sections,o.sections);
     /* reprise d'un réglage enregistré par une version antérieure */
-    if(o.sections && o.sections.journal!==undefined && o.sections.jalons===undefined)
-      IMPR.sections.jalons=o.sections.journal;
     if(o.sections && o.sections.actions!==undefined && o.sections.detail===undefined)
       IMPR.sections.detail=o.sections.actions;
     if(o.sections && o.sections.synthese!==undefined && o.sections.identite===undefined)
@@ -3811,7 +3826,6 @@ function enregistrerOptionsImpr(){
      pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
 }
 
-function instancesDe(p){ return jalonsDe(p).filter(j=>j.genre==="Instance"); }
 
 function ouvrirImpression(){
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
@@ -4257,7 +4271,7 @@ function rangsGantt(p,acts,numeros){
 
 /* Repères du planning imprimé : même source qu'à l'écran, pour que les deux
    rendus portent exactement les mêmes losanges aux mêmes dates. */
-function jalonsGantt(p){
+function reperesGantt(p){
   return reperesPlanning(p).map(r=>({
     ts:r.ts, txt:r.titre,
     contenu:[r.titre,r.detail,r.meta].filter(Boolean).join("\n"),
@@ -4272,7 +4286,7 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   y+=fz(14)+6;
 
   const datees=rangsGantt(p,acts,numeros);
-  const ins=jalonsGantt(p);
+  const ins=reperesGantt(p);
   if(!datees.length){
     pTexte(pdf,x,y+fz(8),"Aucune date renseignée sur le projet, ses actions ou ses tâches.",
       {taille:11,couleur:PDFC.vide});
@@ -4456,13 +4470,6 @@ function lignesInstancesPdf(p){
     action:{type:"texte",t:j.action||""}
   }}));
 }
-function lignesJalonsPdf(p){
-  return jalonsDe(p).filter(j=>j.genre==="Jalon").map(j=>({cellules:{
-    date:{type:"texte",t:dateVersFR(j.date)},
-    jalon:{type:"texte",t:j.libelle||""},
-    action:{type:"texte",t:j.action||""}
-  }}));
-}
 function lignesJournalPdf(p){
   const c=S.cfg;
   if(!(c.tblJournal && c.colJnlLien)) return [];
@@ -4472,16 +4479,29 @@ function lignesJournalPdf(p){
     plat.push({j:f.j,rep:false});
     f.reponses.forEach(r=>plat.push({j:r,rep:true}));
   });
-  return plat.map(({j,rep})=>({cellules:{
+  return plat.map(({j,rep})=>{
+    const ech=!!(c.colJnlDelai && Number(j[c.colJnlDelai]));
+    const clos=!!(c.colJnlTraite && j[c.colJnlTraite]===true);
+    return {cellules:{
     date:{type:"texte",t:dateVersFR(j[c.colJnlDate])},
     action:{type:"texte",t:c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):""},
     nature:{type:"texte",t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):""},
-    texte:{type:"texte",t:(rep?"↳ ":"")+lire(c.tblJournal,j,c.colJnlTexte),
-           couleur:rep?PDFC.gris:PDFC.encre},
+    texte:{type:"texte",
+           /* une échéance est signalée dans la colonne Commentaire elle-même :
+              ▸ pour un délai encore ouvert, ✓ pour un délai clos */
+           t:(rep?"↳ ":"")+
+             (ech?(clos?"✓ ":"▸ "):"")+
+             lire(c.tblJournal,j,c.colJnlTexte),
+           style:(ech&&!clos)?"bold":undefined,
+           couleur:(ech&&!clos)?"#8a2020":(rep?PDFC.gris:PDFC.encre)},
     auteur:{type:"texte",t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""},
     collab:{type:"texte",t:c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):""},
-    delai:{type:"texte",t:c.colJnlDelai&&j[c.colJnlDelai]?dateVersFR(j[c.colJnlDelai]):""}
-  }}));
+    delai:{type:"texte",
+           t:ech?(dateVersFR(j[c.colJnlDelai])+(clos?" (traité)":"")):"",
+           style:(ech&&!clos)?"bold":undefined,
+           couleur:(ech&&!clos)?"#8a2020":PDFC.gris}
+  }};
+  });
 }
 
 /* --- pages additionnelles ------------------------------------------------- */
@@ -4590,10 +4610,6 @@ function construireDoc(p){
          {cle:"objet",titre:"Objet",w:PW-2*MX-90-130-150-190},
          {cle:"rap",titre:"Rapporteur",w:150},{cle:"action",titre:"Action",w:190}],
         lignesInstancesPdf(p),MX,PW-2*MX,true),
-      jalons:()=>dessinerTableau(ctx,"Jalons",
-        [{cle:"date",titre:"Date",w:90},{cle:"jalon",titre:"Jalon",w:PW-2*MX-90-190},
-         {cle:"action",titre:"Action",w:190}],
-        lignesJalonsPdf(p),MX,PW-2*MX,true),
       journal:()=>{
         /* les deux dernières colonnes n'apparaissent que si elles sont paramétrées */
         const fixes=[["date","Date de saisie",100],["action","Action",140],

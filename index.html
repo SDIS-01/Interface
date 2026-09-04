@@ -4255,17 +4255,14 @@ function pageGarde(ctx,p){
     const hi= fz(xs.length>18 ? 11.7 : (xs.length>10 ? 14.7 : 19.4));
     const xd=PW-60;
     let y=PH-60-(xs.length-1)*hi;
+    /* Le libellé d'instance porte déjà sa date : la répéter en gras devant
+       faisait doublon sur la garde. On n'affiche la date que si le libellé
+       est vide, auquel cas elle est la seule information disponible. */
     xs.forEach(j=>{
       const lib=j.libelle||"";
       const date=j.date?dateVersFR(j.date):"";
-      let x=xd;
-      if(lib){ pTexte(pdf,x,y,lib,{taille:t,couleur:"#000000",align:"right"});
-               x-=pLargeur(pdf,lib,t,"normal"); }
-      if(date){
-        if(lib){ pTexte(pdf,x,y," — ",{taille:t,couleur:"#000000",align:"right"});
-                 x-=pLargeur(pdf," — ",t,"normal"); }
-        pTexte(pdf,x,y,date,{taille:t,style:"bold",couleur:"#000000",align:"right"});
-      }
+      const texte=lib||date;
+      if(texte) pTexte(pdf,xd,y,texte,{taille:t,couleur:"#000000",align:"right"});
       y+=hi;
     });
   }
@@ -4345,22 +4342,61 @@ function dessinerColonneGauche(ctx,p,x,y,w){
     y+=h+7;
   });
 
+  /* Le commentaire tenait dans la colonne d'identité au prix d'une troncature
+     muette : les lignes en trop étaient simplement abandonnées. Désormais, s'il
+     ne rentre pas en entier, il n'est pas amputé — il part sur sa propre page,
+     en pleine largeur, après la synthèse. */
+  ctx.comReporte=null;
   const com=lire(t,p,c.colCommentaire);
-  if(com && y<ctx.yBas-40){
-    y+=9;                                        // .badge-list : marge de 16 au total
-    pTexte(pdf,x,y+fz(10),"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
-    y+=fz(14)+6;
+  if(com){
     const lignes=pDecoupe(pdf,com,w-22,11,"normal");
-    const h=Math.min(9+9+lignes.length*fz(16),ctx.yBas-y);
-    pAplat(pdf,x,y,w,h,PDFC.fondCom,6);
-    pAplat(pdf,x,y,3,h,PDFC.bleu,0);
-    lignes.forEach((l,i)=>{
-      const yy=y+9+fz(12)+i*fz(16);
-      if(yy<y+h) pTexte(pdf,x+11,yy,l,{taille:11,couleur:"#333333"});
-    });
-    y+=h;
+    const hVoulue=9+9+lignes.length*fz(16);
+    const dispo=ctx.yBas-(y+9+fz(14)+6);
+    if(hVoulue<=dispo){
+      y+=9;
+      pTexte(pdf,x,y+fz(10),"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
+      y+=fz(14)+6;
+      pAplat(pdf,x,y,w,hVoulue,PDFC.fondCom,6);
+      pAplat(pdf,x,y,3,hVoulue,PDFC.bleu,0);
+      lignes.forEach((l,i)=>pTexte(pdf,x+11,y+9+fz(12)+i*fz(16),l,
+        {taille:11,couleur:"#333333"}));
+      y+=hVoulue;
+    }else{
+      ctx.comReporte=com;
+      if(y+fz(30)<ctx.yBas){
+        y+=9;
+        pTexte(pdf,x,y+fz(10),"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
+        y+=fz(14)+4;
+        pTexte(pdf,x,y+fz(9),"Voir la page suivante.",
+          {taille:11,style:"italic",couleur:PDFC.gris});
+        y+=fz(14);
+      }
+    }
   }
   return y;
+}
+
+/* Commentaire reporté : pleine largeur, paginé, jamais rogné. */
+function dessinerCommentaireLong(ctx,texte){
+  const pdf=ctx.pdf;
+  docPage(ctx);
+  pTexte(pdf,MX,ctx.y+fz(12),"Commentaire",{taille:15,style:"bold",couleur:PDFC.bleu});
+  ctx.y+=fz(20)+8;
+  const w=PW-2*MX;
+  const lignes=pDecoupe(pdf,texte,w-22,11,"normal");
+  let i=0;
+  while(i<lignes.length){
+    const reste=Math.max(1,Math.floor((ctx.yBas-ctx.y-18)/fz(16)));
+    const bloc=lignes.slice(i,i+reste);
+    const h=9+9+bloc.length*fz(16);
+    pAplat(pdf,MX,ctx.y,w,h,PDFC.fondCom,6);
+    pAplat(pdf,MX,ctx.y,3,h,PDFC.bleu,0);
+    bloc.forEach((l,k)=>pTexte(pdf,MX+11,ctx.y+9+fz(12)+k*fz(16),l,
+      {taille:11,couleur:"#333333"}));
+    ctx.y+=h;
+    i+=bloc.length;
+    if(i<lignes.length) docPage(ctx);
+  }
 }
 function esc0(v){ return txt(v).trim(); }
 function libelleColonneBrut(tableId,colId){
@@ -4728,6 +4764,7 @@ function construireDoc(p){
              {cle:"porteur",titre:"Porteur",w:130},{cle:"ech",titre:"Échéance",w:80},
              {cle:"avct",titre:"Avancement",w:92}],
             lignesActionsSynthese(p,acts,numeros),xg,wg,false);
+        if(ctx.comReporte){ dessinerCommentaireLong(ctx,ctx.comReporte); ctx.comReporte=null; }
       },
       detail:()=>dessinerTableau(ctx,"Actions MEO et tâches",
         [{cle:"lib",titre:"Action / Tâche",w:430},{cle:"resp",titre:"Responsable",w:120},

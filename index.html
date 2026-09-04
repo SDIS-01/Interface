@@ -3928,19 +3928,6 @@ function vueNotes(p){
     return;
   }
   const notes=notesDe(p);
-  /* diagnostic : des notes existent, mais aucune ne se rattache à ce projet */
-  if(!notes.length && S.data.notes.length){
-    $("#corps").innerHTML='<div class="carte"><div class="vide">'+
-      '<b>Aucune note rattachée à ce projet</b>'+
-      'La table contient '+S.data.notes.length+' note'+(S.data.notes.length>1?"s":"")+
-      ', mais aucune ne pointe vers « '+esc(lire(c.tblMain,p,c.colLibelle)||"ce projet")+' ».'+
-      '</div>'+
-      /* le détail technique reste disponible, mais replié : il n'a d'intérêt
-         que le jour où l'on cherche d'où vient le décalage de paramétrage */
-      '<details class="diag-repli"><summary>Analyser le rattachement</summary>'+
-        diagnosticNotes(p)+'</details></div>';
-    return;
-  }
   const attente=notes.filter(estACaracteriser);
   const classees=notes.filter(n=>!estACaracteriser(n));
 
@@ -3951,6 +3938,12 @@ function vueNotes(p){
       ? '<div class="notes-liste">'+attente.map(n=>ligneNoteHtml(p,n,true)).join("")+'</div>'
       : '<div class="vide"><b>Aucune note en attente</b>'+
         'Les notes saisies en réunion depuis le formulaire apparaissent ici.</div>')+
+    /* outil de dépannage, replié : utile le jour où des notes existent dans la
+       table sans qu'aucune ne remonte ici */
+    (!notes.length && S.data.notes.length
+      ? '<details class="diag-repli"><summary>Analyser le rattachement</summary>'+
+        diagnosticNotes(p)+'</details>'
+      : '')+
     '</div>'+
     (classees.length
       ? '<div class="carte"><h2>Notes déjà classées'+
@@ -6456,7 +6449,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-04-h — descriptif, commentaires au clic";
+const VERSION="2026-09-04-i — notes, descriptif, commentaires au clic";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

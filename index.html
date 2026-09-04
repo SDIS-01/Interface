@@ -3175,6 +3175,67 @@ function appliquerPrefill(){
   });
 }
 
+/* Aucune note ne se rattache au projet affiché : on montre côte à côte ce que
+   contient la colonne de lien et ce que le rattachement attend, pour que le
+   décalage de paramétrage saute aux yeux. */
+function diagnosticNotes(p){
+  const c=S.cfg;
+  const info=infoCol(c.tblNote,c.colNoteLien);
+  const type=info?info.type:"(colonne introuvable)";
+  const estRef=!!info && /^Ref(List)?:/.test(info.type);
+  const cle=c.colProjKey?txt(p[c.colProjKey]):"";
+  const lib=lire(c.tblMain,p,c.colLibelle);
+
+  /* ce que le code compare, selon le type de la colonne de lien */
+  let attendu, regle;
+  if(estRef && info.refTable===c.tblMain){
+    attendu='identifiant de ligne '+p.id;
+    regle='La colonne est une référence vers « '+esc(c.tblMain)+' » : '+
+          'chaque note doit pointer sur la ligne du projet elle-même.';
+  }else if(estRef){
+    attendu=(lib?'« '+lib+' »':'')+(cle?(lib?' ou ':'')+'« '+cle+' »':'');
+    regle='La colonne est une référence vers « '+esc(info.refTable)+' », '+
+          'table annexe : le libellé affiché doit correspondre exactement '+
+          'au libellé du projet ou à son identifiant.';
+  }else{
+    attendu=cle?'« '+cle+' »':'(rien — réglage « Identifiant du projet parent » vide)';
+    regle=cle
+      ? 'La colonne est du texte : sa valeur doit être exactement l\'identifiant '+
+        'du projet, tel qu\'il figure dans la colonne « '+esc(c.colProjKey)+' ».'
+      : 'La colonne est du texte, mais le réglage « Identifiant du projet parent » '+
+        '(bloc Table principale) n\'est pas renseigné : aucune note ne peut être '+
+        'rattachée tant qu\'il reste vide.';
+  }
+
+  const ech=S.data.notes.slice(0,5).map(n=>{
+    const brut=n[c.colNoteLien];
+    return '<tr><td>'+n.id+'</td>'+
+      '<td>'+esc(txt(lire(c.tblNote,n,c.colNoteLien))||"(vide)")+'</td>'+
+      '<td>'+esc(estListe(brut)?brut.slice(1).join(", "):(brut==null||brut===""?"(vide)":String(brut)))+'</td></tr>';
+  }).join("");
+
+  return '<div class="diag">'+
+    '<div class="diag-titre">Pourquoi le rattachement échoue</div>'+
+    '<ul>'+
+      '<li>Table des notes : <b>'+esc(c.tblNote)+'</b></li>'+
+      '<li>Colonne de lien : <b>'+esc(c.colNoteLien)+'</b> — type <b>'+esc(type)+'</b></li>'+
+      '<li>Projet affiché : ligne <b>'+p.id+'</b>'+
+        (lib?', libellé <b>'+esc(lib)+'</b>':'')+
+        (cle?', identifiant <b>'+esc(cle)+'</b>':', identifiant <b>(vide)</b>')+'</li>'+
+      '<li>Valeur attendue dans la colonne de lien : <b>'+esc(attendu)+'</b></li>'+
+    '</ul>'+
+    (ech
+      ? '<table class="diag-tab"><thead><tr><th>Note</th>'+
+        '<th>Lien (affiché)</th><th>Lien (valeur brute)</th></tr></thead>'+
+        '<tbody>'+ech+'</tbody></table>'
+      : '')+
+    '<p>'+regle+'</p>'+
+    '<p>Si la comparaison ci-dessus ne correspond pas, corrigez soit la colonne '+
+    'de lien dans la table des notes, soit le réglage « Lien vers le projet » '+
+    '(bloc « Table des notes de réunion »).</p>'+
+    '</div>';
+}
+
 function vueNotes(p){
   const c=S.cfg;
   if(!c.tblNote||!c.colNoteLien){

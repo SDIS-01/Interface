@@ -190,17 +190,28 @@ body.panneau-replie .panneau>*{display:none;}
 .diag-repli>summary:hover{border-color:var(--bleu);color:var(--bleu);}
 .diag-repli[open]>summary{margin-bottom:10px;}
 /* ====================== Mode téléphone (< 700 px) ====================== */
+/* Le corps de page est en flex, hauteur 100 %, overflow caché : c'est ce qui
+   permet aux deux volets du poste de tenir dans l'écran. En mobile il faut
+   l'inverse — un document qui défile normalement, sinon tout ce qui dépasse la
+   hauteur de l'écran est purement et simplement coupé. */
+html.mob,body.mob{height:auto;min-height:100%;overflow:visible;}
+body.mob{display:block;}
 body.mob .barre-top,body.mob .appli{display:none!important;}
 /* barre d'enregistrement : elle reste, calée au-dessus du bouton flottant */
-body.mob .barre-enr{left:0;right:0;bottom:0;border-radius:0;padding:10px 13px;
-  display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+body.mob .barre-enr{left:0;right:0;bottom:0;transform:none;border-radius:0;
+  border-left-width:1px;border-top:3px solid var(--orange);
+  padding:10px 13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 body.mob .barre-enr .cpt{flex:1 1 100%;font-size:12px;}
 body.mob .barre-enr .btn,body.mob .barre-enr .btn-2{flex:1;padding:10px;font-size:13px;}
 body.mob.a-enr .mb-plus{bottom:96px;}
+/* le toast se logeait sous le bouton flottant et la barre d'enregistrement */
+body.mob .toast{left:13px;right:13px;bottom:78px;text-align:center;}
+body.mob.a-enr .toast{bottom:160px;}
 body.mob.a-enr #mobile{padding-bottom:132px;}
 body.mob #mobile{display:block;}
 #mobile{font-size:14px;padding-bottom:74px;}
-.mb-tete{position:sticky;top:0;z-index:20;background:var(--bleu);color:#fff;
+.mb-haut{position:sticky;top:0;z-index:20;}
+.mb-tete{background:var(--bleu);color:#fff;
   padding:11px 13px;display:flex;align-items:center;gap:10px;}
 .mb-tete b{font-size:14px;font-weight:bold;flex:1;min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
@@ -222,8 +233,8 @@ body.mob #mobile{display:block;}
 .mb-projet .titre span{display:block;font-size:12px;color:var(--gris);margin-top:2px;}
 .mb-projet .alerte{color:#c62828;font-weight:bold;}
 .mb-fleche{flex:0 0 auto;color:#b6bdc9;font-size:17px;}
-.mb-onglets{position:sticky;top:52px;z-index:19;display:flex;background:#fff;
-  border-bottom:1px solid var(--trait);}
+.mb-onglets{display:flex;background:#fff;border-bottom:1px solid var(--trait);
+  box-shadow:0 2px 6px rgba(12,18,32,.06);}
 .mb-onglets button{flex:1;border:0;background:none;padding:11px 2px 9px;font-size:12px;
   color:var(--gris);cursor:pointer;border-bottom:2px solid transparent;}
 .mb-onglets button.on{color:var(--bleu);font-weight:bold;border-bottom-color:var(--bleu);}
@@ -275,7 +286,7 @@ body.mob #mobile{display:block;}
 .mb-plus{position:fixed;right:15px;bottom:15px;z-index:30;width:52px;height:52px;
   border-radius:50%;border:0;background:var(--bleu);color:#fff;font-size:25px;line-height:1;
   cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.28);}
-.mb-voile{position:fixed;inset:0;z-index:40;background:rgba(16,24,40,.5);
+.mb-voile{position:fixed;inset:0;z-index:70;background:rgba(16,24,40,.5);
   display:flex;align-items:flex-end;}
 .mb-feuille{background:#fff;width:100%;border-radius:14px 14px 0 0;padding:15px;
   max-height:88vh;overflow:auto;}
@@ -5752,13 +5763,15 @@ function mbAccueil(){
     : '<div class="mb-corps"><div class="mb-rien">Aucun projet ne correspond.</div></div>';
 
   $("#mobile").innerHTML=
-    '<div class="mb-tete"><b>Vos projets</b></div>'+
-    '<div class="mb-rech"><input id="mb-q" type="search" placeholder="Rechercher un projet…" '+
-      'value="'+esc(m.q||"")+'" autocomplete="off"></div>'+
-    (nbClos
-      ? '<div class="mb-outils"><button type="button" class="mb-chip'+(m.clos?" on":"")+'" '+
-        'id="mb-clos">Projets clos ('+nbClos+')</button></div>'
-      : '')+
+    '<div class="mb-haut">'+
+      '<div class="mb-tete"><b>Vos projets</b></div>'+
+      '<div class="mb-rech"><input id="mb-q" type="search" placeholder="Rechercher un projet…" '+
+        'value="'+esc(m.q||"")+'" autocomplete="off"></div>'+
+      (nbClos
+        ? '<div class="mb-outils"><button type="button" class="mb-chip'+(m.clos?" on":"")+'" '+
+          'id="mb-clos">Projets clos ('+nbClos+')</button></div>'
+        : '')+
+    '</div>'+
     lignes;
 
   const q=$("#mb-q");
@@ -5780,12 +5793,14 @@ function mbFiche(){
   const c=S.cfg, m=S.mob, p=S.projetSel;
   if(!p){ m.ecran="accueil"; return mbAccueil(); }
   $("#mobile").innerHTML=
-    '<div class="mb-tete">'+
-      '<button type="button" class="mb-retour" id="mb-retour" aria-label="Retour">‹</button>'+
-      '<b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
-    '</div>'+
-    '<div class="mb-onglets">'+MB_ONGLETS.map(([k,l])=>
-      '<button type="button" data-mbo="'+k+'"'+(m.onglet===k?' class="on"':'')+'>'+l+'</button>').join("")+
+    '<div class="mb-haut">'+
+      '<div class="mb-tete">'+
+        '<button type="button" class="mb-retour" id="mb-retour" aria-label="Retour">‹</button>'+
+        '<b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
+      '</div>'+
+      '<div class="mb-onglets">'+MB_ONGLETS.map(([k,l])=>
+        '<button type="button" data-mbo="'+k+'"'+(m.onglet===k?' class="on"':'')+'>'+l+'</button>').join("")+
+      '</div>'+
     '</div>'+
     '<div class="mb-corps" id="mb-corps"></div>'+
     '<button type="button" class="mb-plus" id="mb-note" aria-label="Ajouter une note">+</button>';
@@ -6167,6 +6182,7 @@ $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").c
    depuis un poste en rétrécissant la fenêtre. */
 function majMobile(){
   const mob=enMobile();
+  document.documentElement.classList.toggle("mob",mob);
   document.body.classList.toggle("mob",mob);
   $("#mobile").hidden=!mob;
   if(mob) rendreMobile();

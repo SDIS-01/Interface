@@ -261,6 +261,8 @@ body.mob #mobile{display:block;}
 .mb-item .h b{color:var(--encre);}
 .mb-item.retard .h b,.mb-item.retard .h i{color:#c62828;font-style:normal;}
 .mb-item .h i{color:var(--gris);font-style:normal;font-size:11.5px;}
+.mb-item .h .pastille{font-size:10.5px;padding:2px 8px;}
+.mb-item .h{flex-wrap:wrap;}
 .mb-item p{margin:3px 0 0;font-size:13px;line-height:1.5;}
 .mb-acc{border:1px solid var(--trait);border-radius:10px;margin-bottom:9px;
   background:#fff;overflow:hidden;}
@@ -284,6 +286,17 @@ body.mob #mobile{display:block;}
   border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;}
 .mb-form textarea{min-height:76px;resize:vertical;}
 .mb-form .btn{width:100%;margin-top:12px;padding:11px;font-size:14px;}
+.mb-pj{padding:0;}
+.mb-pj>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;
+  padding:13px;font-size:12px;color:var(--bleu);text-transform:uppercase;
+  letter-spacing:.4px;font-weight:bold;}
+.mb-pj>summary::-webkit-details-marker{display:none;}
+.mb-pj>summary::after{content:"▾";margin-left:auto;font-size:11px;color:var(--gris);}
+.mb-pj[open]>summary::after{content:"▴";}
+.mb-pj>summary .n{background:var(--bleu-clair);color:var(--bleu);border-radius:10px;
+  padding:1px 9px;font-size:11px;letter-spacing:0;}
+.mb-pj .dedans{padding:0 13px 13px;border-top:1px solid #f2f5f9;}
+.mb-pj .pj-bloc{margin-top:11px;}
 .mb-ajout{width:100%;padding:12px;font-size:14px;margin-bottom:11px;}
 .mb-addt{margin-top:10px;}
 .mb-plus{position:fixed;right:15px;bottom:15px;z-index:30;width:52px;height:52px;
@@ -1089,7 +1102,7 @@ const S = {
   noteOuverte:null,           // note en cours de classement : {id, dest}
   reponseA:null,              // entrée de journal à laquelle on répond
   pagesParProjet:{},          // pages additionnelles, conservées dans le document
-  mob:{ecran:"accueil",onglet:"synthese",q:"",clos:false},
+  mob:{ecran:"accueil",onglet:"synthese",q:"",clos:false,pjOuvert:false},
   notesClassees:false,        // afficher aussi les notes déjà classées ?
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
@@ -5880,6 +5893,7 @@ function mbSynthese(p){
   const auj=aujourdHuiUTC();
   const ins=instancesDe(p).filter(j=>Number(j.date)>=auj).sort((x,y)=>x.date-y.date);
   const champ=(lib,val)=>val?'<div class="mb-champ"><span>'+lib+'</span><b>'+esc(val)+'</b></div>':'';
+  const nbPJ=c.colPJ?valListe(p[c.colPJ]).map(Number).filter(Boolean).length:0;
 
   $("#mb-corps").innerHTML=
     '<div class="mb-carte"><div class="mb-ident">'+donut(a,58,i)+
@@ -5908,7 +5922,22 @@ function mbSynthese(p){
             (j.type?'<i>'+esc(j.type)+'</i>':'')+'</div>'+
             '<p>'+esc(j.libelle||"(sans libellé)")+'</p></div>').join("")
         : '<div class="mb-rien">Aucune instance à venir.</div>')+
-    '</div>';
+    '</div>'+
+
+    /* Replié par défaut : sur un écran de téléphone, un encart de pièces
+       jointes vide occuperait une place que rien ne justifie. Le nombre est
+       visible sans déplier, ce qui suffit le plus souvent. */
+    (c.colPJ
+      ? '<details class="mb-carte mb-pj"'+(S.mob.pjOuvert?" open":"")+'>'+
+          '<summary><span>Pièces jointes</span>'+
+          '<span class="n">'+nbPJ+'</span></summary>'+
+          '<div class="dedans">'+blocPJ(c.tblMain,p,c.colPJ)+'</div>'+
+        '</details>'
+      : '');
+
+  const det=document.querySelector(".mb-pj");
+  if(det) det.ontoggle=()=>{ S.mob.pjOuvert=det.open; };
+  brancherPJ();
 }
 
 /* Actions et tâches réunis : une action se déplie sur ses tâches. */
@@ -6059,7 +6088,10 @@ function mbJournal(p){
       (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)
         ? '<i>'+esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</i>':'')+
       (c.colJnlDelai&&j[c.colJnlDelai]
-        ? '<i>⏱ '+esc(dateVersFR(j[c.colJnlDelai]))+'</i>':'')+'</div>'+
+        ? '<i>⏱ '+esc(dateVersFR(j[c.colJnlDelai]))+'</i>':'')+
+      (c.colJnlCollab&&lire(c.tblJournal,j,c.colJnlCollab)
+        ? '<span class="pastille p-collab">'+
+          esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>':'')+'</div>'+
       '<p>'+(rep?'↳ ':'')+esc(lire(c.tblJournal,j,c.colJnlTexte))+'</p>'+
       (c.colJnlReponse&&!rep
         ? '<button type="button" class="mb-chip" data-mbrep="'+j.id+'" '+
@@ -6072,7 +6104,10 @@ function mbJournal(p){
           '<div class="mb-item '+(e.etat==="depasse"?"retard":(e.etat==="proche"?"proche":""))+'">'+
           '<div class="h"><b>'+esc(dateVersFR(e.ts))+'</b><i>'+
             (e.jours<0?"en retard de "+(-e.jours)+" j":(e.jours===0?"aujourd\'hui":"dans "+e.jours+" j"))+
-          '</i></div><p>'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</p>'+
+          '</i>'+
+          (c.colJnlCollab&&lire(c.tblJournal,e.j,c.colJnlCollab)
+            ? '<span class="pastille p-collab">'+esc(lire(c.tblJournal,e.j,c.colJnlCollab))+'</span>':'')+
+          '</div><p>'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</p>'+
           (c.colJnlTraite?'<button type="button" class="mb-chip" data-mbclore="'+e.j.id+'" '+
             'style="margin-top:6px">Traité</button>':'')+
           '</div>').join("")+'</div>'
@@ -6084,6 +6119,12 @@ function mbJournal(p){
           ' <button type="button" class="mb-chip" id="mbj-annuler">Annuler</button></p>'
         : '')+
       '<label>Commentaire</label><textarea id="mbj-texte"></textarea>'+
+      (c.colJnlAuteur?'<label>Auteur de la saisie</label>'+
+        champVierge(c.tblJournal,c.colJnlAuteur,"mbj-auteur"):'')+
+      (c.colJnlCollab?'<label>Collaborateur concerné</label>'+
+        champVierge(c.tblJournal,c.colJnlCollab,"mbj-collab"):'')+
+      (c.colJnlNature?'<label>Nature / origine</label>'+
+        champVierge(c.tblJournal,c.colJnlNature,"mbj-nature"):'')+
       '<label>Date de saisie</label>'+champDateFR('id="mbj-date"','',dateDuJourFR())+
       (c.colJnlDelai?'<label>Délai d\'exécution</label>'+champDateFR('id="mbj-delai"','',''):'')+
       '<button class="btn" id="mbj-ok">'+(S.reponseA?"Répondre":"Ajouter")+'</button></div>'+
@@ -6123,6 +6164,12 @@ function mbJournal(p){
     if(d===undefined){ toast("Date de saisie invalide : jj/mm/aaaa.",true); return; }
     const champs={[c.colJnlTexte]:texte};
     if(c.colJnlDate && d!==null) champs[c.colJnlDate]=d;
+    if(c.colJnlAuteur && $("#mbj-auteur"))
+      champs[c.colJnlAuteur]=valeurChamp("mbj-auteur",c.tblJournal,c.colJnlAuteur);
+    if(c.colJnlCollab && $("#mbj-collab"))
+      champs[c.colJnlCollab]=valeurChamp("mbj-collab",c.tblJournal,c.colJnlCollab);
+    if(c.colJnlNature && $("#mbj-nature"))
+      champs[c.colJnlNature]=valeurChamp("mbj-nature",c.tblJournal,c.colJnlNature);
     if(c.colJnlDelai && $("#mbj-delai")){
       const dl=frVersDate($("#mbj-delai").value);
       if(dl===undefined){ toast("Délai invalide : jj/mm/aaaa.",true); return; }

@@ -157,6 +157,9 @@ body.panneau-replie .panneau>*{display:none;}
   text-overflow:ellipsis;white-space:nowrap;}
 .p-action{background:var(--bleu-clair);color:var(--bleu);max-width:190px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
+.p-collab{background:#e8f2ea;color:#2f6b41;max-width:170px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.p-delai{background:#fdf3e0;color:#8a5a12;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
 
 /* ---------- En-tête projet ---------- */
@@ -373,6 +376,27 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-auj-zone{position:absolute;left:230px;right:0;top:23px;bottom:0;
   pointer-events:none;z-index:2;}
 .pl-auj{position:absolute;top:0;bottom:0;width:0;border-left:2px solid #E30613;}
+/* bande des repères : instances (rouge) et délais d'exécution (noir) */
+.pl-reperes{position:relative;height:22px;margin-left:230px;}
+.pl-grille.avec-rep .pl-fond,
+.pl-grille.avec-rep .pl-auj-zone{top:45px;}
+.pl-rep{position:absolute;top:5px;width:12px;height:12px;margin-left:-6px;padding:0;
+  border:0;background:transparent;cursor:pointer;z-index:3;}
+.pl-rep::before{content:"";display:block;width:9px;height:9px;margin:1px auto;
+  transform:rotate(45deg);border:1px solid #fff;}
+.pl-rep-instance::before{background:#c62828;}
+.pl-rep-delai::before{background:#1f1f1f;}
+.pl-rep.actif::before{outline:2px solid var(--bleu);outline-offset:2px;}
+.pl-bulle{position:absolute;z-index:6;max-width:320px;background:#fff;
+  border:1px solid var(--traitFort,#b9c6dc);border-radius:5px;padding:9px 11px;
+  box-shadow:0 6px 18px rgba(0,0,0,.16);font-size:11.5px;line-height:1.5;}
+.pl-bulle b{display:block;color:var(--bleu);margin-bottom:3px;}
+.pl-bulle .pl-bulle-txt{white-space:pre-wrap;color:var(--encre);}
+.pl-bulle .pl-bulle-meta{color:var(--gris);margin-top:5px;}
+.pl-bulle-fermer{position:absolute;top:3px;right:5px;border:0;background:none;
+  color:var(--gris);cursor:pointer;font-size:13px;line-height:1;padding:2px;}
+.pl-legende-rep{display:inline-flex;align-items:center;gap:4px;}
+.pl-legende-rep i{display:inline-block;width:9px;height:9px;transform:rotate(45deg);}
 .pl-auj::after{content:"";position:absolute;top:-4px;left:-4px;
   border-left:4px solid transparent;border-right:4px solid transparent;
   border-top:5px solid #E30613;}
@@ -530,6 +554,13 @@ tbody tr.ligne-com:hover{background:transparent;}
 .ap-espace{flex:1;}
 .ap-corps{flex:1;min-height:0;background:#525659;}
 .ap-corps iframe{width:100%;height:100%;border:0;display:block;min-height:60vh;}
+/* plein cadre : repli quand le plein écran natif est refusé par l'iframe Grist */
+#voile-apercu.ap-max{padding:0;}
+#voile-apercu.ap-max .modale-large{width:100%;max-width:100%;height:100%;max-height:100%;
+  border-radius:0;}
+#voile-apercu.ap-max .ap-corps iframe{min-height:0;}
+#voile-apercu .modale-large:fullscreen{width:100%;max-width:100%;height:100%;max-height:100%;
+  border-radius:0;background:#fff;}
 
 /* ---------- Éditeur de pages additionnelles ---------- */
 .mp-editeur{border:1px solid var(--trait);border-radius:var(--rayon);padding:10px;
@@ -554,6 +585,9 @@ tbody tr.ligne-com:hover{background:transparent;}
 .mp-block{position:absolute;cursor:move;outline:1px dashed rgba(0,35,149,.25);}
 .mp-block.is-selected{outline:2px solid var(--bleu);}
 .mp-block .mp-text{width:100%;height:100%;overflow:hidden;}
+.mp-puce{display:flex;gap:.55em;}
+.mp-puce>span{flex:0 0 auto;}
+.mp-puce>div{flex:1;min-width:0;}
 .mp-block .mp-text[contenteditable="true"]{cursor:text;outline:2px solid var(--bleu);
   background:rgba(0,35,149,.03);}
 .mp-block.is-editing{cursor:text;outline:2px solid var(--bleu);}
@@ -706,6 +740,7 @@ tbody tr.ligne-com:hover{background:transparent;}
       <button type="button" class="btn-2" id="ap-options">Sections à imprimer</button>
       <button type="button" class="btn-2" id="ap-pages">Pages additionnelles</button>
       <span class="ap-espace"></span>
+      <button type="button" class="btn-2" id="ap-plein" title="Agrandir l'aperçu">⛶ Plein écran</button>
       <button type="button" class="btn" id="ap-telecharger">Télécharger</button>
     </div>
     <div class="ap-corps"><iframe id="apercu-cadre" title="Aperçu du PDF"></iframe></div>
@@ -721,7 +756,9 @@ tbody tr.ligne-com:hover{background:transparent;}
         Ces pages sont ajoutées à la fin du PDF, dans le même gabarit que les autres.<br>
         Double-cliquez dans le vide pour créer un texte, ou déposez une image
         directement sur la page. Faites glisser un bloc pour le déplacer, tirez ses coins
-        pour le redimensionner. <kbd>Suppr</kbd> efface le bloc, les <kbd>flèches</kbd>
+        pour le redimensionner. Un bloc de texte se met en liste à puces ou à tirets
+        depuis sa barre d'outils : une ligne = un point.
+        <kbd>Suppr</kbd> efface le bloc, les <kbd>flèches</kbd>
         l'ajustent au pixel (<kbd>Maj</kbd> pour 10&nbsp;px), <kbd>Échap</kbd> désélectionne.</p>
       <div id="pages-liste"></div>
       <button type="button" class="btn-2" id="pages-ajouter">+ Ajouter une page</button>
@@ -746,7 +783,12 @@ tbody tr.ligne-com:hover{background:transparent;}
       <div class="bloc-reglage">
         <h3>Taille du texte</h3>
         <p>Un texte plus grand se répartit sur davantage de pages, rien n'est tronqué.</p>
+        <label class="impr-radio"><input type="checkbox" id="impr-lisible"> Texte borné à 14–18&nbsp;pt (lisibilité)</label>
         <select id="impr-zoom" class="impr-select"></select>
+      </div>
+      <div class="bloc-reglage">
+        <h3>Destination</h3>
+        <label class="impr-radio"><input type="checkbox" id="impr-pj"> Enregistrer aussi le PDF en pièce jointe du projet</label>
       </div>
       <div class="bloc-reglage" id="impr-bloc-instances">
         <h3>Instances sur la page de garde</h3>
@@ -793,7 +835,7 @@ const DEF = {
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
-  colJnlAction:"",
+  colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
   tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"", colJalAction:"",
   colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
@@ -828,7 +870,8 @@ const CHAMPS_REGLAGES = [
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
     ["colJnlLien","Lien vers le projet"],["colJnlAction","Lien vers l'action (facultatif)"],
     ["colJnlDate","Date"],["colJnlTexte","Commentaire"],
-    ["colJnlAuteur","Collaborateur"],["colJnlNature","Nature / origine"]
+    ["colJnlAuteur","Auteur de la saisie"],["colJnlNature","Nature / origine"],
+    ["colJnlCollab","Collaborateur concerné"],["colJnlDelai","Délai d'exécution"]
   ]},
   {bloc:"Table des jalons", tableKey:"tblJalon", champs:[
     ["colJalLien","Lien vers le projet"],["colJalAction","Lien vers l'action (facultatif)"],
@@ -1130,7 +1173,7 @@ async function charger(){
   const aResoudre=[
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
-    [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction"]],
+    [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction","colJnlCollab"]],
     [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction","colJalCommentaire"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
     [c.tblNote,["colNoteLien","colNoteAuteur","colNoteTexte","colNoteStatut",
@@ -1931,12 +1974,72 @@ function brancherFiltresHisto(){
   });
 }
 
+/* identifiants de pièces jointes réellement cités dans les données chargées */
+function idsPJUtilises(){
+  const c=S.cfg, vus=new Set();
+  const ajouter=(lignes,colId)=>{
+    if(!colId||!lignes) return;
+    lignes.forEach(r=>valListe(r[colId]).map(Number).filter(Boolean).forEach(id=>vus.add(id)));
+  };
+  ajouter(S.data.main, c.colPJ);
+  ajouter(S.data.notes,c.colNotePJ);
+  return Array.from(vus);
+}
+
+/* Les intitulés des pièces jointes vivent dans la table de métadonnées
+   _grist_Attachments. Sa lecture directe suppose un accès complet au document :
+   un profil éditeur se la voit refuser, d'où les libellés « pièce 40 ».
+   On bascule alors sur l'API REST du document, avec le jeton d'accès qui sert
+   déjà au téléchargement — celui-ci, lui, est délivré aux éditeurs. */
 async function chargerPJ(){
-  S.pj={};
+  S.pj={}; S.pjDiag="";
+
+  /* 1) table de métadonnées : une seule requête, la plus rapide */
   try{
     const t=await grist.docApi.fetchTable("_grist_Attachments");
-    t.id.forEach((id,i)=>{ S.pj[id]={nom:t.fileName?t.fileName[i]:("pièce "+id)}; });
-  }catch(e){ /* colonne non lisible : on affichera l'identifiant */ }
+    if(t && t.id && t.id.length && t.fileName){
+      t.id.forEach((id,i)=>{ S.pj[id]={nom:t.fileName[i]||("pièce "+id)}; });
+      return;
+    }
+    S.pjDiag="_grist_Attachments : lue mais vide ou sans colonne fileName";
+  }catch(e){ S.pjDiag="_grist_Attachments : "+e.message; }
+
+  let tk=null;
+  try{ tk=await grist.docApi.getAccessToken({readOnly:true}); }
+  catch(e){
+    S.pjDiag+=" | jeton d'accès indisponible : "+e.message;
+    console.warn("Pièces jointes — "+S.pjDiag);
+    return;
+  }
+  const auth="auth="+encodeURIComponent(tk.token);
+
+  /* 2) repli : liste complète des métadonnées de pièces jointes du document */
+  try{
+    const rep=await fetch(tk.baseUrl+"/attachments?"+auth);
+    if(!rep.ok) throw new Error(rep.status+" "+rep.statusText);
+    const recs=(await rep.json()).records||[];
+    if(recs.length){
+      recs.forEach(r=>{ S.pj[r.id]={nom:(r.fields&&r.fields.fileName)||("pièce "+r.id)}; });
+      return;
+    }
+    S.pjDiag+=" | /attachments : liste vide";
+  }catch(e){ S.pjDiag+=" | /attachments : "+e.message; }
+
+  /* 3) dernier repli : une requête par pièce citée dans les données affichées */
+  const ids=idsPJUtilises();
+  if(!ids.length){ console.warn("Pièces jointes — "+S.pjDiag); return; }
+  await Promise.all(ids.slice(0,200).map(async id=>{
+    try{
+      const rep=await fetch(tk.baseUrl+"/attachments/"+id+"?"+auth);
+      if(!rep.ok) return;
+      const m=await rep.json();
+      if(m && m.fileName) S.pj[id]={nom:m.fileName};
+    }catch(e){}
+  }));
+  if(!Object.keys(S.pj).length){
+    S.pjDiag+=" | /attachments/{id} : aucun intitulé récupéré";
+    console.warn("Pièces jointes — "+S.pjDiag);
+  }
 }
 
 function ligneDe(tableId,rowId){
@@ -2553,6 +2656,41 @@ function posPlanning(per,ts){
   return per.length;
 }
 
+/* Repères datés posés au-dessus des barres du planning :
+     — losange rouge : passage en instance ;
+     — losange noir  : délai d'exécution mentionné au journal de bord.
+   Servie telle quelle à l'écran et au PDF, pour que les deux rendus coïncident. */
+function reperesPlanning(p){
+  const c=S.cfg, out=[];
+
+  instancesDe(p).forEach(j=>{
+    const ts=Number(j.date);
+    if(!ts) return;
+    const type=txt(j.type).trim();
+    out.push({ts,genre:"instance",
+      titre:(type||j.libelle||"Instance")+" - "+dateVersFR(ts),
+      detail:j.libelle&&j.libelle!==type?j.libelle:"",
+      meta:j.rapporteur?"Rapporteur : "+j.rapporteur:""});
+  });
+
+  if(c.tblJournal && c.colJnlLien && c.colJnlDelai)
+    journalDe(p).forEach(j=>{
+      const ts=Number(j[c.colJnlDelai]);
+      if(!ts) return;
+      const collab=c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):"";
+      const auteur=c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"";
+      out.push({ts,genre:"delai",
+        titre:"Délai - "+dateVersFR(ts),
+        detail:lire(c.tblJournal,j,c.colJnlTexte)||"(entrée sans commentaire)",
+        meta:[collab?"Collaborateur concerné : "+collab:"",
+              auteur?"Saisi par "+auteur:"",
+              j[c.colJnlDate]?"le "+dateVersFR(j[c.colJnlDate]):""]
+             .filter(Boolean).join(" — ")});
+    });
+
+  return out.sort((a,b)=>a.ts-b.ts);
+}
+
 function vuePlanning(p){
   const c=S.cfg;
   const avecTaches=S.planningTaches;
@@ -2600,8 +2738,10 @@ function vuePlanning(p){
     return;
   }
 
+  const reperes=reperesPlanning(p);
   const anCourante=new Date().getUTCFullYear();
-  const min=Math.min(...toutes.map(b=>b.d||b.f)), max=Math.max(...toutes.map(b=>b.f||b.d));
+  const dates=toutes.map(b=>b.d||b.f).concat(toutes.map(b=>b.f||b.d), reperes.map(r=>r.ts));
+  const min=Math.min.apply(null,dates), max=Math.max.apply(null,dates);
   const minAn=Math.min(new Date(min*1000).getUTCFullYear(),anCourante);
   const maxAn=Math.max(new Date(max*1000).getUTCFullYear(),anCourante+1);
   const per=periodesPlanning(minAn,maxAn);
@@ -2615,6 +2755,14 @@ function vuePlanning(p){
   /* aujourd'hui, ramené à minuit UTC pour rester dans le même repère que les périodes */
   const n0=new Date();
   const auj=Date.UTC(n0.getFullYear(),n0.getMonth(),n0.getDate())/1000;
+  const dedans=r=>r.ts>=per[0].debut && r.ts<per[per.length-1].fin;
+  const visibles=reperes.filter(dedans);
+  const bande = visibles.length
+    ? '<div class="pl-reperes">'+visibles.map((r,i)=>
+        '<button type="button" class="pl-rep pl-rep-'+r.genre+'" data-rep="'+i+'"'+
+        ' style="left:'+pos(r.ts)+'%" title="'+esc(r.titre)+'"></button>').join("")+'</div>'
+    : '';
+
   const marqueur=(auj>=per[0].debut && auj<per[per.length-1].fin)
     ? '<div class="pl-auj-zone"><div class="pl-auj" style="left:'+pos(auj)+'%" title="Aujourd\'hui — '+
       esc(n0.toLocaleDateString("fr-FR"))+'"></div></div>' : '';
@@ -2640,13 +2788,19 @@ function vuePlanning(p){
   }).join("");
 
   $("#corps").innerHTML='<div class="carte"><h2>Planning du projet</h2>'+controle+
-    '<div class="planning"><div class="pl-grille">'+entete+fond+marqueur+rangs+'</div></div>'+
+    '<div class="planning"><div class="pl-grille'+(bande?" avec-rep":"")+'">'+
+      entete+bande+fond+marqueur+rangs+'</div></div>'+
     '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gris)">'+
     [["var(--rouge)","À faire"],["var(--orange)","1 à 49 %"],["var(--jaune)","50 à 99 %"],
      ["var(--vert)","Terminé"],["var(--interrompu)","Interrompu"]]
       .map(([c2,l])=>'<span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;'+
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
+    (visibles.length
+      ? '<span class="pl-legende-rep"><i style="background:#c62828"></i> Instance</span>'+
+        '<span class="pl-legende-rep"><i style="background:#1f1f1f"></i> Délai d\'exécution</span>'
+      : '')+
     '</div></div>';
+  S.reperesVus=visibles;
   brancherPlanning(p);
 }
 
@@ -2669,6 +2823,38 @@ function brancherPlanning(p){
     S.plPanneau=true;
     vuePlanning(p);
   });
+
+  /* clic sur un losange : bulle contenant l'intitulé du journal ou de l'instance */
+  const grille=document.querySelector(".pl-grille");
+  const fermerBulle=()=>{
+    const b=document.querySelector(".pl-bulle"); if(b) b.remove();
+    document.querySelectorAll(".pl-rep.actif").forEach(x=>x.classList.remove("actif"));
+  };
+  document.querySelectorAll(".pl-rep").forEach(btn=>btn.onclick=(e)=>{
+    e.stopPropagation();
+    const dejaActif=btn.classList.contains("actif");
+    fermerBulle();
+    if(dejaActif) return;
+    const r=(S.reperesVus||[])[Number(btn.dataset.rep)];
+    if(!r||!grille) return;
+    btn.classList.add("actif");
+    const bulle=document.createElement("div");
+    bulle.className="pl-bulle";
+    bulle.innerHTML='<button type="button" class="pl-bulle-fermer" title="Fermer">✕</button>'+
+      '<b>'+esc(r.titre)+'</b>'+
+      (r.detail?'<div class="pl-bulle-txt">'+esc(r.detail)+'</div>':'')+
+      (r.meta?'<div class="pl-bulle-meta">'+esc(r.meta)+'</div>':'');
+    grille.appendChild(bulle);
+    /* placée sous le losange, ramenée dans la grille si elle déborde */
+    const gr=grille.getBoundingClientRect(), br=btn.getBoundingClientRect();
+    let g=br.left-gr.left+br.width/2-bulle.offsetWidth/2;
+    g=Math.max(4,Math.min(g,grille.clientWidth-bulle.offsetWidth-4));
+    bulle.style.left=g+"px";
+    bulle.style.top=(br.bottom-gr.top+6)+"px";
+    bulle.querySelector(".pl-bulle-fermer").onclick=fermerBulle;
+    bulle.onclick=ev=>ev.stopPropagation();
+  });
+  document.addEventListener("click",fermerBulle,{once:true});
 }
 
 /* --- Journal de bord --- */
@@ -2694,14 +2880,18 @@ function vueJournal(p){
   $("#corps").innerHTML=
     '<div class="duo"><div class="duo-ajout">'+
     '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille colonne">'+
-      '<div class="champ"><label>Date</label>'+
+      '<div class="champ"><label>Date de saisie</label>'+
         champDateFR('id="j-date"','',dateDuJourFR())+'</div>'+
       (c.colJnlAction?'<div class="champ"><label>Action concernée</label>'+
         champAction(p,"j-action",null)+'</div>':'')+
-      (c.colJnlAuteur?'<div class="champ"><label>Collaborateur</label>'+
+      (c.colJnlAuteur?'<div class="champ"><label>Auteur de la saisie</label>'+
         champVierge(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
+      (c.colJnlCollab?'<div class="champ"><label>Collaborateur concerné</label>'+
+        champVierge(c.tblJournal,c.colJnlCollab,"j-collab")+'</div>':'')+
       (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
         champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
+      (c.colJnlDelai?'<div class="champ"><label>Délai d\'exécution</label>'+
+        champDateFR('id="j-delai"','','')+'</div>':'')+
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '</div><div class="duo-histo">'+
@@ -2713,6 +2903,11 @@ function vueJournal(p){
             esc(actJnl(j))+'</span>':'')+
         (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
           ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
+        (c.colJnlCollab&&lire(c.tblJournal,j,c.colJnlCollab)
+          ? '<span class="pastille p-collab">'+esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>':'')+
+        (c.colJnlDelai&&j[c.colJnlDelai]
+          ? '<span class="pastille p-delai" title="Délai d\'exécution">⏱ '+
+            esc(dateVersFR(j[c.colJnlDelai]))+'</span>':'')+
         '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
         (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
           esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
@@ -2735,6 +2930,12 @@ function vueJournal(p){
       champs[c.colJnlDate]=d;
     }
     if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=valeurChamp("j-auteur",c.tblJournal,c.colJnlAuteur);
+    if(c.colJnlCollab && $("#j-collab")) champs[c.colJnlCollab]=valeurChamp("j-collab",c.tblJournal,c.colJnlCollab);
+    if(c.colJnlDelai && $("#j-delai")){
+      const dl=frVersDate($("#j-delai").value);
+      if(dl===undefined){ toast("Délai d'exécution invalide : saisissez-le au format jj/mm/aaaa.",true); return; }
+      if(dl!==null) champs[c.colJnlDelai]=dl;
+    }
     if(c.colJnlNature && $("#j-nature")) champs[c.colJnlNature]=valeurChamp("j-nature",c.tblJournal,c.colJnlNature);
     if(c.colJnlAction && $("#j-action")){
       const va=valeurAction("j-action",c.tblJournal,c.colJnlAction);
@@ -3407,6 +3608,8 @@ const IMPR={
             detail:true,instances:true,jalons:true,journal:true,sup:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
+  lisible:true,          // texte borné à 14–18 pt
+  pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
   instancesGarde:null
 };
@@ -3425,6 +3628,8 @@ function chargerOptionsImpr(){
       IMPR.sections.identite=o.sections.synthese;
     if(Array.isArray(o.ordre)) IMPR.ordre=ordreValide(o.ordre);
     if(o.zoom) IMPR.zoom=Number(o.zoom)||1;
+    if(o.lisible!==undefined) IMPR.lisible=!!o.lisible;
+    if(o.pieceJointe!==undefined) IMPR.pieceJointe=!!o.pieceJointe;
     if(o.portee) IMPR.portee=o.portee;
   }catch(e){}
 }
@@ -3436,7 +3641,8 @@ function ordreValide(liste){
 }
 function enregistrerOptionsImpr(){
   try{ localStorage.setItem("cp-impression",JSON.stringify(
-    {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,portee:IMPR.portee})); }catch(e){}
+    {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
+     pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
 }
 
 function instancesDe(p){ return jalonsDe(p).filter(j=>j.genre==="Instance"); }
@@ -3453,6 +3659,18 @@ function ouvrirImpression(){
     z.innerHTML=ZOOMS_IMPR.map(([v,l])=>'<option value="'+v+'">'+l+
       ' ('+Math.round(Number(v)*100)+'&nbsp;%)</option>').join("");
     z.value=String(IMPR.zoom);
+  }
+  const cl=$("#impr-lisible");
+  if(cl){
+    cl.checked=IMPR.lisible;
+    const maj=()=>{ if(z) z.disabled=cl.checked; };
+    cl.onchange=maj; maj();
+  }
+  const cpj=$("#impr-pj");
+  if(cpj){
+    cpj.checked=IMPR.pieceJointe;
+    cpj.disabled=!S.cfg.colPJ;
+    cpj.parentNode.title=S.cfg.colPJ?"":"Aucune colonne « Pièces jointes » paramétrée sur la table principale.";
   }
   document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
 
@@ -3532,6 +3750,8 @@ function retenirOptionsImpr(){
   });
   const z=$("#impr-zoom");
   if(z) IMPR.zoom=Number(z.value)||1;
+  const cl=$("#impr-lisible");  if(cl)  IMPR.lisible=cl.checked;
+  const cpj=$("#impr-pj");      if(cpj) IMPR.pieceJointe=cpj.checked && !cpj.disabled;
   const t=document.querySelector('[name=impr-portee]:checked');
   if(t) IMPR.portee=t.value;
   IMPR.instancesGarde=[...document.querySelectorAll('[data-ins]')]
@@ -3602,11 +3822,18 @@ const H_BANDEAU=122.93, H_PIED_IMG=119.64;
    hauteurs réelles, agrandir le texte reporte simplement le contenu sur les
    pages suivantes, sans jamais le rogner. */
 let PZ=1;
+/* Bornes de lisibilité. En mode « texte 14–18 », le zoom est calé pour que la
+   plus petite police du document (9,5 pt) atteigne 14 : les interlignes et les
+   hauteurs de ligne suivent le même facteur, donc rien ne se chevauche. Le
+   plafond ramène ensuite les grands titres sous 18 — un texte plus petit que la
+   place réservée ne gêne pas, il laisse juste un peu d'air. */
+let PMIN=0, PMAX=Infinity;
 function fz(v){ return Math.round(v*PZ*100)/100; }
+function fclamp(t){ return Math.min(PMAX,Math.max(PMIN,t)); }
 
 function pFont(pdf,taille,style,couleur){
   pdf.setFont("helvetica",style||"normal");
-  pdf.setFontSize(taille);
+  pdf.setFontSize(fclamp(taille));
   pdf.setTextColor(couleur||PDFC.encre);
 }
 /* écrit une chaîne ; renvoie la largeur occupée */
@@ -3811,53 +4038,127 @@ function libelleColonneBrut(tableId,colId){
 
 /* --- planning ------------------------------------------------------------- */
 
+/* Rangs du planning : le projet, ses tâches, puis chaque action et ses tâches.
+   Même construction qu'à l'écran (vuePlanning) — un projet sans action MEO mais
+   avec des tâches produit donc bien un planning, ce qui n'était pas le cas
+   auparavant : seules les actions étaient prises en compte. */
+function rangsGantt(p,acts,numeros){
+  const c=S.cfg, out=[];
+  const bornes=(r,tache)=>({
+    d:Number(tache?r[c.colTacheDebut]:r[c.colDebut])||null,
+    f:Number(tache?r[c.colTacheFin]:(r[c.colFin]||r[c.colEch]))||null
+  });
+  const pousser=(r,niv,tache,prefixe)=>{
+    const b=bornes(r,tache);
+    out.push({r,niv,tache,d:b.d,f:b.f,
+      lib:(prefixe?prefixe+" ":"")+
+          (tache?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle)),
+      av:pct(tache?r[c.colTacheAvancement]:r[c.colAvancement]),
+      inter:tache?statutInterrompu(c.tblTache,r,c.colTacheStatut):interrompu(r)});
+  };
+  pousser(p,0,false,"");
+  tachesDe(p).forEach(t=>pousser(t,1,true,""));
+  acts.forEach(a=>{
+    pousser(a,1,false,(numeros.get(a.id)||"")+".");
+    tachesDe(a).forEach(t=>pousser(t,2,true,""));
+  });
+  return out.filter(z=>z.d||z.f);
+}
+
+/* Repères du planning imprimé : même source qu'à l'écran, pour que les deux
+   rendus portent exactement les mêmes losanges aux mêmes dates. */
+function jalonsGantt(p){
+  return reperesPlanning(p).map(r=>({
+    ts:r.ts, txt:r.titre,
+    contenu:[r.titre,r.detail,r.meta].filter(Boolean).join("\n"),
+    coul:r.genre==="delai"?"#1f1f1f":"#c62828",
+    pale:r.genre==="delai"?"#c9c9c9":"#e0b3b3"
+  }));
+}
+
 function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const pdf=ctx.pdf, c=S.cfg;
   pTexte(pdf,x,y+fz(10),"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
   y+=fz(14)+6;
 
-  const datees=acts.map(a=>({a,
-      d:Number(a[c.colDebut])||null,
-      f:Number(a[c.colFin]||a[c.colEch])||null})).filter(z=>z.d||z.f);
+  const datees=rangsGantt(p,acts,numeros);
+  const ins=jalonsGantt(p);
   if(!datees.length){
-    pTexte(pdf,x,y+fz(8),"Aucune date renseignée sur les actions.",{taille:11,couleur:PDFC.vide});
+    pTexte(pdf,x,y+fz(8),"Aucune date renseignée sur le projet, ses actions ou ses tâches.",
+      {taille:11,couleur:PDFC.vide});
     return y+fz(22);
   }
 
   const an=new Date().getUTCFullYear();
-  const min=Math.min(...datees.map(z=>z.d||z.f)), max=Math.max(...datees.map(z=>z.f||z.d));
+  const tous=datees.map(z=>z.d||z.f).concat(datees.map(z=>z.f||z.d), ins.map(o=>o.ts));
+  const min=Math.min.apply(null,tous), max=Math.max.apply(null,tous);
   const per=periodesPlanning(Math.min(new Date(min*1000).getUTCFullYear(),an),
                              Math.max(new Date(max*1000).getUTCFullYear(),an+1));
-  const xn=34, xp=x+xn, wp=w-xn;
+  /* colonne des libellés : proportionnelle, encadrée pour rester lisible */
+  const xn=Math.round(Math.max(110,Math.min(230,w*0.26)));
+  const xp=x+xn, wp=w-xn;
   const pos=ts=>posPlanning(per,ts)/per.length*wp;
 
   const dense = datees.length>20, compact = !dense && datees.length>12;
   const hl = fz(dense?13:(compact?17:22)), hb = dense?9:(compact?11:14), db = dense?2:(compact?3:4);
   const mb = dense?1:(compact?2:3);
+  const tl = dense?9.5:10.5;                        // taille des libellés
 
   const lu=wp/per.length;
   per.forEach((u,i)=>pTexte(pdf,xp+lu*i+lu/2,y+fz(8),u.label,
     {taille:9.5,couleur:PDFC.gris,align:"center"}));
   y+=fz(11);
+
+  /* bande réservée aux losanges d'instances, au-dessus des barres */
+  const hIns = ins.length ? fz(9) : 0;
+  const yIns = y+hIns/2;
+  y+=hIns;
+
   pFiletH(pdf,xp,x+w,y,PDFC.filet);
   const yHaut=y+5;
   y=yHaut;
 
   datees.forEach(z=>{
-    const av=pct(z.a[c.colAvancement]), inter=interrompu(z.a), co=bandesImpr(av,inter);
-    pTexte(pdf,x+xn/2,y+hl/2,String(numeros.get(z.a.id)||""),
-      {taille:dense?9.5:11,style:"bold",couleur:PDFC.gris,align:"center",baseline:"middle"});
+    const co=bandesImpr(z.av,z.inter);
+    /* libellé, tronqué à la première ligne pour garder une ligne par rang */
+    const lib=pDecoupe(pdf,z.lib||"(sans libellé)",xn-6-z.niv*8,tl,z.niv===0?"bold":"normal")[0];
+    pTexte(pdf,x+z.niv*8,y+hl/2,lib,
+      {taille:tl,style:z.niv===0?"bold":"normal",
+       couleur:z.niv===0?PDFC.bleu:(z.tache?PDFC.gris:PDFC.encre),baseline:"middle"});
     const g=pos(z.d||z.f);
     const lb=Math.max(6,Math.min(wp-g,pos(z.f||z.d)-g));
     pAplat(pdf,xp+g,y+db,lb,hb,co.pale,3);
-    if(av) pAplat(pdf,xp+g,y+db,lb*Math.min(100,av)/100,hb,co.fill,3);
+    if(z.av) pAplat(pdf,xp+g,y+db,lb*Math.min(100,z.av)/100,hb,co.fill,3);
     y+=hl+mb;
   });
+
+  const yBas=y-mb;
+
+  /* Losanges sans libellé : les intitulés encombraient la bande. Chacun porte
+     une note PDF, que les lecteurs affichent au survol ou au clic. */
+  if(ins.length){
+    const r=4.5;
+    ins.forEach(o=>{
+      if(o.ts<per[0].debut || o.ts>=per[per.length-1].fin) return;
+      const cx=xp+pos(o.ts);
+      pdf.setDrawColor(o.coul); pdf.setLineWidth(0.5);
+      pdf.setFillColor(o.coul);
+      pdf.lines([[r,-r],[r,r],[-r,r],[-r,-r]],cx-r,yIns,[1,1],"FD",true);
+      /* trait de rappel jusqu'au bas des barres */
+      pdf.setDrawColor(o.pale); pdf.setLineWidth(0.5);
+      pdf.line(cx,yIns+r,cx,yBas);
+      try{
+        pdf.createAnnotation({type:"text",title:o.txt,contents:o.contenu||o.txt,
+          open:false,bounds:{x:cx-r,y:yIns-r,w:2*r,h:2*r}});
+      }catch(e){}
+    });
+    pdf.setLineWidth(0.6);
+  }
 
   const auj=aujourdHuiUTC();
   if(auj>=per[0].debut && auj<per[per.length-1].fin){
     pdf.setDrawColor("#d32f2f"); pdf.setLineWidth(1);
-    pdf.line(xp+pos(auj),yHaut-5,xp+pos(auj),y-mb);
+    pdf.line(xp+pos(auj),yHaut-5,xp+pos(auj),yBas);
     pdf.setLineWidth(0.6);
   }
   return y+10;
@@ -3995,7 +4296,9 @@ function lignesJournalPdf(p){
     action:{type:"texte",t:c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):""},
     nature:{type:"texte",t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):""},
     texte:{type:"texte",t:lire(c.tblJournal,j,c.colJnlTexte)},
-    auteur:{type:"texte",t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""}
+    auteur:{type:"texte",t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""},
+    collab:{type:"texte",t:c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):""},
+    delai:{type:"texte",t:c.colJnlDelai&&j[c.colJnlDelai]?dateVersFR(j[c.colJnlDelai]):""}
   }}));
 }
 
@@ -4019,20 +4322,46 @@ function dessinerPagesSup(ctx){
       }else{
         const taille=b.fontSize||13;
         const style=(b.bold?"bold":"")+(b.italic?"italic":"") || "normal";
-        const lignes=pDecoupe(pdf,b.text||"",bw,taille,style);
-        const inter=taille*1.5;
-        lignes.forEach((l,i)=>{
-          const yy=by+taille+i*inter;
-          if(yy>by+bh+taille) return;
-          const ax=b.align==="center"?bx+bw/2:(b.align==="right"?bx+bw:bx);
-          pTexte(pdf,ax,yy,l,{taille,style,couleur:b.color||"#1a1a1a",
-                              align:b.align||"left"});
+        const coul=b.color||"#1a1a1a";
+        const inter=fz(taille)*1.5;
+        let n=0;
+        /* écrit une ligne déjà découpée ; renvoie false si le bloc est plein */
+        const poser=(l,dx,marque)=>{
+          const yy=by+fz(taille)+n*inter;
+          if(yy>by+bh+fz(taille)) return false;
+          const al=marque?"left":(b.align||"left");
+          const ax=marque?bx+dx
+                 :(b.align==="center"?bx+bw/2:(b.align==="right"?bx+bw:bx));
+          if(marque) pTexte(pdf,bx,yy,marque,{taille,style,couleur:coul});
+          pTexte(pdf,ax,yy,l,{taille,style,couleur:coul,align:al});
           if(b.underline){
             const lw2=pLargeur(pdf,l,taille,style);
-            const ux=b.align==="center"?ax-lw2/2:(b.align==="right"?ax-lw2:ax);
-            pFiletH(pdf,ux,ux+lw2,yy+2,b.color||"#1a1a1a",0.6);
+            const ux=al==="center"?ax-lw2/2:(al==="right"?ax-lw2:ax);
+            pFiletH(pdf,ux,ux+lw2,yy+2,coul,0.6);
           }
-        });
+          n++;
+          return true;
+        };
+
+        if(b.puce){
+          /* retrait suspendu : la marque à gauche, les lignes de repli alignées
+             sous le texte et non sous la marque */
+          const dx=pLargeur(pdf,b.puce+" ",taille,style);
+          const lignes=String(b.text||"").split("\n");
+          for(const brut of lignes){
+            if(!brut.trim()){ if(!poser("",0,null)) break; continue; }
+            const net=brut.replace(/^\s*[-–•*]\s*/,"");
+            const morceaux=pDecoupe(pdf,net,bw-dx,taille,style);
+            let plein=false;
+            morceaux.forEach((m,k)=>{
+              if(plein) return;
+              if(!poser(m,dx,k===0?b.puce:"")) plein=true;
+            });
+            if(plein) break;
+          }
+        }else{
+          pDecoupe(pdf,b.text||"",bw,taille,style).forEach(l=>poser(l,0,null));
+        }
       }
     });
   });
@@ -4046,7 +4375,8 @@ function construireDoc(p){
     const acts=actionsImpression(p);
     const numeros=new Map(); acts.forEach((a,i)=>numeros.set(a.id,i+1));
     const ctx=docNouveau(titre);
-    PZ=Number(IMPR.zoom)||1;
+    if(IMPR.lisible){ PZ=14/9.5; PMIN=14; PMAX=18; }
+    else            { PZ=Number(IMPR.zoom)||1; PMIN=0; PMAX=Infinity; }
 
     pageGarde(ctx,p);
 
@@ -4082,12 +4412,20 @@ function construireDoc(p){
         [{cle:"date",titre:"Date",w:90},{cle:"jalon",titre:"Jalon",w:PW-2*MX-90-190},
          {cle:"action",titre:"Action",w:190}],
         lignesJalonsPdf(p),MX,PW-2*MX,true),
-      journal:()=>dessinerTableau(ctx,"Journal de bord",
-        [{cle:"date",titre:"Date",w:90},{cle:"action",titre:"Action",w:160},
-         {cle:"nature",titre:"Nature",w:120},
-         {cle:"texte",titre:"Commentaire",w:PW-2*MX-90-160-120-130},
-         {cle:"auteur",titre:"Auteur",w:130}],
-        lignesJournalPdf(p),MX,PW-2*MX,true),
+      journal:()=>{
+        /* les deux dernières colonnes n'apparaissent que si elles sont paramétrées */
+        const fixes=[["date","Date de saisie",84],["action","Action",140],
+                     ["nature","Nature",100],["auteur","Auteur",110]];
+        if(c.colJnlCollab) fixes.push(["collab","Collaborateur concerné",130]);
+        if(c.colJnlDelai)  fixes.push(["delai","Délai d'exécution",84]);
+        const pris=fixes.reduce((n,f)=>n+f[2],0);
+        const cols=[];
+        fixes.forEach(f=>{
+          cols.push({cle:f[0],titre:f[1],w:f[2]});
+          if(f[0]==="nature") cols.push({cle:"texte",titre:"Commentaire",w:PW-2*MX-pris});
+        });
+        dessinerTableau(ctx,"Journal de bord",cols,lignesJournalPdf(p),MX,PW-2*MX,true);
+      },
       sup:()=>dessinerPagesSup(ctx)
     };
 
@@ -4108,6 +4446,34 @@ function construireDoc(p){
           pages:total+1};
 }
 
+/* dépose un PDF déjà construit dans la colonne « Pièces jointes » du projet */
+async function deposerPDF(p,blob,nom){
+  const c=S.cfg;
+  if(!c.colPJ){ toast("Aucune colonne « Pièces jointes » paramétrée.",true); return; }
+  try{
+    toast("Dépôt de la pièce jointe…");
+    const tk=await grist.docApi.getAccessToken({readOnly:false});
+    const fd=new FormData();
+    fd.append("upload",blob,nom);
+    const rep=await fetch(tk.baseUrl+"/attachments?auth="+encodeURIComponent(tk.token),{
+      method:"POST", body:fd, headers:{"X-Requested-With":"XMLHttpRequest"}
+    });
+    if(!rep.ok) throw new Error(rep.status+" "+rep.statusText);
+    const res=await rep.json();
+    const nouveaux=(Array.isArray(res)?res:[res]).map(Number).filter(Boolean);
+    if(!nouveaux.length) throw new Error("aucun identifiant renvoyé");
+    const ligne=ligneDe(c.tblMain,p.id)||p;
+    const actuels=valListe(ligne[c.colPJ]).map(Number).filter(Boolean);
+    await grist.docApi.applyUserActions([["UpdateRecord",c.tblMain,p.id,
+      {[c.colPJ]:["L"].concat(actuels,nouveaux)}]]);
+    toast("PDF ajouté aux pièces jointes du projet");
+    await charger(); rendreProjet();
+  }catch(e){
+    toast("Dépôt impossible : "+e.message,true);
+    console.error(e);
+  }
+}
+
 function genererFichePDF(p){
   if(!window.jspdf){
     toast("Bibliothèque PDF non chargée : vérifiez l'accès à Internet.",true); return;
@@ -4116,6 +4482,7 @@ function genererFichePDF(p){
     const d=construireDoc(p);
     d.pdf.save(d.nom);
     toast("PDF enregistré ("+d.pages+" pages)");
+    if(IMPR.pieceJointe) deposerPDF(p,d.pdf.output("blob"),d.nom);
   }catch(e){
     toast("Erreur lors de la génération du PDF : "+e.message,true);
     console.error(e);
@@ -4153,7 +4520,33 @@ function ouvrirApercu(){
   rafraichirApercu();
 }
 
+/* Plein écran de l'aperçu. On tente d'abord le plein écran natif ; s'il est
+   refusé — l'iframe du widget doit porter allow="fullscreen", ce que Grist ne
+   garantit pas — on bascule sur un mode « plein cadre » purement CSS, qui étend
+   la modale à toute la surface du widget. */
+function basculerPleinEcran(){
+  const voile=$("#voile-apercu"), boite=voile.querySelector(".modale-large");
+  const btn=$("#ap-plein");
+  const majBtn=()=>{
+    const actif = document.fullscreenElement===boite || voile.classList.contains("ap-max");
+    btn.textContent = actif ? "⛶ Réduire" : "⛶ Plein écran";
+  };
+  if(document.fullscreenElement===boite){ document.exitFullscreen(); majBtn(); return; }
+  if(voile.classList.contains("ap-max")){ voile.classList.remove("ap-max"); majBtn(); return; }
+  if(boite.requestFullscreen){
+    boite.requestFullscreen()
+      .then(majBtn)
+      .catch(()=>{ voile.classList.add("ap-max"); majBtn(); });
+  }else{
+    voile.classList.add("ap-max"); majBtn();
+  }
+}
+
 function fermerApercu(){
+  const voile=$("#voile-apercu");
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  voile.classList.remove("ap-max");
+  const btn=$("#ap-plein"); if(btn) btn.textContent="⛶ Plein écran";
   $("#voile-apercu").classList.remove("ouvert");
   $("#apercu-cadre").src="about:blank";
   if(urlApercu){ URL.revokeObjectURL(urlApercu); urlApercu=null; }
@@ -4211,6 +4604,16 @@ function mpStyleTexte(b){
     ";text-decoration:"+(b.underline?"underline":"none")+
     ";color:"+(b.color||"#1a1a1a")+";";
 }
+/* Une ligne du texte = une puce. Le retrait suspendu vient du flex : la marque
+   garde sa largeur, le texte qui passe à la ligne reste aligné sous lui-même. */
+function mpTexteHtml(b){
+  const t=String(b.text||"");
+  if(!b.puce) return esc(t);
+  return t.split("\n").map(l=>{
+    if(!l.trim()) return '<div>&nbsp;</div>';
+    return '<div class="mp-puce"><span>'+esc(b.puce)+'</span><div>'+esc(l.replace(/^\s*[-–•*]\s*/,""))+'</div></div>';
+  }).join("");
+}
 function mpPct(v,total){ return (v/total*100).toFixed(3)+"%"; }
 function mpBoite(b){
   return "position:absolute;left:"+mpPct(b.x,MP_W)+";top:"+mpPct(b.y,MP_H)+
@@ -4241,7 +4644,7 @@ function mpBlocEditeur(b,iPage,iBloc){
       : '<div class="mp-img-empty">Image</div>';
   }else{
     dedans = '<div class="mp-text" style="white-space:pre-wrap;line-height:1.5;'+
-      mpStyleTexte(b)+'text-align:'+(b.align||"left")+'">'+esc(b.text||"")+'</div>';
+      mpStyleTexte(b)+'text-align:'+(b.align||"left")+'">'+mpTexteHtml(b)+'</div>';
   }
   const poignees = choisi
     ? ["nw","ne","sw","se"].map(d=>'<div class="mp-handle mp-handle-'+d+'" data-dir="'+d+'"></div>').join("")
@@ -4424,6 +4827,10 @@ function mpInspecteur(iPage){
         MP_COULEURS.map(c=>'<option value="'+c.v+'"'+
           ((b.color||"#1a1a1a")===c.v?" selected":"")+'>'+c.l+'</option>').join("")+
       '</select></label>'+
+      '<label class="mp-lab">Liste <select class="mpPuce">'+
+        [["","Aucune"],["•","Puces •"],["–","Tirets –"]].map(([v,l])=>
+          '<option value="'+v+'"'+((b.puce||"")===v?" selected":"")+'>'+l+'</option>').join("")+
+      '</select></label>'+
       '<label class="mp-lab">Alignement <select class="mpAlign">'+
         [["left","Gauche"],["center","Centré"],["right","Droite"]].map(([v,l])=>
           '<option value="'+v+'"'+((b.align||"left")===v?" selected":"")+'>'+l+'</option>').join("")+
@@ -4439,6 +4846,13 @@ function mpBrancherInspecteur(box,iPage,b){
   const t=q(".mpTaille");  if(t) t.onchange=e=>{ b.fontSize=Number(e.target.value); valider(); };
   const c=q(".mpCouleur"); if(c) c.onchange=e=>{ b.color=e.target.value; valider(); };
   const a=q(".mpAlign");   if(a) a.onchange=e=>{ b.align=e.target.value; valider(); };
+  const pu=q(".mpPuce");
+  if(pu) pu.onchange=e=>{
+    b.puce=e.target.value;
+    /* en mode liste, l'alignement centré ou à droite n'a plus de sens */
+    if(b.puce && b.align!=="left") b.align="left";
+    valider();
+  };
   const g=q(".mpGras");    if(g) g.onclick=()=>{ b.bold=!b.bold; valider(); };
   const i=q(".mpItal");    if(i) i.onclick=()=>{ b.italic=!b.italic; valider(); };
   const u=q(".mpSoul");    if(u) u.onclick=()=>{ b.underline=!b.underline; valider(); };
@@ -4488,6 +4902,9 @@ function mpEcrire(iPage,iBloc){
   const texteEl=blocEl&&blocEl.querySelector(".mp-text");
   if(!texteEl) return;
 
+  /* pendant la saisie, on montre le texte nu : sinon les marques de puce
+     seraient relues comme du contenu et se dupliqueraient à chaque passage */
+  if(b.puce) texteEl.textContent=b.text||"";
   texteEl.setAttribute("contenteditable","true");
   blocEl.classList.add("is-editing");
   texteEl.focus();
@@ -4858,6 +5275,12 @@ $("#impr-apercu").onclick=()=>{
 };
 $("#impr-pages").onclick=ouvrirPagesSup;
 $("#ap-fermer").onclick=fermerApercu;
+$("#ap-plein").onclick=basculerPleinEcran;
+document.addEventListener("fullscreenchange",()=>{
+  const btn=$("#ap-plein");
+  if(btn && !document.fullscreenElement && !$("#voile-apercu").classList.contains("ap-max"))
+    btn.textContent="⛶ Plein écran";
+});
 $("#ap-telecharger").onclick=()=>genererFichePDF(S.projetSel);
 $("#ap-options").onclick=()=>{ fermerApercu(); ouvrirImpression(); };
 $("#ap-pages").onclick=()=>{ S.retourApercu=true; fermerApercu(); ouvrirPagesSup(); };

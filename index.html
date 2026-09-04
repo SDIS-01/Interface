@@ -164,21 +164,27 @@ body.panneau-replie .panneau>*{display:none;}
 .ech-alerte{background:#c62828;color:#fff;border-radius:10px;padding:2px 9px;
   font-size:10.5px;font-weight:bold;letter-spacing:0;text-transform:none;}
 .ech-liste{display:flex;flex-direction:column;gap:6px;}
-.ech{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;cursor:pointer;
+.ech{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
   border:1px solid var(--trait);border-left:4px solid var(--gris);border-radius:var(--rayon);
   background:#fff;padding:8px 11px;font-size:12px;color:var(--encre);}
 .ech:hover{background:var(--bleu-survol);}
 .ech-date{flex:0 0 auto;font-weight:bold;}
 .ech-delta{flex:0 0 auto;font-size:11px;color:var(--gris);}
 .ech-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.ech-clore{flex:0 0 auto;border:1px solid var(--trait);border-radius:12px;padding:3px 10px;
-  font-size:10.5px;font-weight:bold;color:var(--gris);background:#fff;}
-.ech-clore:hover{background:var(--vert);border-color:var(--vert);color:#fff;}
+/* le bouton porte la couleur de l'urgence : le reste à faire se repère d'un
+   coup d'œil, et le survol le fait passer au vert de ce qui est réglé */
+.ech-clore{flex:0 0 auto;border:1px solid transparent;border-radius:12px;padding:4px 13px;
+  font-size:10.5px;font-weight:bold;color:#fff;background:var(--gris);cursor:pointer;
+  white-space:nowrap;}
+.ech-clore:hover{background:var(--vert);}
 .ech-depasse{border-left-color:#c62828;background:#fdf4f4;}
 .ech-depasse .ech-date,.ech-depasse .ech-delta{color:#c62828;}
+.ech-depasse .ech-clore{background:#c62828;}
 .ech-proche{border-left-color:var(--orange);}
 .ech-proche .ech-delta{color:#8a5a12;}
+.ech-proche .ech-clore{background:var(--orange);}
 .ech-avenir{border-left-color:var(--bleu-clair);}
+.ech-avenir .ech-clore{background:var(--bleu);}
 .ech-note{color:var(--gris);font-size:11px;margin:9px 0 0;}
 .jnl-vise{background:#fff8e1;box-shadow:inset 3px 0 0 var(--orange);}
 .diag-repli{margin-top:14px;}
@@ -3062,7 +3068,7 @@ function vuePlanning(p){
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     (visibles.length
       ? '<span class="pl-legende-rep"><i style="background:#c62828"></i> Instance</span>'+
-        '<span class="pl-legende-rep"><i style="background:#0e9594"></i> Délai d\'exécution</span>'
+        '<span class="pl-legende-rep"><i style="background:#0e9594"></i> Journal de bord</span>'
       : '')+
     '</div></div>';
   S.reperesVus=visibles;
@@ -3169,7 +3175,7 @@ function blocEcheances(p){
       (nbD?'<span class="ech-alerte">'+nbD+' dépassée'+(nbD>1?"s":"")+'</span>':'')+
     '</h2>'+
     '<div class="ech-liste">'+ech.map(e=>
-      '<button type="button" class="ech ech-'+e.etat+'" data-echj="'+e.j.id+'">'+
+      '<div class="ech ech-'+e.etat+'" role="button" tabindex="0" data-echj="'+e.j.id+'">'+
         '<span class="ech-date">'+esc(dateVersFR(e.ts))+'</span>'+
         '<span class="ech-delta">'+esc(jrs(e))+'</span>'+
         (c.colJnlCollab&&lire(c.tblJournal,e.j,c.colJnlCollab)
@@ -3179,14 +3185,16 @@ function blocEcheances(p){
           ? '<button type="button" class="ech-clore" data-clorej="'+e.j.id+
             '" title="Marquer cette échéance comme traitée">Traité</button>'
           : '')+
-      '</button>').join("")+'</div>'+
+      '</div>').join("")+'</div>'+
     (c.colJnlTraite?'':'<p class="ech-note">Paramétrez la colonne « Échéance traitée » '+
       'pour pouvoir clore une échéance.</p>')+
     '</div>';
 }
 
 function brancherEcheances(p){
-  document.querySelectorAll("[data-echj]").forEach(b=>b.onclick=async(e)=>{
+  document.querySelectorAll("[data-echj]").forEach(b=>{
+    b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); b.click(); } };
+    b.onclick=async(e)=>{
     const clore=e.target.closest("[data-clorej]");
     const id=Number(b.dataset.echj);
     if(clore){
@@ -3219,6 +3227,7 @@ function brancherEcheances(p){
     fil.scrollIntoView({behavior:"smooth",block:"center"});
     fil.classList.add("jnl-vise");
     setTimeout(()=>fil.classList.remove("jnl-vise"),1600);
+    };
   });
 }
 

@@ -284,6 +284,8 @@ body.mob #mobile{display:block;}
   border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;}
 .mb-form textarea{min-height:76px;resize:vertical;}
 .mb-form .btn{width:100%;margin-top:12px;padding:11px;font-size:14px;}
+.mb-ajout{width:100%;padding:12px;font-size:14px;margin-bottom:11px;}
+.mb-addt{margin-top:10px;}
 .mb-plus{position:fixed;right:15px;bottom:15px;z-index:30;width:52px;height:52px;
   border-radius:50%;border:0;background:var(--bleu);color:#fff;font-size:25px;line-height:1;
   cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.28);}
@@ -5913,7 +5915,7 @@ function mbSynthese(p){
 function mbTravaux(p){
   const c=S.cfg;
   const acts=actionsDe(p);
-  const bloc=(porteur,titre,niv)=>{
+  const bloc=(porteur,titre,niv,idAjout)=>{
     const ts=tachesDe(porteur);
     const a=pct(porteur[c.colAvancement]), i=interrompu(porteur);
     return '<details class="mb-acc"'+(niv===0?' open':'')+'>'+
@@ -5930,17 +5932,80 @@ function mbTravaux(p){
                 '</div>';
             }).join("")
           : '<div class="mb-rien">Aucune tâche.</div>')+
+        (c.tblTache
+          ? '<button type="button" class="mb-chip mb-addt" data-mbaddt="'+idAjout+'">'+
+            '+ Ajouter une tâche</button>':'')+
       '</div></details>';
   };
   const propres=tachesDe(p);
   $("#mb-corps").innerHTML=
-    (propres.length?bloc(p,"Tâches du projet",0):'')+
+    (propres.length?bloc(p,"Tâches du projet",0,p.id):'')+
     (acts.length
-      ? acts.map(a=>bloc(a,lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",1)).join("")
-      : (propres.length?'':'<div class="mb-rien">Aucune action ni tâche.</div>'));
+      ? acts.map(a=>bloc(a,lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",1,a.id)).join("")
+      : (propres.length?'':'<div class="mb-rien">Aucune action pour ce projet.</div>'))+
+    (c.tblTache && !propres.length && !acts.length
+      ? '<button type="button" class="btn mb-ajout" data-mbaddt="'+p.id+'">+ Ajouter une tâche au projet</button>'
+      : '')+
+    '<button type="button" class="btn mb-ajout" id="mb-add-action">+ Ajouter une action</button>';
+
   /* les avancements passent par le brouillon : rien n'est écrit tant que la
      barre « Enregistrer » n'a pas été validée */
   brancherEditeurs();
+
+  $("#mb-add-action").onclick=()=>mbFeuilleAjout({
+    titre:"Nouvelle action",
+    sous:lire(c.tblMain,p,c.colLibelle),
+    libelle:"Libellé de l'action",
+    action:async lib=>{
+      const t=c.tblMain, champs={[c.colLibelle]:lib};
+      const infoN=infoCol(t,c.colNature);
+      champs[c.colNature]=(infoN&&infoN.type.startsWith("Ref:"))?p[c.colNature]:"MEO";
+      if(c.colProjKey) champs[c.colProjKey]=p[c.colProjKey];
+      await ajouter(t,champs);
+    }
+  });
+
+  document.querySelectorAll("[data-mbaddt]").forEach(b=>b.onclick=()=>{
+    const porteur=S.data.main.find(r=>r.id===Number(b.dataset.mbaddt));
+    if(!porteur) return;
+    mbFeuilleAjout({
+      titre:"Nouvelle tâche",
+      sous:lire(c.tblMain,porteur,c.colLibelle),
+      libelle:"Libellé de la tâche",
+      action:async lib=>{
+        const info=infoCol(c.tblTache,c.colTacheLien);
+        const champs={[c.colTacheLibelle]:lib};
+        if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=porteur.id;
+        else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",porteur.id];
+        else champs[c.colTacheLien]=porteur[c.colActKey];
+        await ajouter(c.tblTache,champs);
+      }
+    });
+  });
+}
+
+/* Feuille de saisie d'un libellé — commune à l'ajout d'action et de tâche. */
+function mbFeuilleAjout(o){
+  const v=document.createElement("div");
+  v.className="mb-voile";
+  v.innerHTML='<div class="mb-feuille mb-form">'+
+    '<h3>'+esc(o.titre)+'</h3><p class="sous">'+esc(o.sous||"")+'</p>'+
+    '<label>'+esc(o.libelle)+'</label><textarea id="mba-lib"></textarea>'+
+    '<button class="btn" id="mba-ok">Ajouter</button>'+
+    '<button class="btn-2 mb-chip" id="mba-annuler" style="width:100%;margin-top:9px;padding:10px">Annuler</button>'+
+    '</div>';
+  document.body.appendChild(v);
+  const fermer=()=>v.remove();
+  v.onclick=e=>{ if(e.target===v) fermer(); };
+  v.querySelector("#mba-annuler").onclick=fermer;
+  v.querySelector("#mba-lib").focus();
+  v.querySelector("#mba-ok").onclick=async()=>{
+    const lib=v.querySelector("#mba-lib").value.trim();
+    if(!lib){ toast("Saisissez un libellé.",true); return; }
+    await o.action(lib);
+    fermer();
+    await charger(); rendreMobile();
+  };
 }
 
 function mbInstances(p){

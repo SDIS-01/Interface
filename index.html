@@ -569,6 +569,17 @@ tbody tr.ligne-com:hover{background:transparent;}
 .ap-espace{flex:1;}
 .ap-corps{flex:1;min-height:0;background:#525659;}
 .ap-corps iframe{width:100%;height:100%;border:0;display:block;min-height:60vh;}
+/* l'en-tête de modale est bleue : la croix doit être claire */
+.ap-croix{margin-left:auto;border:0;background:none;cursor:pointer;color:#fff;
+  font-size:17px;line-height:1;padding:1px 7px;border-radius:4px;opacity:.8;}
+.ap-croix:hover{background:rgba(255,255,255,.18);opacity:1;}
+.ap-coche{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--encre);
+  background:#fff;border:1px solid var(--traitFort,#b9c6dc);border-radius:var(--rayon);
+  padding:5px 10px;cursor:pointer;white-space:nowrap;}
+.ap-coche:hover{border-color:var(--bleu);color:var(--bleu);}
+.ap-coche input{width:15px;height:15px;margin:0;flex:0 0 auto;cursor:pointer;}
+.ap-coche.desactive{opacity:.45;cursor:not-allowed;}
+.ap-pied{display:flex;align-items:center;}
 /* plein cadre : repli quand le plein écran natif est refusé par l'iframe Grist */
 #voile-apercu.ap-max{padding:0;}
 #voile-apercu.ap-max .modale-large{width:100%;max-width:100%;height:100%;max-height:100%;
@@ -750,16 +761,21 @@ tbody tr.ligne-com:hover{background:transparent;}
     <header>
       <span id="apercu-titre">Aperçu</span>
       <span class="ap-info" id="apercu-info"></span>
+      <button type="button" class="ap-croix" id="ap-fermer" title="Fermer l'aperçu">✕</button>
     </header>
     <div class="ap-barre">
       <button type="button" class="btn-2" id="ap-options">Sections à imprimer</button>
       <button type="button" class="btn-2" id="ap-pages">Pages additionnelles</button>
+      <label class="ap-coche" id="ap-pj-lab">
+        <input type="checkbox" id="ap-pj"> Enregistrer aussi le PDF en pièce jointe du projet</label>
       <span class="ap-espace"></span>
       <button type="button" class="btn-2" id="ap-plein" title="Agrandir l'aperçu">⛶ Plein écran</button>
-      <button type="button" class="btn" id="ap-telecharger">Télécharger</button>
     </div>
     <div class="ap-corps"><iframe id="apercu-cadre" title="Aperçu du PDF"></iframe></div>
-    <footer><button class="btn-2" id="ap-fermer">Fermer</button></footer>
+    <footer class="ap-pied">
+      <span class="ap-espace"></span>
+      <button type="button" class="btn" id="ap-telecharger">Télécharger</button>
+    </footer>
   </div>
 </div>
 
@@ -798,13 +814,10 @@ tbody tr.ligne-com:hover{background:transparent;}
       <div class="bloc-reglage">
         <h3>Taille du texte</h3>
         <p>Un texte plus grand se répartit sur davantage de pages, rien n'est tronqué.</p>
-        <label class="impr-radio"><input type="checkbox" id="impr-lisible"> Texte borné à 14–18&nbsp;pt (lisibilité)</label>
+        <label class="impr-radio"><input type="checkbox" id="impr-lisible"> Corps du texte à 16&nbsp;pt, titres plus gros</label>
         <select id="impr-zoom" class="impr-select"></select>
       </div>
-      <div class="bloc-reglage">
-        <h3>Destination</h3>
-        <label class="impr-radio"><input type="checkbox" id="impr-pj"> Enregistrer aussi le PDF en pièce jointe du projet</label>
-      </div>
+
       <div class="bloc-reglage" id="impr-bloc-instances">
         <h3>Instances sur la page de garde</h3>
         <p>Elles s'affichent en bas à droite, triées par date.</p>
@@ -3810,12 +3823,7 @@ function ouvrirImpression(){
     const maj=()=>{ if(z) z.disabled=cl.checked; };
     cl.onchange=maj; maj();
   }
-  const cpj=$("#impr-pj");
-  if(cpj){
-    cpj.checked=IMPR.pieceJointe;
-    cpj.disabled=!S.cfg.colPJ;
-    cpj.parentNode.title=S.cfg.colPJ?"":"Aucune colonne « Pièces jointes » paramétrée sur la table principale.";
-  }
+
   document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
 
   const xs=instancesDe(S.projetSel);
@@ -3895,7 +3903,7 @@ function retenirOptionsImpr(){
   const z=$("#impr-zoom");
   if(z) IMPR.zoom=Number(z.value)||1;
   const cl=$("#impr-lisible");  if(cl)  IMPR.lisible=cl.checked;
-  const cpj=$("#impr-pj");      if(cpj) IMPR.pieceJointe=cpj.checked && !cpj.disabled;
+
   const t=document.querySelector('[name=impr-portee]:checked');
   if(t) IMPR.portee=t.value;
   IMPR.instancesGarde=[...document.querySelectorAll('[data-ins]')]
@@ -3966,11 +3974,11 @@ const H_BANDEAU=122.93, H_PIED_IMG=119.64;
    hauteurs réelles, agrandir le texte reporte simplement le contenu sur les
    pages suivantes, sans jamais le rogner. */
 let PZ=1;
-/* Bornes de lisibilité. En mode « texte 14–18 », le zoom est calé pour que la
-   plus petite police du document (9,5 pt) atteigne 14 : les interlignes et les
-   hauteurs de ligne suivent le même facteur, donc rien ne se chevauche. Le
-   plafond ramène ensuite les grands titres sous 18 — un texte plus petit que la
-   place réservée ne gêne pas, il laisse juste un peu d'air. */
+/* Bornes de lisibilité. En mode « texte à 16 pt », le zoom est calé pour que la
+   plus petite police du document (9,5 pt) atteigne 16 : les interlignes et les
+   hauteurs de ligne suivent le même facteur, donc rien ne se chevauche. Il n'y a
+   pas de plafond — les titres, qui partent de 12, 15 ou 24 pt, restent
+   proportionnellement plus gros que le corps du texte. */
 let PMIN=0, PMAX=Infinity;
 function fz(v){ return Math.round(v*PZ*100)/100; }
 function fclamp(t){ return Math.min(PMAX,Math.max(PMIN,t)); }
@@ -4054,11 +4062,24 @@ function pageGarde(ctx,p){
   const e=PH/595, w=794*e;
   pdf.addImage(IMG_PAGE_GARDE,"PNG",(PW-w)/2,0,w,PH,undefined,"FAST");
 
+  /* Titre de la garde : on part de la taille voulue et on ne réduit que si le
+     texte déborde du bandeau, jusqu'à trois lignes. Le libellé reste donc
+     nettement plus gros que le corps du document, sans sortir du cadre. */
   const titre=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
-  const lignes=pDecoupe(pdf,titre,621-28,24,"bold");
-  const hl=fz(30), y0=411+112/2-(lignes.length-1)*hl/2;
-  lignes.forEach((l,i)=>pTexte(pdf,471+621/2,y0+i*hl,l,
-    {taille:24,style:"bold",couleur:"#ffffff",align:"center",baseline:"middle"}));
+  const LARG=621-28, HAUT=112, XC=471+621/2, YC=411+HAUT/2;
+  let tt=fz(24), lignes=pdf.splitTextToSize?null:null;
+  for(let n=0;n<24;n++){
+    pFont(pdf,tt,"bold");
+    lignes=pdf.splitTextToSize(titre,LARG);
+    if(lignes.length<=3 && lignes.length*tt*1.25<=HAUT) break;
+    tt=tt*0.92;
+    if(tt<12){ pFont(pdf,tt,"bold"); lignes=pdf.splitTextToSize(titre,LARG); break; }
+  }
+  const hl=tt*1.25, y0=YC-(lignes.length-1)*hl/2;
+  lignes.forEach((l,i)=>{
+    pFont(pdf,tt,"bold","#ffffff");
+    pdf.text(String(l),XC,y0+i*hl,{align:"center",baseline:"middle"});
+  });
 
   const sel=IMPR.instancesGarde;
   const xs=instancesDe(p).filter(j=>!sel || sel.includes(j.table+":"+j.id));
@@ -4254,9 +4275,6 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   y+=fz(11);
 
   /* bande réservée aux losanges d'instances, au-dessus des barres */
-  const hIns = ins.length ? fz(9) : 0;
-  const yIns = y+hIns/2;
-  y+=hIns;
 
   pFiletH(pdf,xp,x+w,y,PDFC.filet);
   const yHaut=y+5;
@@ -4278,27 +4296,8 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
 
   const yBas=y-mb;
 
-  /* Losanges sans libellé : les intitulés encombraient la bande. Chacun porte
-     une note PDF, que les lecteurs affichent au survol ou au clic. */
-  if(ins.length){
-    const r=4.5;
-    ins.forEach(o=>{
-      if(o.ts<per[0].debut || o.ts>=per[per.length-1].fin) return;
-      const cx=xp+pos(o.ts);
-      pdf.setDrawColor(o.coul); pdf.setLineWidth(0.5);
-      pdf.setFillColor(o.coul);
-      pdf.lines([[r,-r],[r,r],[-r,r],[-r,-r]],cx-r,yIns,[1,1],"FD",true);
-      /* trait de rappel jusqu'au bas des barres */
-      pdf.setDrawColor(o.pale); pdf.setLineWidth(0.5);
-      pdf.line(cx,yIns+r,cx,yBas);
-      try{
-        pdf.createAnnotation({type:"text",title:o.txt,contents:o.contenu||o.txt,
-          open:false,bounds:{x:cx-r,y:yIns-r,w:2*r,h:2*r}});
-      }catch(e){}
-    });
-    pdf.setLineWidth(0.6);
-  }
-
+  /* Pas de losanges au PDF : les repères d'instance et de délai alourdissaient
+     le planning imprimé. Ils restent cliquables à l'écran, où ils ont leur place. */
   const auj=aujourdHuiUTC();
   if(auj>=per[0].debut && auj<per[per.length-1].fin){
     pdf.setDrawColor("#d32f2f"); pdf.setLineWidth(1);
@@ -4327,13 +4326,20 @@ function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
       {taille:12,style:"bold",couleur:PDFC.bleu});
     ctx.y+=fz(14)+6;
 
-    /* en-tête */
+    /* En-tête. Les intitulés sont découpés à la largeur de leur colonne : à
+       16 pt, « Collaborateur concerné » débordait sur la colonne voisine. */
     let cx=x;
+    let nbEnt=1;
     cols.forEach(co=>{
-      pTexte(pdf,cx+4,ctx.y+fz(13),co.titre,{taille:11,style:"bold",couleur:PDFC.gris});
+      nbEnt=Math.max(nbEnt,pDecoupe(pdf,co.titre,co.w-8,11,"bold").length);
+    });
+    cols.forEach(co=>{
+      pDecoupe(pdf,co.titre,co.w-8,11,"bold").forEach((l,k)=>
+        pTexte(pdf,cx+4,ctx.y+fz(13)+k*fz(13.5),l,
+          {taille:11,style:"bold",couleur:PDFC.gris}));
       cx+=co.w;
     });
-    ctx.y+=fz(18);
+    ctx.y+=fz(18)+(nbEnt-1)*fz(13.5);
     pFiletH(pdf,x,x+largeur,ctx.y,PDFC.traitFort,1);
     ctx.y+=1;
 
@@ -4526,7 +4532,7 @@ function construireDoc(p){
     const acts=actionsImpression(p);
     const numeros=new Map(); acts.forEach((a,i)=>numeros.set(a.id,i+1));
     const ctx=docNouveau(titre);
-    if(IMPR.lisible){ PZ=14/9.5; PMIN=14; PMAX=18; }
+    if(IMPR.lisible){ PZ=16/9.5; PMIN=16; PMAX=Infinity; }
     else            { PZ=Number(IMPR.zoom)||1; PMIN=0; PMAX=Infinity; }
 
     pageGarde(ctx,p);
@@ -4672,6 +4678,17 @@ function rafraichirApercu(){
 function ouvrirApercu(){
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
   if(nbModifs()){ toast("Enregistrez vos saisies avant de générer le PDF.",true); return; }
+  const cpj=$("#ap-pj"), lab=$("#ap-pj-lab");
+  if(cpj){
+    const dispo=!!S.cfg.colPJ;
+    cpj.checked=IMPR.pieceJointe && dispo;
+    cpj.disabled=!dispo;
+    if(lab){
+      lab.classList.toggle("desactive",!dispo);
+      lab.title=dispo?"":"Aucune colonne « Pièces jointes » paramétrée sur la table principale.";
+    }
+    cpj.onchange=()=>{ IMPR.pieceJointe=cpj.checked; enregistrerOptionsImpr(); };
+  }
   chargerPagesSup(S.projetSel);
   $("#voile-apercu").classList.add("ouvert");
   rafraichirApercu();

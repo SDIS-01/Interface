@@ -6284,7 +6284,13 @@ function majBandeauAcces(){
 let minuteur=null;
 function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,600); }
 
+/* Repère de version : affiché dans la console au démarrage. Il permet de
+   vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
+   les widgets Grist étant mis en cache assez agressivement. */
+const VERSION="2026-09-04-b — échéances colorées, planning paginé, mode mobile";
+
 async function demarrer(){
+  console.info("Console Projets — version "+VERSION);
   majMobile();
   grist.ready({
     requiredAccess:"full",

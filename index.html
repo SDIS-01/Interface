@@ -458,6 +458,14 @@ tbody tr.ligne-com:hover{background:transparent;}
 .toast.err{background:var(--rouge);}
 .accueil{display:flex;align-items:center;justify-content:center;height:100%;
   color:var(--gris);text-align:center;padding:30px;}
+/* ---------- Bandeau des tables non lisibles ---------- */
+.bandeau-acces{background:#FFF6D6;border-bottom:1px solid #e6d9a8;color:#6b5a12;
+  font-size:11.5px;padding:6px 14px;display:flex;align-items:center;gap:10px;}
+.bandeau-acces[hidden]{display:none;}
+.bandeau-acces b{color:#4d4110;}
+.bandeau-acces button{margin-left:auto;border:0;background:transparent;cursor:pointer;
+  color:#6b5a12;font-size:15px;line-height:1;padding:0 4px;}
+
 /* ---------- Blocs et ordre des pages du PDF ---------- */
 .bl-liste{display:flex;flex-direction:column;gap:5px;}
 .bl-ligne{border:1px solid var(--trait);border-radius:var(--rayon);padding:7px 9px;
@@ -585,6 +593,8 @@ tbody tr.ligne-com:hover{background:transparent;}
 </style>
 </head>
 <body>
+
+<div class="bandeau-acces" id="bandeau-acces" hidden></div>
 
 <div class="topbar">
   <button class="btn-top bascule" id="btn-panneau"
@@ -861,6 +871,8 @@ const S = {
   brouillon:{},               // saisies en attente : "table|ligne|colonne" -> {t,r,c,v}
   deverrouille:false,
   panneauReplie:false,        // panneau latéral gauche replié ?
+  bloquees:new Set(),         // tables interdites en lecture par les règles d'accès
+  acccesMasque:false,         // bandeau d'accès masqué par l'utilisateur ?
   noteOuverte:null,           // note en cours de classement : {id, dest}
   notesClassees:false,        // afficher aussi les notes déjà classées ?
   fraction:false,             // avancement stocké en 0–1 ?
@@ -1044,6 +1056,7 @@ async function chargerMeta(){
 
 /* garantit qu'une colonne Référence dispose d'une colonne d'affichage exploitable */
 async function preparerRef(tableId,colId){
+  if(S.bloquees && S.bloquees.has(tableId)) return;
   const info=infoCol(tableId,colId);
   if(!info || !info.refTable) return;
   if(!info.refDisplay){                       // aucune colonne d'affichage définie dans Grist
@@ -1058,7 +1071,16 @@ async function preparerRef(tableId,colId){
 async function libellesRef(tableId,colId){
   const cle=tableId+"."+colId;
   if(S.refLabels[cle]) return S.refLabels[cle];
-  const t=await grist.docApi.fetchTable(tableId);
+  let t;
+  try{ t=await grist.docApi.fetchTable(tableId); }
+  catch(e){
+    /* table de référence non lisible : on mémorise l'échec pour ne pas le
+       rejouer à chaque rafraîchissement, et on affichera les identifiants */
+    S.bloquees=S.bloquees||new Set();
+    S.bloquees.add(tableId);
+    S.refLabels[cle]={};
+    return S.refLabels[cle];
+  }
   const map={};
   t.id.forEach((id,i)=>{ map[id]= t[colId]!==undefined ? txt(t[colId][i]) : String(id); });
   S.refLabels[cle]=map;
@@ -1072,20 +1094,36 @@ function enLignes(t){
   return lignes;
 }
 
+/* Une table peut être interdite en lecture par les règles d'accès du document.
+   On ne laisse jamais un refus sur une table secondaire interrompre le
+   chargement : on note la table et on continue avec le reste. */
+async function lireTable(tableId){
+  if(!tableId) return [];
+  try{
+    const t=enLignes(await grist.docApi.fetchTable(tableId));
+    S.bloquees.delete(tableId);
+    return t;
+  }catch(e){
+    S.bloquees.add(tableId);
+    return [];
+  }
+}
+
 async function charger(){
   const c=S.cfg;
   if(!c.tblMain) return;
+  S.bloquees=S.bloquees||new Set();
   S.data.main = enLignes(await grist.docApi.fetchTable(c.tblMain));
 
   // avancement : 0–1 ou 0–100 ?
   const vals=S.data.main.map(r=>Number(r[c.colAvancement])).filter(v=>!isNaN(v)&&v!==null);
   S.fraction = vals.length>0 && Math.max.apply(null,vals)<=1;
 
-  S.data.taches   = c.tblTache   ? enLignes(await grist.docApi.fetchTable(c.tblTache))   : [];
-  S.data.journal  = c.tblJournal ? enLignes(await grist.docApi.fetchTable(c.tblJournal)) : [];
-  S.data.jalons   = c.tblJalon   ? enLignes(await grist.docApi.fetchTable(c.tblJalon))   : [];
-  S.data.instances= c.tblInstance? enLignes(await grist.docApi.fetchTable(c.tblInstance)): [];
-  S.data.notes    = c.tblNote    ? enLignes(await grist.docApi.fetchTable(c.tblNote))    : [];
+  S.data.taches   = await lireTable(c.tblTache);
+  S.data.journal  = await lireTable(c.tblJournal);
+  S.data.jalons   = await lireTable(c.tblJalon);
+  S.data.instances= await lireTable(c.tblInstance);
+  S.data.notes    = await lireTable(c.tblNote);
   await chargerPJ();
 
   // libellés des colonnes de type Référence utilisées à l'écran
@@ -1102,6 +1140,7 @@ async function charger(){
     if(!table) continue;
     for(const k of cles) if(c[k]) await preparerRef(table,c[k]);
   }
+  majBandeauAcces();
 }
 
 /* --- accès aux valeurs, en résolvant les références --- */
@@ -4693,9 +4732,33 @@ async function tout(){
     rendreListe(); rendreProjet();
   }catch(e){
     $("#compteur-texte").textContent="Erreur de lecture";
+    const acces=/access rules|denied|forbidden/i.test(e.message||"");
     $("#corps").innerHTML='<div class="carte"><div class="vide"><b>Lecture impossible</b>'+
-      esc(e.message)+'<br>Vérifiez les réglages et le niveau d\'accès du widget.</div></div>';
+      (acces
+        ? "Les règles d'accès du document interdisent la lecture de la table de suivi "+
+          "à votre compte. Rapprochez-vous de l'administrateur du document."
+        : esc(e.message)+"<br>Vérifiez les réglages et le niveau d'accès du widget.")+
+      '<div style="margin-top:12px"><button class="btn-2" id="reessayer">Réessayer</button></div>'+
+      '</div></div>';
+    const r=$("#reessayer");
+    if(r) r.onclick=()=>tout();
   }
+}
+
+/* Signale les tables interdites en lecture, sans masquer la console : le reste
+   du suivi reste consultable. */
+function majBandeauAcces(){
+  const b=$("#bandeau-acces");
+  if(!b) return;
+  const liste=[...(S.bloquees||[])];
+  if(!liste.length || S.acccesMasque){ b.hidden=true; return; }
+  b.innerHTML='<span><b>Accès restreint.</b> Les règles du document interdisent la lecture de '+
+    (liste.length>1?'ces tables : ':'la table ')+esc(liste.join(", "))+
+    '. Le reste du suivi s\'affiche normalement, les rubriques concernées resteront vides.</span>'+
+    '<button type="button" title="Masquer" id="acces-fermer">×</button>';
+  b.hidden=false;
+  const f=$("#acces-fermer");
+  if(f) f.onclick=()=>{ S.acccesMasque=true; b.hidden=true; };
 }
 
 let minuteur=null;
@@ -4712,10 +4775,12 @@ async function demarrer(){
   }catch(e){}
   await chargerMeta();
   devineDefauts();
-  await tout();
-  if(!S.cfg.tblMain){ rendreReglages(); $("#voile").classList.add("ouvert"); }
+  /* posé avant le premier chargement : même si celui-ci échoue, la console
+     continue de se rafraîchir toute seule */
   try{ grist.onRecords(()=>{ if(S.pret && !nbModifs()) rechargerBientot(); }); }catch(e){}
-  S.pret=true;
+  try{ await tout(); }
+  finally{ S.pret=true; }              // le suivi reprend même après un échec
+  if(!S.cfg.tblMain){ rendreReglages(); $("#voile").classList.add("ouvert"); }
 }
 
 $("#q").oninput=rendreListe;

@@ -196,12 +196,13 @@ body.panneau-replie .panneau>*{display:none;}
    hauteur de l'écran est purement et simplement coupé. */
 html.mob,body.mob{height:auto;min-height:100%;overflow:visible;}
 body.mob{display:block;}
-body.mob .barre-top,body.mob .appli{display:none!important;}
+body.mob .topbar,body.mob .layout{display:none!important;}
 /* barre d'enregistrement : elle reste, calée au-dessus du bouton flottant */
 body.mob .barre-enr{left:0;right:0;bottom:0;transform:none;border-radius:0;
   border-left-width:1px;border-top:3px solid var(--orange);
   padding:10px 13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 body.mob .barre-enr .cpt{flex:1 1 100%;font-size:12px;}
+body.mob .barre-enr .info{display:none;}
 body.mob .barre-enr .btn,body.mob .barre-enr .btn-2{flex:1;padding:10px;font-size:13px;}
 body.mob.a-enr .mb-plus{bottom:96px;}
 /* le toast se logeait sous le bouton flottant et la barre d'enregistrement */

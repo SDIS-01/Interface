@@ -292,6 +292,20 @@ body.mob #mobile{display:block;}
   border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;}
 .mb-form textarea{min-height:76px;resize:vertical;}
 .mb-form .btn{width:100%;margin-top:12px;padding:11px;font-size:14px;}
+.mb-com{margin:0 0 8px;}
+.mb-com>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:8px;
+  padding:6px 0;font-size:11.5px;color:var(--gris);}
+.mb-com>summary::-webkit-details-marker{display:none;}
+.mb-com>summary::before{content:"▸";font-size:10px;flex:0 0 auto;}
+.mb-com[open]>summary::before{content:"▾";}
+.mb-com>summary .lab{flex:0 0 auto;}
+.mb-com.plein>summary .lab{color:var(--bleu);font-weight:bold;}
+.mb-com>summary .ap{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font-style:italic;}
+.mb-com-champ{padding-bottom:8px;}
+.mb-com-champ textarea{width:100%;font-size:13px;padding:9px 10px;
+  border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;
+  min-height:70px;resize:vertical;}
 .mb-pj{padding:0;}
 .mb-pj>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;
   padding:13px;font-size:12px;color:var(--bleu);text-transform:uppercase;
@@ -4233,6 +4247,26 @@ let PMIN=0, PMAX=Infinity;
 function fz(v){ return Math.round(v*PZ*100)/100; }
 function fclamp(t){ return Math.min(PMAX,Math.max(PMIN,t)); }
 
+/* Les polices standard de jsPDF sont encodées en WinAnsi. Un caractère absent de
+   cette table — flèche, coche, symbole — ne se contente pas de mal s'afficher :
+   il fait basculer toute la chaîne dans un autre encodage, d'où les lettres
+   espacées et les largeurs mal calculées qui débordent des colonnes. On les
+   remplace donc avant toute mesure comme avant tout tracé. */
+const PDF_SUP="€‚ƒ„…†‡ˆ‰Š‹ŒŽ''“”•–—˜™š›œžŸ";
+const PDF_REMPL={"↳":"»","→":"->","←":"<-","▸":"•","▪":"•","●":"•","◆":"•",
+                 "✓":"v","✔":"v","✕":"x","✗":"x","⏱":"","⚠":"!","№":"n°",
+                 "≤":"<=","≥":">=","×":"x","·":"•","…":"…"};
+function pSafe(v){
+  return String(v==null?"":v).replace(/[^\x00-\xFF]/g,ch=>{
+    if(PDF_SUP.indexOf(ch)>=0) return ch;
+    if(PDF_REMPL[ch]!==undefined) return PDF_REMPL[ch];
+    /* dernier recours : on retire les diacritiques exotiques plutôt que
+       d'abandonner le caractère sans rien dire */
+    const nu=ch.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    return /^[\x00-\xFF]+$/.test(nu) ? nu : "";
+  });
+}
+
 function pFont(pdf,taille,style,couleur){
   pdf.setFont("helvetica",style||"normal");
   pdf.setFontSize(fclamp(taille));
@@ -4242,17 +4276,18 @@ function pFont(pdf,taille,style,couleur){
 function pTexte(pdf,x,y,s,o){
   o=o||{};
   pFont(pdf,fz(o.taille||11),o.style,o.couleur);
-  pdf.text(String(s==null?"":s),x,y,{align:o.align||"left",baseline:o.baseline||"alphabetic"});
-  return pdf.getTextWidth(String(s==null?"":s));
+  const t=pSafe(s);
+  pdf.text(t,x,y,{align:o.align||"left",baseline:o.baseline||"alphabetic"});
+  return pdf.getTextWidth(t);
 }
 function pLargeur(pdf,s,taille,style){
   pFont(pdf,fz(taille||11),style);
-  return pdf.getTextWidth(String(s==null?"":s));
+  return pdf.getTextWidth(pSafe(s));
 }
 /* découpe un texte à une largeur donnée ; renvoie un tableau de lignes */
 function pDecoupe(pdf,s,largeur,taille,style){
   pFont(pdf,fz(taille||11),style);
-  const t=String(s==null?"":s);
+  const t=pSafe(s);
   if(!t) return [""];
   return pdf.splitTextToSize(t,largeur);
 }
@@ -4261,7 +4296,7 @@ function pDecoupe(pdf,s,largeur,taille,style){
    colonne — c'est ce qui donnait « Délai d'exé / cution ». */
 function pDecoupeTitre(pdf,s,largeur,taille,style){
   pFont(pdf,fz(taille||11),style);
-  const mots=String(s==null?"":s).split(/\s+/).filter(Boolean);
+  const mots=pSafe(s).split(/\s+/).filter(Boolean);
   if(!mots.length) return [""];
   const out=[]; let cur=mots[0];
   for(let i=1;i<mots.length;i++){
@@ -4785,11 +4820,9 @@ function lignesJournalPdf(p){
     action:{type:"texte",t:c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):""},
     nature:{type:"texte",t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):""},
     texte:{type:"texte",
-           /* une échéance est signalée dans la colonne Commentaire elle-même :
-              ▸ pour un délai encore ouvert, ✓ pour un délai clos */
-           t:(rep?"↳ ":"")+
-             (ech?(clos?"✓ ":"▸ "):"")+
-             lire(c.tblJournal,j,c.colJnlTexte),
+           /* une réponse est décalée par un chevron ; l'échéance, elle, se
+              signale par le gras et la couleur, sans glyphe supplémentaire */
+           t:(rep?"» ":"")+lire(c.tblJournal,j,c.colJnlTexte),
            style:(ech&&!clos)?"bold":undefined,
            couleur:(ech&&!clos)?"#8a2020":(rep?PDFC.gris:PDFC.encre)},
     auteur:{type:"texte",t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""},
@@ -5950,6 +5983,18 @@ function mbSynthese(p){
 }
 
 /* Actions et tâches réunis : une action se déplie sur ses tâches. */
+/* Bloc de commentaire repliable, éditable comme sur poste. Le résumé indique
+   s'il y a déjà quelque chose à lire, pour éviter de déplier dans le vide. */
+function mbCommentaire(tableId,ligne,colId,titre){
+  const val=txt(ligne[colId]).trim();
+  const apercu=val ? val.replace(/\s+/g," ").slice(0,42)+(val.length>42?"…":"") : "vide";
+  return '<details class="mb-com'+(val?" plein":"")+'">'+
+    '<summary><span class="lab">'+esc(titre)+'</span>'+
+    '<span class="ap">'+esc(apercu)+'</span></summary>'+
+    '<div class="mb-com-champ">'+editeur(tableId,ligne,colId,{multi:true})+'</div>'+
+    '</details>';
+}
+
 function mbTravaux(p){
   const c=S.cfg;
   const acts=actionsDe(p);
@@ -5960,6 +6005,11 @@ function mbTravaux(p){
       '<summary>'+donut(a,30,i)+'<span class="t">'+esc(titre)+'</span>'+
         '<span class="n">'+ts.length+' tâche'+(ts.length>1?'s':'')+'</span></summary>'+
       '<div class="dedans">'+
+        /* Le commentaire ne s'ouvre qu'à la demande : sur un écran de téléphone,
+           l'afficher d'office noierait les avancements, qui sont l'essentiel. */
+        (niv>0 && c.colCommentaire
+          ? mbCommentaire(c.tblMain,porteur,c.colCommentaire,"Commentaire de l'action")
+          : '')+
         (ts.length
           ? ts.map(t=>{
               const av=pct(t[c.colTacheAvancement]);
@@ -5967,7 +6017,10 @@ function mbTravaux(p){
               return '<div class="mb-tache"><span class="lib">'+
                 esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+'</span>'+
                 '<span class="mb-av">'+champAvct(c.tblTache,t,c.colTacheAvancement,av,it)+'</span>'+
-                '</div>';
+                '</div>'+
+                (c.colTacheCommentaire
+                  ? mbCommentaire(c.tblTache,t,c.colTacheCommentaire,"Commentaire")
+                  : '');
             }).join("")
           : '<div class="mb-rien">Aucune tâche.</div>')+
         (c.tblTache
@@ -6287,7 +6340,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-04-b — échéances colorées, planning paginé, mode mobile";
+const VERSION="2026-09-04-d — commentaires mobiles, encodage PDF";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -425,7 +425,9 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-rep::before{content:"";display:block;width:9px;height:9px;margin:1px auto;
   transform:rotate(45deg);border:1px solid #fff;}
 .pl-rep-instance::before{background:#c62828;}
-.pl-rep-delai::before{background:#1f1f1f;}
+.pl-rep-delai::before{background:#7b2fa8;}
+/* repère descendu sur la barre du projet, quand deux losanges se superposent */
+.pl-rep-bas{top:31px;}
 .pl-rep.actif::before{outline:2px solid var(--bleu);outline-offset:2px;}
 .pl-bulle{position:absolute;z-index:6;max-width:380px;background:#fff;
   border:1px solid var(--traitFort,#b9c6dc);border-radius:5px;padding:9px 11px;
@@ -2841,10 +2843,20 @@ function vuePlanning(p){
   const auj=Date.UTC(n0.getFullYear(),n0.getMonth(),n0.getDate())/1000;
   const dedans=r=>r.ts>=per[0].debut && r.ts<per[per.length-1].fin;
   const visibles=reperes.filter(dedans);
+  /* Deux repères quasi superposés se masquent l'un l'autre. Quand une instance
+     tombe sur un délai, elle descend d'un cran, sur la barre d'avancement du
+     projet, et le délai garde la bande du haut. */
+  const abscisses=visibles.map(r=>pos(r.ts));
+  const ECART=1.2;                                   // en % de la largeur de piste
+  const basse=visibles.map((r,i)=>
+    r.genre==="instance" &&
+    visibles.some((o,k)=>k!==i && o.genre!=="instance" &&
+                         Math.abs(abscisses[k]-abscisses[i])<ECART));
   const bande = visibles.length
     ? '<div class="pl-reperes">'+visibles.map((r,i)=>
-        '<button type="button" class="pl-rep pl-rep-'+r.genre+'" data-rep="'+i+'"'+
-        ' style="left:'+pos(r.ts)+'%" title="'+esc(r.titre+" — "+r.detail)+'"></button>').join("")+'</div>'
+        '<button type="button" class="pl-rep pl-rep-'+r.genre+(basse[i]?" pl-rep-bas":"")+'"'+
+        ' data-rep="'+i+'" style="left:'+abscisses[i]+'%"'+
+        ' title="'+esc(r.titre+" — "+r.detail)+'"></button>').join("")+'</div>'
     : '';
 
   const marqueur=(auj>=per[0].debut && auj<per[per.length-1].fin)
@@ -2881,7 +2893,7 @@ function vuePlanning(p){
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     (visibles.length
       ? '<span class="pl-legende-rep"><i style="background:#c62828"></i> Instance</span>'+
-        '<span class="pl-legende-rep"><i style="background:#1f1f1f"></i> Délai d\'exécution</span>'
+        '<span class="pl-legende-rep"><i style="background:#7b2fa8"></i> Délai d\'exécution</span>'
       : '')+
     '</div></div>';
   S.reperesVus=visibles;
@@ -4275,8 +4287,8 @@ function reperesGantt(p){
   return reperesPlanning(p).map(r=>({
     ts:r.ts, txt:r.titre,
     contenu:[r.titre,r.detail,r.meta].filter(Boolean).join("\n"),
-    coul:r.genre==="delai"?"#1f1f1f":"#c62828",
-    pale:r.genre==="delai"?"#c9c9c9":"#e0b3b3"
+    coul:r.genre==="delai"?"#7b2fa8":"#c62828",
+    pale:r.genre==="delai"?"#d8c0e6":"#e0b3b3"
   }));
 }
 

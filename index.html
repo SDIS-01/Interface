@@ -940,6 +940,11 @@ tbody tr.ligne-com:hover{background:transparent;}
         <div id="impr-sections" class="bl-liste"></div>
       </div>
       <div class="bloc-reglage">
+        <h3>Planning</h3>
+        <p>Par défaut le planning imprimé ne montre que le projet et ses actions.</p>
+        <label class="impr-radio"><input type="checkbox" id="impr-pl-taches"> Détailler aussi les tâches</label>
+      </div>
+      <div class="bloc-reglage">
         <h3>Taille du texte</h3>
         <p>Un texte plus grand se répartit sur davantage de pages, rien n'est tronqué.</p>
         <label class="impr-radio"><input type="checkbox" id="impr-lisible"> Corps du texte à 16&nbsp;pt, titres plus gros</label>
@@ -3917,7 +3922,8 @@ const IMPR={
             detail:true,instances:true,journal:true,sup:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
-  lisible:true,          // texte borné à 14–18 pt
+  lisible:true,          // corps du texte à 16 pt
+  planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
   instancesGarde:null
@@ -3936,6 +3942,7 @@ function chargerOptionsImpr(){
     if(Array.isArray(o.ordre)) IMPR.ordre=ordreValide(o.ordre);
     if(o.zoom) IMPR.zoom=Number(o.zoom)||1;
     if(o.lisible!==undefined) IMPR.lisible=!!o.lisible;
+    if(o.planningTaches!==undefined) IMPR.planningTaches=!!o.planningTaches;
     if(o.pieceJointe!==undefined) IMPR.pieceJointe=!!o.pieceJointe;
     if(o.portee) IMPR.portee=o.portee;
   }catch(e){}
@@ -3950,6 +3957,7 @@ function enregistrerOptionsImpr(){
   sauverAuto();
   try{ localStorage.setItem("cp-impression",JSON.stringify(
     {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
+     planningTaches:IMPR.planningTaches,
      pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
 }
 
@@ -3968,6 +3976,8 @@ function ouvrirImpression(){
       ' ('+Math.round(Number(v)*100)+'&nbsp;%)</option>').join("");
     z.value=String(IMPR.zoom);
   }
+  const pt=$("#impr-pl-taches");
+  if(pt) pt.checked=IMPR.planningTaches;
   const cl=$("#impr-lisible");
   if(cl){
     cl.checked=IMPR.lisible;
@@ -4054,6 +4064,7 @@ function retenirOptionsImpr(){
   const z=$("#impr-zoom");
   if(z) IMPR.zoom=Number(z.value)||1;
   const cl=$("#impr-lisible");  if(cl)  IMPR.lisible=cl.checked;
+  const pt=$("#impr-pl-taches"); if(pt) IMPR.planningTaches=pt.checked;
 
   const t=document.querySelector('[name=impr-portee]:checked');
   if(t) IMPR.portee=t.value;
@@ -4303,6 +4314,16 @@ function docPage(ctx){
 /* --- colonne d'identité --------------------------------------------------- */
 
 function dessinerColonneGauche(ctx,p,x,y,w){
+  /* La colonne d'identité ne fait que 250 pt de large : au corps général de
+     16 pt, ses badges mangeaient la page. On la compose à 14, hauteurs de
+     badges comprises, puis on rend l'échelle générale au reste du document. */
+  const zSauve=PZ, minSauve=PMIN;
+  if(IMPR.lisible){ PZ=14/12; PMIN=14; }
+  try{ return colonneGaucheCorps(ctx,p,x,y,w); }
+  finally{ PZ=zSauve; PMIN=minSauve; }
+}
+
+function colonneGaucheCorps(ctx,p,x,y,w){
   const pdf=ctx.pdf, c=S.cfg, t=c.tblMain;
   const av=pct(p[c.colAvancement]), inter=interrompu(p);
 
@@ -4416,7 +4437,9 @@ function rangsGantt(p,acts,numeros){
     d:Number(tache?r[c.colTacheDebut]:r[c.colDebut])||null,
     f:Number(tache?r[c.colTacheFin]:(r[c.colFin]||r[c.colEch]))||null
   });
+  const avecTaches=!!IMPR.planningTaches;
   const pousser=(r,niv,tache,prefixe)=>{
+    if(tache && !avecTaches) return;
     const b=bornes(r,tache);
     out.push({r,niv,tache,d:b.d,f:b.f,
       lib:(prefixe?prefixe+" ":"")+
@@ -4444,8 +4467,12 @@ function reperesGantt(p){
   }));
 }
 
+/* Le planning imprimé ne tenait pas compte du bas de page : au-delà d'une
+   quinzaine de rangs, les dernières lignes étaient dessinées hors du cadre et
+   disparaissaient. Il se pagine désormais — les rangs suivants reprennent sur
+   une nouvelle page, en pleine largeur, avec leur échelle de temps redessinée. */
 function dessinerGantt(ctx,p,acts,numeros,x,y,w){
-  const pdf=ctx.pdf, c=S.cfg;
+  const pdf=ctx.pdf;
   pTexte(pdf,x,y+fz(10),"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
   y+=fz(14)+6;
 
@@ -4462,32 +4489,59 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const min=Math.min.apply(null,tous), max=Math.max.apply(null,tous);
   const per=periodesPlanning(Math.min(new Date(min*1000).getUTCFullYear(),an),
                              Math.max(new Date(max*1000).getUTCFullYear(),an+1));
-  /* colonne des libellés : proportionnelle, encadrée pour rester lisible */
-  const xn=Math.round(Math.max(110,Math.min(230,w*0.26)));
-  const xp=x+xn, wp=w-xn;
-  const pos=ts=>posPlanning(per,ts)/per.length*wp;
+  const auj=aujourdHuiUTC();
 
   const dense = datees.length>20, compact = !dense && datees.length>12;
   const hl = fz(dense?13:(compact?17:22)), hb = dense?9:(compact?11:14), db = dense?2:(compact?3:4);
   const mb = dense?1:(compact?2:3);
-  const tl = dense?9.5:10.5;                        // taille des libellés
+  const tl = dense?9.5:10.5;
 
-  const lu=wp/per.length;
-  per.forEach((u,i)=>pTexte(pdf,xp+lu*i+lu/2,y+fz(8),u.label,
-    {taille:9.5,couleur:PDFC.gris,align:"center"}));
-  y+=fz(11);
+  /* géométrie de la piste, recalculée à chaque page : la première partage la
+     largeur avec la colonne d'identité, les suivantes occupent toute la page */
+  let cx=x, cw=w, xn, xp, wp, yHaut;
+  const poser=()=>{
+    xn=Math.round(Math.max(110,Math.min(230,cw*0.26)));
+    xp=cx+xn; wp=cw-xn;
+  };
+  const pos=ts=>posPlanning(per,ts)/per.length*wp;
 
-  /* bande réservée aux losanges d'instances, au-dessus des barres */
+  /* échelle de temps + filet, renvoie l'ordonnée du premier rang */
+  const enTete=yy=>{
+    const lu=wp/per.length;
+    per.forEach((u,i)=>pTexte(pdf,xp+lu*i+lu/2,yy+fz(8),u.label,
+      {taille:9.5,couleur:PDFC.gris,align:"center"}));
+    yy+=fz(11);
+    pFiletH(pdf,xp,cx+cw,yy,PDFC.filet);
+    return yy+5;
+  };
 
-  pFiletH(pdf,xp,x+w,y,PDFC.filet);
-  const yHaut=y+5;
-  y=yHaut;
+  /* trait « aujourd'hui » : tracé par tronçon, une fois par page */
+  const traitJour=(y1,y2)=>{
+    if(auj<per[0].debut || auj>=per[per.length-1].fin || y2<=y1) return;
+    pdf.setDrawColor("#d32f2f"); pdf.setLineWidth(1);
+    pdf.line(xp+pos(auj),y1,xp+pos(auj),y2);
+    pdf.setLineWidth(0.6);
+  };
+
+  ctx.ganttPagine=false;
+  poser();
+  y=enTete(y);
+  yHaut=y;
 
   datees.forEach(z=>{
+    if(y+hl>ctx.yBas){
+      traitJour(yHaut-5,y-mb);
+      docPage(ctx);
+      cx=MX; cw=PW-2*MX; poser();
+      ctx.ganttPagine=true;              // la colonne d'identité est restée page 1
+      pTexte(pdf,cx,ctx.y+fz(10),"Planning (suite)",
+        {taille:12,style:"bold",couleur:PDFC.bleu});
+      y=enTete(ctx.y+fz(14)+6);
+      yHaut=y;
+    }
     const co=bandesImpr(z.av,z.inter);
-    /* libellé, tronqué à la première ligne pour garder une ligne par rang */
     const lib=pDecoupe(pdf,z.lib||"(sans libellé)",xn-6-z.niv*8,tl,z.niv===0?"bold":"normal")[0];
-    pTexte(pdf,x+z.niv*8,y+hl/2,lib,
+    pTexte(pdf,cx+z.niv*8,y+hl/2,lib,
       {taille:tl,style:z.niv===0?"bold":"normal",
        couleur:z.niv===0?PDFC.bleu:(z.tache?PDFC.gris:PDFC.encre),baseline:"middle"});
     const g=pos(z.d||z.f);
@@ -4497,17 +4551,9 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
     y+=hl+mb;
   });
 
-  const yBas=y-mb;
-
-  /* Pas de losanges au PDF : les repères d'instance et de délai alourdissaient
-     le planning imprimé. Ils restent cliquables à l'écran, où ils ont leur place. */
-  const auj=aujourdHuiUTC();
-  if(auj>=per[0].debut && auj<per[per.length-1].fin){
-    pdf.setDrawColor("#d32f2f"); pdf.setLineWidth(1);
-    pdf.line(xp+pos(auj),yHaut-5,xp+pos(auj),yBas);
-    pdf.setLineWidth(0.6);
-  }
-  return y+10;
+  traitJour(yHaut-5,y-mb);
+  ctx.y=y+10;
+  return ctx.y;
 }
 
 /* --- tableaux paginés ----------------------------------------------------- */
@@ -4758,12 +4804,15 @@ function construireDoc(p){
         const xg=IMPR.sections.identite?xd:MX;
         const wg=IMPR.sections.identite?wd:(PW-2*MX);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
+        /* si le planning a débordé sur une page suivante, la colonne d'identité
+           est restée derrière : le tableau reprend alors toute la largeur */
+        const xa=ctx.ganttPagine?MX:xg, wa=ctx.ganttPagine?(PW-2*MX):wg;
         if(IMPR.sections.actions)
           dessinerTableau(ctx,"Actions",
-            [{cle:"num",titre:"#",w:26},{cle:"action",titre:"Action",w:wg-26-130-80-92},
+            [{cle:"num",titre:"#",w:26},{cle:"action",titre:"Action",w:wa-26-130-80-92},
              {cle:"porteur",titre:"Porteur",w:130},{cle:"ech",titre:"Échéance",w:80},
              {cle:"avct",titre:"Avancement",w:92}],
-            lignesActionsSynthese(p,acts,numeros),xg,wg,false);
+            lignesActionsSynthese(p,acts,numeros),xa,wa,false);
         if(ctx.comReporte){ dessinerCommentaireLong(ctx,ctx.comReporte); ctx.comReporte=null; }
       },
       detail:()=>dessinerTableau(ctx,"Actions MEO et tâches",
@@ -5542,7 +5591,8 @@ let sauveEnCours=null, sauveDemandee=false;
 function paquetOptions(){
   return {cfg:S.cfg,
           impr:{sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,
-                lisible:IMPR.lisible,pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
+                lisible:IMPR.lisible,planningTaches:IMPR.planningTaches,
+                pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
           pages:S.pagesParProjet||{}};
 }
 
@@ -6059,6 +6109,7 @@ async function demarrer(){
       if(Array.isArray(o.impr.ordre)) IMPR.ordre=ordreValide(o.impr.ordre);
       if(o.impr.zoom) IMPR.zoom=Number(o.impr.zoom)||1;
       if(o.impr.lisible!==undefined) IMPR.lisible=!!o.impr.lisible;
+      if(o.impr.planningTaches!==undefined) IMPR.planningTaches=!!o.impr.planningTaches;
       if(o.impr.pieceJointe!==undefined) IMPR.pieceJointe=!!o.impr.pieceJointe;
       if(o.impr.portee) IMPR.portee=o.impr.portee;
     }

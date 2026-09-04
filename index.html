@@ -3198,6 +3198,7 @@ function vueJournal(p){
     actionsPresentes(js.map(j=>({action:actJnl(j)}))),
     js.some(j=>!actJnl(j)));
   $("#corps").innerHTML=
+    blocEcheances(p)+
     '<div class="duo"><div class="duo-ajout">'+
     '<div class="carte"><h2>'+(S.reponseA?"Répondre à une entrée":"Ajouter une entrée")+'</h2>'+
       (S.reponseA

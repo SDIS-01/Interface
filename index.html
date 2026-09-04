@@ -188,13 +188,12 @@ body.panneau-replie .panneau>*{display:none;}
 .ech-note{color:var(--gris);font-size:11px;margin:9px 0 0;}
 .jnl-vise{background:#fff8e1;box-shadow:inset 3px 0 0 var(--orange);}
 .diag-repli{margin-top:14px;}
-.diag-repli>summary{cursor:pointer;color:var(--gris);font-size:11.5px;
-  list-style:none;display:inline-flex;align-items:center;gap:6px;
+.diag-btn{color:var(--gris);font-size:11.5px;background:#fff;
+  display:inline-flex;align-items:center;gap:6px;
   border:1px solid var(--trait);border-radius:12px;padding:4px 12px;}
-.diag-repli>summary::-webkit-details-marker{display:none;}
-.diag-repli>summary::before{content:"⚙";}
-.diag-repli>summary:hover{border-color:var(--bleu);color:var(--bleu);}
-.diag-repli[open]>summary{margin-bottom:10px;}
+.diag-btn::before{content:"⚙";font-size:11px;}
+.diag-btn:hover{border-color:var(--bleu);color:var(--bleu);}
+#n-diag-zone:not(:empty){margin-top:10px;}
 /* ====================== Mode téléphone (< 700 px) ====================== */
 /* Le corps de page est en flex, hauteur 100 %, overflow caché : c'est ce qui
    permet aux deux volets du poste de tenir dans l'écran. En mobile il faut
@@ -3938,11 +3937,11 @@ function vueNotes(p){
       ? '<div class="notes-liste">'+attente.map(n=>ligneNoteHtml(p,n,true)).join("")+'</div>'
       : '<div class="vide"><b>Aucune note en attente</b>'+
         'Les notes saisies en réunion depuis le formulaire apparaissent ici.</div>')+
-    /* outil de dépannage, replié : utile le jour où des notes existent dans la
-       table sans qu'aucune ne remonte ici */
+    /* Outil de dépannage : il expose le paramétrage et un extrait des données,
+       il est donc protégé par le mot de passe comme les réglages. */
     (!notes.length && S.data.notes.length
-      ? '<details class="diag-repli"><summary>Analyser le rattachement</summary>'+
-        diagnosticNotes(p)+'</details>'
+      ? '<div class="diag-repli"><button type="button" class="diag-btn" id="n-diag">'+
+        'Analyser le rattachement</button><div id="n-diag-zone"></div></div>'
       : '')+
     '</div>'+
     (classees.length
@@ -3954,6 +3953,17 @@ function vueNotes(p){
           ? '<div class="notes-liste">'+classees.map(n=>ligneNoteHtml(p,n,false)).join("")+'</div>'
           : '')+'</div>'
       : '');
+
+  const bd=$("#n-diag");
+  if(bd) bd.onclick=async()=>{
+    const zone=$("#n-diag-zone");
+    if(zone.innerHTML){                       // déjà ouvert : on referme
+      zone.innerHTML=""; bd.textContent="Analyser le rattachement"; return;
+    }
+    if(!await motDePasseValide("Mot de passe pour afficher le diagnostic :")) return;
+    zone.innerHTML=diagnosticNotes(p);
+    bd.textContent="Masquer le diagnostic";
+  };
 
   brancherNotes(p);
   brancherPJ();
@@ -6449,7 +6459,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-04-i — notes, descriptif, commentaires au clic";
+const VERSION="2026-09-04-j — diagnostic protégé par mot de passe";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

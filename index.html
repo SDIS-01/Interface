@@ -181,6 +181,106 @@ body.panneau-replie .panneau>*{display:none;}
 .ech-avenir{border-left-color:var(--bleu-clair);}
 .ech-note{color:var(--gris);font-size:11px;margin:9px 0 0;}
 .jnl-vise{background:#fff8e1;box-shadow:inset 3px 0 0 var(--orange);}
+.diag-repli{margin-top:14px;}
+.diag-repli>summary{cursor:pointer;color:var(--gris);font-size:11.5px;
+  list-style:none;display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--trait);border-radius:12px;padding:4px 12px;}
+.diag-repli>summary::-webkit-details-marker{display:none;}
+.diag-repli>summary::before{content:"⚙";}
+.diag-repli>summary:hover{border-color:var(--bleu);color:var(--bleu);}
+.diag-repli[open]>summary{margin-bottom:10px;}
+/* ====================== Mode téléphone (< 700 px) ====================== */
+body.mob .barre-top,body.mob .appli{display:none!important;}
+/* barre d'enregistrement : elle reste, calée au-dessus du bouton flottant */
+body.mob .barre-enr{left:0;right:0;bottom:0;border-radius:0;padding:10px 13px;
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+body.mob .barre-enr .cpt{flex:1 1 100%;font-size:12px;}
+body.mob .barre-enr .btn,body.mob .barre-enr .btn-2{flex:1;padding:10px;font-size:13px;}
+body.mob.a-enr .mb-plus{bottom:96px;}
+body.mob.a-enr #mobile{padding-bottom:132px;}
+body.mob #mobile{display:block;}
+#mobile{font-size:14px;padding-bottom:74px;}
+.mb-tete{position:sticky;top:0;z-index:20;background:var(--bleu);color:#fff;
+  padding:11px 13px;display:flex;align-items:center;gap:10px;}
+.mb-tete b{font-size:14px;font-weight:bold;flex:1;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.mb-retour{border:0;background:rgba(255,255,255,.16);color:#fff;border-radius:50%;
+  width:30px;height:30px;flex:0 0 auto;font-size:16px;line-height:1;cursor:pointer;}
+.mb-rech{padding:10px 13px;background:#fff;border-bottom:1px solid var(--trait);}
+.mb-rech input{width:100%;font-size:14px;padding:9px 11px;border:1px solid var(--trait);
+  border-radius:var(--rayon);}
+.mb-outils{display:flex;gap:8px;padding:9px 13px;background:#fff;
+  border-bottom:1px solid var(--trait);}
+.mb-chip{border:1px solid var(--trait);background:#fff;border-radius:14px;padding:5px 12px;
+  font-size:12px;color:var(--gris);cursor:pointer;}
+.mb-chip.on{background:var(--bleu);border-color:var(--bleu);color:#fff;}
+.mb-projet{display:flex;align-items:center;gap:11px;padding:12px 13px;width:100%;
+  background:#fff;border:0;border-bottom:1px solid var(--trait);text-align:left;cursor:pointer;}
+.mb-projet .titre{flex:1;min-width:0;}
+.mb-projet .titre b{display:block;font-size:13.5px;color:var(--encre);font-weight:normal;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mb-projet .titre span{display:block;font-size:12px;color:var(--gris);margin-top:2px;}
+.mb-projet .alerte{color:#c62828;font-weight:bold;}
+.mb-fleche{flex:0 0 auto;color:#b6bdc9;font-size:17px;}
+.mb-onglets{position:sticky;top:52px;z-index:19;display:flex;background:#fff;
+  border-bottom:1px solid var(--trait);}
+.mb-onglets button{flex:1;border:0;background:none;padding:11px 2px 9px;font-size:12px;
+  color:var(--gris);cursor:pointer;border-bottom:2px solid transparent;}
+.mb-onglets button.on{color:var(--bleu);font-weight:bold;border-bottom-color:var(--bleu);}
+.mb-corps{padding:13px;}
+.mb-carte{background:#fff;border:1px solid var(--trait);border-radius:10px;
+  padding:13px;margin-bottom:11px;}
+.mb-carte h3{margin:0 0 10px;font-size:12px;color:var(--bleu);text-transform:uppercase;
+  letter-spacing:.4px;}
+.mb-ident{display:flex;align-items:center;gap:13px;}
+.mb-ident .txt{min-width:0;}
+.mb-ident .txt b{display:block;font-size:14px;line-height:1.35;}
+.mb-ident .txt span{display:block;font-size:12px;color:var(--gris);margin-top:3px;}
+.mb-champ{display:flex;justify-content:space-between;gap:12px;padding:7px 0;
+  border-bottom:1px solid #f2f5f9;font-size:13px;}
+.mb-champ:last-child{border-bottom:0;}
+.mb-champ span{color:var(--gris);flex:0 0 auto;}
+.mb-champ b{font-weight:normal;text-align:right;min-width:0;}
+.mb-rien{color:var(--gris);font-size:12.5px;padding:6px 0;}
+.mb-item{border-left:3px solid var(--trait);padding:8px 0 8px 11px;margin-bottom:9px;}
+.mb-item.retard{border-left-color:#c62828;}
+.mb-item.proche{border-left-color:var(--orange);}
+.mb-item .h{display:flex;gap:9px;align-items:baseline;font-size:12.5px;}
+.mb-item .h b{color:var(--encre);}
+.mb-item.retard .h b,.mb-item.retard .h i{color:#c62828;font-style:normal;}
+.mb-item .h i{color:var(--gris);font-style:normal;font-size:11.5px;}
+.mb-item p{margin:3px 0 0;font-size:13px;line-height:1.5;}
+.mb-acc{border:1px solid var(--trait);border-radius:10px;margin-bottom:9px;
+  background:#fff;overflow:hidden;}
+.mb-acc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+  padding:11px 12px;}
+.mb-acc>summary::-webkit-details-marker{display:none;}
+.mb-acc>summary .t{flex:1;min-width:0;font-size:13px;line-height:1.35;}
+.mb-acc>summary .n{font-size:11.5px;color:var(--gris);flex:0 0 auto;}
+.mb-acc .dedans{padding:0 12px 12px;border-top:1px solid #f2f5f9;}
+.mb-tache{display:flex;align-items:center;gap:10px;padding:9px 0;
+  border-bottom:1px solid #f6f8fb;font-size:13px;}
+.mb-tache:last-child{border-bottom:0;}
+.mb-tache .lib{flex:1;min-width:0;line-height:1.35;}
+.mb-tache .pc{flex:0 0 42px;text-align:right;font-size:12px;color:var(--gris);}
+.mb-av{flex:0 0 88px;}
+.mb-av .avct{width:100%;}
+.mb-jauge{height:5px;border-radius:3px;background:#e9eef5;overflow:hidden;margin-top:4px;}
+.mb-jauge i{display:block;height:100%;}
+.mb-form label{display:block;font-size:11.5px;color:var(--gris);margin:9px 0 4px;}
+.mb-form input,.mb-form select,.mb-form textarea{width:100%;font-size:14px;padding:9px 10px;
+  border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;}
+.mb-form textarea{min-height:76px;resize:vertical;}
+.mb-form .btn{width:100%;margin-top:12px;padding:11px;font-size:14px;}
+.mb-plus{position:fixed;right:15px;bottom:15px;z-index:30;width:52px;height:52px;
+  border-radius:50%;border:0;background:var(--bleu);color:#fff;font-size:25px;line-height:1;
+  cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.28);}
+.mb-voile{position:fixed;inset:0;z-index:40;background:rgba(16,24,40,.5);
+  display:flex;align-items:flex-end;}
+.mb-feuille{background:#fff;width:100%;border-radius:14px 14px 0 0;padding:15px;
+  max-height:88vh;overflow:auto;}
+.mb-feuille h3{margin:0 0 4px;font-size:14px;color:var(--bleu);}
+.mb-feuille .sous{font-size:12px;color:var(--gris);margin:0;}
 .jnl-fil{border-bottom:1px solid #eef1f5;}
 .jnl-fil .jnl{border-bottom:0;}
 .jnl-rep{margin-left:26px;padding-top:6px;padding-bottom:6px;
@@ -425,7 +525,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 .pl-rep::before{content:"";display:block;width:9px;height:9px;margin:1px auto;
   transform:rotate(45deg);border:1px solid #fff;}
 .pl-rep-instance::before{background:#c62828;}
-.pl-rep-delai::before{background:#7b2fa8;}
+.pl-rep-delai::before{background:#0e9594;}
 /* repère descendu sur la barre du projet, quand deux losanges se superposent */
 .pl-rep-bas{top:31px;}
 .pl-rep.actif::before{outline:2px solid var(--bleu);outline-offset:2px;}
@@ -744,6 +844,8 @@ tbody tr.ligne-com:hover{background:transparent;}
   </main>
 </div>
 
+<div id="mobile" hidden></div>
+
 <div class="barre-enr" id="barre-enr" hidden>
   <span class="cpt" id="barre-enr-txt"></span>
   <span class="info">Ctrl + S pour enregistrer</span>
@@ -968,6 +1070,7 @@ const S = {
   noteOuverte:null,           // note en cours de classement : {id, dest}
   reponseA:null,              // entrée de journal à laquelle on répond
   pagesParProjet:{},          // pages additionnelles, conservées dans le document
+  mob:{ecran:"accueil",onglet:"synthese",q:"",clos:false},
   notesClassees:false,        // afficher aussi les notes déjà classées ?
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
@@ -1444,6 +1547,7 @@ function majBarreBrouillon(){
   const n=nbModifs(), barre=$("#barre-enr");
   if(!barre) return;
   barre.hidden = !n;
+  document.body.classList.toggle("a-enr",!!n);   // dégage le bouton flottant
   if(n) $("#barre-enr-txt").textContent =
     n+" modification"+(n>1?"s":"")+" en attente";
   const act=$("#btn-actualiser");
@@ -1711,6 +1815,7 @@ function boutonPerso(){
 }
 
 function rendreProjet(){
+  if(enMobile() && document.body.classList.contains("mob")){ rendreMobile(); return; }
   const p=S.projetSel, c=S.cfg;
   if(!p){
     $("#entete").innerHTML="";
@@ -2893,7 +2998,7 @@ function vuePlanning(p){
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     (visibles.length
       ? '<span class="pl-legende-rep"><i style="background:#c62828"></i> Instance</span>'+
-        '<span class="pl-legende-rep"><i style="background:#7b2fa8"></i> Délai d\'exécution</span>'
+        '<span class="pl-legende-rep"><i style="background:#0e9594"></i> Délai d\'exécution</span>'
       : '')+
     '</div></div>';
   S.reperesVus=visibles;
@@ -2924,6 +3029,7 @@ function brancherPlanning(p){
   const grille=document.querySelector(".pl-grille");
   const fermerBulle=()=>{
     const b=document.querySelector(".pl-bulle"); if(b) b.remove();
+    if(grille) grille.style.paddingBottom="";
     document.querySelectorAll(".pl-rep.actif").forEach(x=>x.classList.remove("actif"));
   };
   document.querySelectorAll(".pl-rep").forEach(btn=>btn.onclick=(e)=>{
@@ -2947,6 +3053,12 @@ function brancherPlanning(p){
     g=Math.max(4,Math.min(g,grille.clientWidth-bulle.offsetWidth-4));
     bulle.style.left=g+"px";
     bulle.style.top=(br.bottom-gr.top+6)+"px";
+    /* Un projet sans action ne fait qu'une ligne : la bulle dépassait la carte
+       et obligeait à faire défiler. On agrandit la grille le temps qu'elle est
+       ouverte, plutôt que de la faire déborder. */
+    const requis=bulle.offsetTop+bulle.offsetHeight+8;
+    if(requis>grille.clientHeight)
+      grille.style.paddingBottom=(requis-grille.clientHeight)+"px";
     bulle.querySelector(".pl-bulle-fermer").onclick=fermerBulle;
     bulle.onclick=ev=>ev.stopPropagation();
   });
@@ -3611,7 +3723,6 @@ function diagnosticNotes(p){
   }).join("");
 
   return '<div class="diag">'+
-    '<div class="diag-titre">Pourquoi le rattachement échoue</div>'+
     '<ul>'+
       '<li>Table des notes : <b>'+esc(c.tblNote)+'</b></li>'+
       '<li>Colonne de lien : <b>'+esc(c.colNoteLien)+'</b> — type <b>'+esc(type)+'</b></li>'+
@@ -3647,7 +3758,11 @@ function vueNotes(p){
       '<b>Aucune note rattachée à ce projet</b>'+
       'La table contient '+S.data.notes.length+' note'+(S.data.notes.length>1?"s":"")+
       ', mais aucune ne pointe vers « '+esc(lire(c.tblMain,p,c.colLibelle)||"ce projet")+' ».'+
-      '</div>'+diagnosticNotes(p)+'</div>';
+      '</div>'+
+      /* le détail technique reste disponible, mais replié : il n'a d'intérêt
+         que le jour où l'on cherche d'où vient le décalage de paramétrage */
+      '<details class="diag-repli"><summary>Analyser le rattachement</summary>'+
+        diagnosticNotes(p)+'</details></div>';
     return;
   }
   const attente=notes.filter(estACaracteriser);
@@ -3840,6 +3955,7 @@ function enregistrerOptionsImpr(){
 
 
 function ouvrirImpression(){
+  if(enMobile()){ toast("L'impression n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
   if(nbModifs()){ toast("Enregistrez vos saisies avant de générer le PDF.",true); return; }
 
@@ -4287,8 +4403,8 @@ function reperesGantt(p){
   return reperesPlanning(p).map(r=>({
     ts:r.ts, txt:r.titre,
     contenu:[r.titre,r.detail,r.meta].filter(Boolean).join("\n"),
-    coul:r.genre==="delai"?"#7b2fa8":"#c62828",
-    pale:r.genre==="delai"?"#d8c0e6":"#e0b3b3"
+    coul:r.genre==="delai"?"#0e9594":"#c62828",
+    pale:r.genre==="delai"?"#b3ddda":"#e0b3b3"
   }));
 }
 
@@ -4729,6 +4845,7 @@ function rafraichirApercu(){
 }
 
 function ouvrirApercu(){
+  if(enMobile()){ toast("L'aperçu PDF n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
   if(nbModifs()){ toast("Enregistrez vos saisies avant de générer le PDF.",true); return; }
   const cpj=$("#ap-pj"), lab=$("#ap-pj-lab");
@@ -5474,6 +5591,375 @@ function devineDefauts(){
   }
 }
 
+/* =======================================================================
+   Mode téléphone
+   =======================================================================
+   Même widget, même paramétrage, même couche de données : seule la mise en
+   page change sous 700 px. On peut donc le tester depuis un poste en
+   rétrécissant la fenêtre. */
+
+const SEUIL_MOB=700;
+function enMobile(){ return window.innerWidth<SEUIL_MOB; }
+
+/* Un projet est clos s'il est interrompu ou à 100 % — il quitte la liste
+   principale de l'accueil et se retrouve derrière le filtre. */
+function projetClos(p){
+  const a=pct(p[S.cfg.colAvancement]);
+  return interrompu(p) || (a!=null && a>=100);
+}
+
+/* Ce qui réclame l'attention : échéances dépassées, puis prochaine instance. */
+function alerteProjet(p){
+  const ech=echeancesDe(p);
+  const auj=aujourdHuiUTC();
+  const proch=instancesDe(p)
+    .filter(j=>Number(j.date)>=auj)
+    .sort((a,b)=>a.date-b.date)[0]||null;
+  return {retard:ech.filter(e=>e.etat==="depasse").length,
+          proche:ech.filter(e=>e.etat==="proche").length,
+          instance:proch};
+}
+
+function projetsMobile(){
+  const c=S.cfg, m=S.mob;
+  const q=(m.q||"").trim().toLowerCase();
+  let liste=projets().filter(p=>{
+    if(!m.clos && projetClos(p)) return false;
+    if(!q) return true;
+    return (lire(c.tblMain,p,c.colLibelle)+" "+lire(c.tblMain,p,c.colGroupement)+" "+
+            lire(c.tblMain,p,c.colPorteur)).toLowerCase().includes(q);
+  });
+  /* ce qui est en retard remonte, puis ce qui approche, puis l'avancement */
+  const rang=p=>{
+    const a=alerteProjet(p);
+    if(a.retard) return 0;
+    if(a.proche || a.instance) return 1;
+    return 2;
+  };
+  return liste.sort((x,y)=>{
+    const rx=rang(x), ry=rang(y);
+    if(rx!==ry) return rx-ry;
+    const ax=pct(x[c.colAvancement]), ay=pct(y[c.colAvancement]);
+    return (ay==null?-1:ay)-(ax==null?-1:ax);
+  });
+}
+
+function mbAccueil(){
+  const c=S.cfg, m=S.mob;
+  const liste=projetsMobile();
+  const nbClos=projets().filter(projetClos).length;
+  const lignes = liste.length
+    ? liste.map(p=>{
+        const a=pct(p[c.colAvancement]), al=alerteProjet(p);
+        const sous = al.retard
+          ? '<span class="alerte">'+al.retard+' échéance'+(al.retard>1?'s':'')+' dépassée'+(al.retard>1?'s':'')+'</span>'
+          : (al.instance
+              ? 'Prochaine instance le '+esc(dateVersFR(al.instance.date))
+              : (al.proche?al.proche+' échéance'+(al.proche>1?'s':'')+' cette semaine':'Aucune échéance'));
+        return '<button type="button" class="mb-projet" data-mbp="'+p.id+'">'+
+          donut(a,34,interrompu(p))+
+          '<span class="titre"><b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
+          '<span>'+sous+'</span></span>'+
+          '<span class="mb-fleche">›</span></button>';
+      }).join("")
+    : '<div class="mb-corps"><div class="mb-rien">Aucun projet ne correspond.</div></div>';
+
+  $("#mobile").innerHTML=
+    '<div class="mb-tete"><b>Vos projets</b></div>'+
+    '<div class="mb-rech"><input id="mb-q" type="search" placeholder="Rechercher un projet…" '+
+      'value="'+esc(m.q||"")+'" autocomplete="off"></div>'+
+    (nbClos
+      ? '<div class="mb-outils"><button type="button" class="mb-chip'+(m.clos?" on":"")+'" '+
+        'id="mb-clos">Projets clos ('+nbClos+')</button></div>'
+      : '')+
+    lignes;
+
+  const q=$("#mb-q");
+  q.oninput=()=>{ m.q=q.value; const pos=q.selectionStart; mbAccueil();
+                  const n=$("#mb-q"); n.focus(); n.setSelectionRange(pos,pos); };
+  const bc=$("#mb-clos");
+  if(bc) bc.onclick=()=>{ m.clos=!m.clos; mbAccueil(); };
+  document.querySelectorAll("[data-mbp]").forEach(b=>b.onclick=()=>{
+    S.projetSel=S.data.main.find(r=>r.id===Number(b.dataset.mbp));
+    m.ecran="fiche"; m.onglet="synthese";
+    rendreMobile(); window.scrollTo(0,0);
+  });
+}
+
+const MB_ONGLETS=[["synthese","Synthèse"],["travaux","Actions"],
+                  ["instances","Instances"],["journal","Journal"]];
+
+function mbFiche(){
+  const c=S.cfg, m=S.mob, p=S.projetSel;
+  if(!p){ m.ecran="accueil"; return mbAccueil(); }
+  $("#mobile").innerHTML=
+    '<div class="mb-tete">'+
+      '<button type="button" class="mb-retour" id="mb-retour" aria-label="Retour">‹</button>'+
+      '<b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
+    '</div>'+
+    '<div class="mb-onglets">'+MB_ONGLETS.map(([k,l])=>
+      '<button type="button" data-mbo="'+k+'"'+(m.onglet===k?' class="on"':'')+'>'+l+'</button>').join("")+
+    '</div>'+
+    '<div class="mb-corps" id="mb-corps"></div>'+
+    '<button type="button" class="mb-plus" id="mb-note" aria-label="Ajouter une note">+</button>';
+
+  $("#mb-retour").onclick=()=>{ m.ecran="accueil"; rendreMobile(); window.scrollTo(0,0); };
+  document.querySelectorAll("[data-mbo]").forEach(b=>b.onclick=()=>{
+    m.onglet=b.dataset.mbo; mbFiche(); window.scrollTo(0,0);
+  });
+  $("#mb-note").onclick=()=>mbFeuilleNote(p);
+
+  ({synthese:mbSynthese,travaux:mbTravaux,instances:mbInstances,journal:mbJournal}
+    [m.onglet]||mbSynthese)(p);
+}
+
+/* Synthèse : l'avancement, puis ce qui est en retard et ce qui arrive.
+   Le Gantt n'a pas de sens sur 380 px ; il cède la place à une chronologie. */
+function mbSynthese(p){
+  const c=S.cfg;
+  const a=pct(p[c.colAvancement]), i=interrompu(p);
+  const ech=echeancesDe(p);
+  const auj=aujourdHuiUTC();
+  const ins=instancesDe(p).filter(j=>Number(j.date)>=auj).sort((x,y)=>x.date-y.date);
+  const champ=(lib,val)=>val?'<div class="mb-champ"><span>'+lib+'</span><b>'+esc(val)+'</b></div>':'';
+
+  $("#mb-corps").innerHTML=
+    '<div class="mb-carte"><div class="mb-ident">'+donut(a,58,i)+
+      '<div class="txt"><b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
+      '<span>'+esc(lire(c.tblMain,p,c.colGroupement))+'</span></div></div>'+
+      '<div style="margin-top:11px">'+
+        champ("Porteur",lire(c.tblMain,p,c.colPorteur))+
+        champ("Nature",lire(c.tblMain,p,c.colNature))+
+        champ("Priorité",lire(c.tblMain,p,c.colPriorite))+
+        champ("Échéance",dateVersFR(p[c.colEch]||p[c.colFin]))+
+      '</div></div>'+
+
+    '<div class="mb-carte"><h3>Échéances</h3>'+
+      (ech.length
+        ? ech.map(e=>'<div class="mb-item '+(e.etat==="depasse"?"retard":(e.etat==="proche"?"proche":""))+'">'+
+            '<div class="h"><b>'+esc(dateVersFR(e.ts))+'</b><i>'+
+              (e.jours<0?"en retard de "+(-e.jours)+" j":(e.jours===0?"aujourd\'hui":"dans "+e.jours+" j"))+
+            '</i></div><p>'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</p></div>').join("")
+        : '<div class="mb-rien">Aucune échéance en cours.</div>')+
+    '</div>'+
+
+    '<div class="mb-carte"><h3>Prochaines instances</h3>'+
+      (ins.length
+        ? ins.slice(0,5).map(j=>'<div class="mb-item">'+
+            '<div class="h"><b>'+esc(dateVersFR(j.date))+'</b>'+
+            (j.type?'<i>'+esc(j.type)+'</i>':'')+'</div>'+
+            '<p>'+esc(j.libelle||"(sans libellé)")+'</p></div>').join("")
+        : '<div class="mb-rien">Aucune instance à venir.</div>')+
+    '</div>';
+}
+
+/* Actions et tâches réunis : une action se déplie sur ses tâches. */
+function mbTravaux(p){
+  const c=S.cfg;
+  const acts=actionsDe(p);
+  const bloc=(porteur,titre,niv)=>{
+    const ts=tachesDe(porteur);
+    const a=pct(porteur[c.colAvancement]), i=interrompu(porteur);
+    return '<details class="mb-acc"'+(niv===0?' open':'')+'>'+
+      '<summary>'+donut(a,30,i)+'<span class="t">'+esc(titre)+'</span>'+
+        '<span class="n">'+ts.length+' tâche'+(ts.length>1?'s':'')+'</span></summary>'+
+      '<div class="dedans">'+
+        (ts.length
+          ? ts.map(t=>{
+              const av=pct(t[c.colTacheAvancement]);
+              const it=statutInterrompu(c.tblTache,t,c.colTacheStatut);
+              return '<div class="mb-tache"><span class="lib">'+
+                esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+'</span>'+
+                '<span class="mb-av">'+champAvct(c.tblTache,t,c.colTacheAvancement,av,it)+'</span>'+
+                '</div>';
+            }).join("")
+          : '<div class="mb-rien">Aucune tâche.</div>')+
+      '</div></details>';
+  };
+  const propres=tachesDe(p);
+  $("#mb-corps").innerHTML=
+    (propres.length?bloc(p,"Tâches du projet",0):'')+
+    (acts.length
+      ? acts.map(a=>bloc(a,lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",1)).join("")
+      : (propres.length?'':'<div class="mb-rien">Aucune action ni tâche.</div>'));
+  /* les avancements passent par le brouillon : rien n'est écrit tant que la
+     barre « Enregistrer » n'a pas été validée */
+  brancherEditeurs();
+}
+
+function mbInstances(p){
+  const c=S.cfg;
+  const xs=instancesDe(p);
+  $("#mb-corps").innerHTML=
+    '<div class="mb-carte"><h3>Historique</h3>'+
+      (xs.length
+        ? xs.map(j=>'<div class="mb-item"><div class="h"><b>'+esc(dateVersFR(j.date)||"—")+'</b>'+
+            (j.type?'<i>'+esc(j.type)+'</i>':'')+'</div>'+
+            '<p>'+esc(j.libelle||"(sans libellé)")+'</p>'+
+            (j.rapporteur?'<div class="h"><i>Rapporteur : '+esc(j.rapporteur)+'</i></div>':'')+
+          '</div>').join("")
+        : '<div class="mb-rien">Aucune instance enregistrée.</div>')+
+    '</div>'+
+    (c.tblInstance && c.colInsLien
+      ? '<div class="mb-carte mb-form"><h3>Ajouter une instance</h3>'+
+          '<label>Date</label>'+champDateFR('id="mbi-date"','',dateDuJourFR())+
+          '<label>Libellé</label><input id="mbi-lib" type="text">'+
+          (c.colInsType?'<label>Type</label>'+champVierge(c.tblInstance,c.colInsType,"mbi-type"):'')+
+          '<button class="btn" id="mbi-ok">Ajouter l\'instance</button></div>'
+      : '');
+  const ok=$("#mbi-ok");
+  if(ok) ok.onclick=async()=>{
+    const lib=$("#mbi-lib").value.trim();
+    if(!lib){ toast("Saisissez un libellé.",true); return; }
+    const d=frVersDate($("#mbi-date").value);
+    if(d===undefined){ toast("Date invalide : jj/mm/aaaa.",true); return; }
+    const champs={};
+    if(c.colInsLibelle) champs[c.colInsLibelle]=lib;
+    if(c.colInsDate && d!==null) champs[c.colInsDate]=d;
+    if(c.colInsType && $("#mbi-type"))
+      champs[c.colInsType]=valeurChamp("mbi-type",c.tblInstance,c.colInsType);
+    poserLien(champs,c.tblInstance,c.colInsLien,p,cleProjet(p));
+    await ajouter(c.tblInstance,champs);
+    await charger(); rendreMobile();
+  };
+}
+
+function mbJournal(p){
+  const c=S.cfg;
+  if(!(c.tblJournal && c.colJnlLien)){
+    $("#mb-corps").innerHTML='<div class="mb-rien">Journal non paramétré.</div>';
+    return;
+  }
+  const ech=echeancesDe(p);
+  const fils=filsJournal(p);
+  const ligne=(j,rep)=>
+    '<div class="mb-item'+(rep?'" style="margin-left:15px':'')+'">'+
+      '<div class="h"><b>'+esc(dateVersFR(j[c.colJnlDate])||"—")+'</b>'+
+      (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)
+        ? '<i>'+esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</i>':'')+
+      (c.colJnlDelai&&j[c.colJnlDelai]
+        ? '<i>⏱ '+esc(dateVersFR(j[c.colJnlDelai]))+'</i>':'')+'</div>'+
+      '<p>'+(rep?'↳ ':'')+esc(lire(c.tblJournal,j,c.colJnlTexte))+'</p>'+
+      (c.colJnlReponse&&!rep
+        ? '<button type="button" class="mb-chip" data-mbrep="'+j.id+'" '+
+          'style="margin-top:6px">↩ Répondre</button>':'')+
+    '</div>';
+
+  $("#mb-corps").innerHTML=
+    (ech.length
+      ? '<div class="mb-carte"><h3>Échéances</h3>'+ech.map(e=>
+          '<div class="mb-item '+(e.etat==="depasse"?"retard":(e.etat==="proche"?"proche":""))+'">'+
+          '<div class="h"><b>'+esc(dateVersFR(e.ts))+'</b><i>'+
+            (e.jours<0?"en retard de "+(-e.jours)+" j":(e.jours===0?"aujourd\'hui":"dans "+e.jours+" j"))+
+          '</i></div><p>'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</p>'+
+          (c.colJnlTraite?'<button type="button" class="mb-chip" data-mbclore="'+e.j.id+'" '+
+            'style="margin-top:6px">Traité</button>':'')+
+          '</div>').join("")+'</div>'
+      : '')+
+    '<div class="mb-carte mb-form"><h3>'+(S.reponseA?"Répondre":"Ajouter une entrée")+'</h3>'+
+      (S.reponseA
+        ? '<p class="sous">En réponse à '+esc(dateVersFR(S.reponseA[c.colJnlDate]))+' — '+
+          esc((lire(c.tblJournal,S.reponseA,c.colJnlTexte)||"").slice(0,90))+
+          ' <button type="button" class="mb-chip" id="mbj-annuler">Annuler</button></p>'
+        : '')+
+      '<label>Commentaire</label><textarea id="mbj-texte"></textarea>'+
+      '<label>Date de saisie</label>'+champDateFR('id="mbj-date"','',dateDuJourFR())+
+      (c.colJnlDelai?'<label>Délai d\'exécution</label>'+champDateFR('id="mbj-delai"','',''):'')+
+      '<button class="btn" id="mbj-ok">'+(S.reponseA?"Répondre":"Ajouter")+'</button></div>'+
+    '<div class="mb-carte"><h3>Historique</h3>'+
+      (fils.length
+        ? fils.map(f=>ligne(f.j,false)+f.reponses.map(r=>ligne(r,true)).join("")).join("")
+        : '<div class="mb-rien">Journal vide.</div>')+
+    '</div>';
+
+  const ann=$("#mbj-annuler");
+  if(ann) ann.onclick=()=>{ S.reponseA=null; mbJournal(p); };
+  document.querySelectorAll("[data-mbrep]").forEach(b=>b.onclick=()=>{
+    const js=journalDe(p), parId=new Map(js.map(x=>[x.id,x]));
+    const cible=parId.get(Number(b.dataset.mbrep));
+    S.reponseA=cible?racineJnl(cible,parId):null;
+    mbJournal(p);
+    const t=$("#mbj-texte"); if(t){ t.scrollIntoView({block:"center"}); t.focus(); }
+  });
+  document.querySelectorAll("[data-mbclore]").forEach(b=>b.onclick=async()=>{
+    const id=Number(b.dataset.mbclore);
+    await grist.docApi.applyUserActions([["UpdateRecord",c.tblJournal,id,
+      {[c.colJnlTraite]:true}]]);
+    const l=ligneDe(c.tblJournal,id); if(l) l[c.colJnlTraite]=true;
+    toast("Échéance close");
+    rendreMobile();
+    charger().then(rendreMobile).catch(e=>console.warn(e.message));
+  });
+  $("#mbj-ok").onclick=async()=>{
+    const texte=$("#mbj-texte").value.trim();
+    if(!texte){ toast("Saisissez un commentaire.",true); return; }
+    const d=frVersDate($("#mbj-date").value);
+    if(d===undefined){ toast("Date de saisie invalide : jj/mm/aaaa.",true); return; }
+    const champs={[c.colJnlTexte]:texte};
+    if(c.colJnlDate && d!==null) champs[c.colJnlDate]=d;
+    if(c.colJnlDelai && $("#mbj-delai")){
+      const dl=frVersDate($("#mbj-delai").value);
+      if(dl===undefined){ toast("Délai invalide : jj/mm/aaaa.",true); return; }
+      if(dl!==null) champs[c.colJnlDelai]=dl;
+    }
+    const info=infoCol(c.tblJournal,c.colJnlLien);
+    if(info && info.type.startsWith("Ref:")) champs[c.colJnlLien]=p.id;
+    else if(info && info.type.startsWith("RefList:")) champs[c.colJnlLien]=["L",p.id];
+    else champs[c.colJnlLien]=p[c.colProjKey];
+    if(S.reponseA && c.colJnlReponse){
+      const ir=infoCol(c.tblJournal,c.colJnlReponse);
+      champs[c.colJnlReponse]=(ir&&ir.type.startsWith("RefList:"))?["L",S.reponseA.id]:S.reponseA.id;
+      if(c.colJnlAction){
+        const va=S.reponseA[c.colJnlAction];
+        if(va!==undefined && va!==null && va!=="") champs[c.colJnlAction]=va;
+      }
+    }
+    await ajouter(c.tblJournal,champs);
+    S.reponseA=null;
+    await charger(); rendreMobile();
+  };
+}
+
+/* Note rapide : le geste le plus utile en réunion. Le classement reste au poste. */
+function mbFeuilleNote(p){
+  const c=S.cfg;
+  if(!(c.tblNote && c.colNoteLien)){ toast("Table des notes non paramétrée.",true); return; }
+  const v=document.createElement("div");
+  v.className="mb-voile";
+  v.innerHTML='<div class="mb-feuille mb-form">'+
+    '<h3>Note rapide</h3><p class="sous">'+esc(lire(c.tblMain,p,c.colLibelle))+'</p>'+
+    '<label>Note</label><textarea id="mbn-texte"></textarea>'+
+    (c.colNoteAuteur?'<label>Auteur</label>'+champVierge(c.tblNote,c.colNoteAuteur,"mbn-auteur"):'')+
+    '<button class="btn" id="mbn-ok">Enregistrer la note</button>'+
+    '<button class="btn-2 mb-chip" id="mbn-annuler" style="width:100%;margin-top:9px;padding:10px">Annuler</button>'+
+    '</div>';
+  document.body.appendChild(v);
+  const fermer=()=>v.remove();
+  v.onclick=e=>{ if(e.target===v) fermer(); };
+  v.querySelector("#mbn-annuler").onclick=fermer;
+  v.querySelector("#mbn-texte").focus();
+  v.querySelector("#mbn-ok").onclick=async()=>{
+    const t=v.querySelector("#mbn-texte").value.trim();
+    if(!t){ toast("Saisissez une note.",true); return; }
+    const champs={};
+    if(c.colNoteTexte) champs[c.colNoteTexte]=t;
+    if(c.colNoteDate)  champs[c.colNoteDate]=aujourdHuiUTC();
+    if(c.colNoteAuteur && v.querySelector("#mbn-auteur"))
+      champs[c.colNoteAuteur]=valeurChamp("mbn-auteur",c.tblNote,c.colNoteAuteur);
+    poserLien(champs,c.tblNote,c.colNoteLien,p,cleProjet(p));
+    await ajouter(c.tblNote,champs);
+    fermer();
+    await charger(); rendreMobile();
+  };
+}
+
+/* Le mode mobile n'utilise pas le brouillon : chaque saisie part directement.
+   rendreProjet() reste appelé par le reste du code, on le renvoie ici. */
+function rendreMobile(){
+  if(S.mob.ecran==="fiche" && S.projetSel) mbFiche();
+  else { S.mob.ecran="accueil"; mbAccueil(); }
+}
+
 async function tout(){
   try{
     await charger();
@@ -5481,6 +5967,7 @@ async function tout(){
     remplirFiltres();
     if(S.projetSel) S.projetSel=S.data.main.find(r=>r.id===S.projetSel.id)||null;
     rendreListe(); rendreProjet();
+    if(enMobile()) rendreMobile();
   }catch(e){
     $("#compteur-texte").textContent="Erreur de lecture";
     const acces=/access rules|denied|forbidden/i.test(e.message||"");
@@ -5516,9 +6003,14 @@ let minuteur=null;
 function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,600); }
 
 async function demarrer(){
+  majMobile();
   grist.ready({
     requiredAccess:"full",
-    onEditOptions:()=>{ rendreReglages(); $("#voile").classList.add("ouvert"); }
+    /* les réglages restent réservés au poste : trop denses pour un téléphone */
+    onEditOptions:()=>{
+      if(enMobile()){ toast("Les réglages ne sont accessibles que sur ordinateur.",true); return; }
+      rendreReglages(); $("#voile").classList.add("ouvert");
+    }
   });
   try{
     const o=await grist.widgetApi.getOptions();
@@ -5583,6 +6075,24 @@ $("#pages-fermer").onclick=()=>{
   if(S.retourApercu){ S.retourApercu=false; ouvrirApercu(); }
 };
 $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
+/* Bascule poste / téléphone. Le seuil est en largeur de fenêtre, donc testable
+   depuis un poste en rétrécissant la fenêtre. */
+function majMobile(){
+  const mob=enMobile();
+  document.body.classList.toggle("mob",mob);
+  $("#mobile").hidden=!mob;
+  if(mob) rendreMobile();
+  else { rendreListe(); rendreProjet(); }
+}
+let tMob=null;
+window.addEventListener("resize",()=>{
+  clearTimeout(tMob);
+  tMob=setTimeout(()=>{
+    const avant=document.body.classList.contains("mob");
+    if(avant!==enMobile()) majMobile();
+  },180);
+});
+
 chargerOptionsImpr();
 try{ basculerPanneau(localStorage.getItem("cp-panneau-replie")==="1"); }
 catch(e){ majBoutonPanneau(); }

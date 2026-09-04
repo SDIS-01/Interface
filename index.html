@@ -161,6 +161,21 @@ body.panneau-replie .panneau>*{display:none;}
   text-overflow:ellipsis;white-space:nowrap;}
 .p-delai{background:#fdf3e0;color:#8a5a12;white-space:nowrap;}
 .jnl .pastille{flex:0 0 auto;align-self:flex-start;}
+.jnl-fil{border-bottom:1px solid #eef1f5;}
+.jnl-fil .jnl{border-bottom:0;}
+.jnl-rep{margin-left:26px;padding-top:6px;padding-bottom:6px;
+  border-left:2px solid var(--bleu-clair);padding-left:11px;}
+.jnl-rep .date{color:var(--gris);}
+.jnl-rep .texte{font-size:12px;}
+.btn-rep{flex:0 0 auto;align-self:flex-start;border:0;background:none;cursor:pointer;
+  color:var(--bleu);font-size:14px;line-height:1;padding:2px 4px;opacity:.55;}
+.btn-rep:hover{opacity:1;}
+.rep-cible{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  background:var(--bleu-survol);border-left:3px solid var(--bleu);
+  border-radius:var(--rayon);padding:8px 10px;margin-bottom:10px;
+  font-size:11.5px;color:var(--gris);line-height:1.5;}
+.rep-cible b{color:var(--bleu);}
+.rep-cible .btn-2{margin-left:auto;}
 
 /* ---------- En-tête projet ---------- */
 .entete{
@@ -836,6 +851,7 @@ const DEF = {
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
+  colJnlReponse:"Reponse_a",
   tblJalon:"", colJalLien:"", colJalDate:"", colJalLibelle:"", colJalHisto:"", colJalAction:"",
   colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
@@ -871,7 +887,8 @@ const CHAMPS_REGLAGES = [
     ["colJnlLien","Lien vers le projet"],["colJnlAction","Lien vers l'action (facultatif)"],
     ["colJnlDate","Date"],["colJnlTexte","Commentaire"],
     ["colJnlAuteur","Auteur de la saisie"],["colJnlNature","Nature / origine"],
-    ["colJnlCollab","Collaborateur concerné"],["colJnlDelai","Délai d'exécution"]
+    ["colJnlCollab","Collaborateur concerné"],["colJnlDelai","Délai d'exécution"],
+    ["colJnlReponse","Réponse à (même table)"]
   ]},
   {bloc:"Table des jalons", tableKey:"tblJalon", champs:[
     ["colJalLien","Lien vers le projet"],["colJalAction","Lien vers l'action (facultatif)"],
@@ -917,6 +934,7 @@ const S = {
   bloquees:new Set(),         // tables interdites en lecture par les règles d'accès
   acccesMasque:false,         // bandeau d'accès masqué par l'utilisateur ?
   noteOuverte:null,           // note en cours de classement : {id, dest}
+  reponseA:null,              // entrée de journal à laquelle on répond
   notesClassees:false,        // afficher aussi les notes déjà classées ?
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
@@ -1173,15 +1191,21 @@ async function charger(){
   const aResoudre=[
     [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
-    [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction","colJnlCollab"]],
+    [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction","colJnlCollab","colJnlReponse"]],
     [c.tblJalon,["colJalLibelle","colJalHisto","colJalAction","colJalCommentaire"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
     [c.tblNote,["colNoteLien","colNoteAuteur","colNoteTexte","colNoteStatut",
                 "colNoteDestination","colNoteAction"]]
   ];
+  /* une référence illisible — table annexe protégée par les règles d'accès —
+     ne doit pas faire échouer tout le rechargement : on l'ignore et on continue */
   for(const [table,cles] of aResoudre){
     if(!table) continue;
-    for(const k of cles) if(c[k]) await preparerRef(table,c[k]);
+    for(const k of cles){
+      if(!c[k]) continue;
+      try{ await preparerRef(table,c[k]); }
+      catch(e){ console.warn("Référence "+table+"."+c[k]+" : "+e.message); }
+    }
   }
   majBandeauAcces();
 }
@@ -1262,6 +1286,49 @@ function tachesDe(action){
   const cle=txt(action[c.colActKey]);
   return S.data.taches.filter(t=>lieA(c.tblTache,t,c.colTacheLien,action.id,cle));
 }
+/* Identifiant de l'entrée mère, ou null pour une entrée de premier niveau. */
+function mereJnl(j){
+  const c=S.cfg;
+  if(!c.colJnlReponse) return null;
+  const v=j[c.colJnlReponse];
+  const id=Number(estListe(v)?v[1]:v);
+  return id||null;
+}
+
+/* Un seul niveau de réponse : répondre à une réponse rattache au fil d'origine.
+   La remontée est bornée pour ne pas boucler sur une donnée incohérente. */
+function racineJnl(j,parId){
+  let cur=j;
+  for(let n=0;n<20;n++){
+    const m=mereJnl(cur);
+    if(!m) return cur;
+    const suiv=parId.get(m);
+    if(!suiv||suiv===cur) return cur;
+    cur=suiv;
+  }
+  return cur;
+}
+
+/* Journal du projet réorganisé en fils : chaque mère porte ses réponses,
+   les plus anciennes d'abord. Les mères restent triées comme avant. */
+function filsJournal(p){
+  const c=S.cfg;
+  const js=journalDe(p);
+  const parId=new Map(js.map(j=>[j.id,j]));
+  if(!c.colJnlReponse) return js.map(j=>({j,reponses:[]}));
+  const reponses=new Map();
+  const racines=[];
+  js.forEach(j=>{
+    const r=mereJnl(j)?racineJnl(j,parId):null;
+    if(!r || r===j){ racines.push(j); return; }
+    if(!reponses.has(r.id)) reponses.set(r.id,[]);
+    reponses.get(r.id).push(j);
+  });
+  return racines.map(j=>({j,
+    reponses:(reponses.get(j.id)||[])
+      .sort((a,b)=>(Number(a[c.colJnlDate])||0)-(Number(b[c.colJnlDate])||0))}));
+}
+
 function journalDe(p){
   const c=S.cfg;
   if(!c.tblJournal||!c.colJnlLien) return [];
@@ -2111,15 +2178,44 @@ function brancherPJ(){
       }
       const ligne=ligneDe(tableId,rowId);
       const actuels=ligne?valListe(ligne[colId]).map(Number).filter(Boolean):[];
+      const total=["L"].concat(actuels,nouveaux);
       await grist.docApi.applyUserActions([["UpdateRecord",tableId,rowId,
-        {[colId]:["L"].concat(actuels,nouveaux)}]]);
+        {[colId]:total}]]);
       toast(nouveaux.length>1?"Pièces jointes ajoutées":"Pièce jointe ajoutée");
-      await charger(); rendreProjet();
+
+      /* Affichage immédiat. On ne se repose plus sur le seul rechargement :
+         en profil éditeur, celui-ci peut échouer sur une table protégée par les
+         règles d'accès, et les vignettes n'apparaissaient qu'après un F5. */
+      if(ligne) ligne[colId]=total;
+      await nommerPJ(nouveaux,tk);
+      rendreProjet();
+      /* réconciliation en arrière-plan, sans faire passer un échec de
+         rafraîchissement pour un échec d'envoi */
+      charger().then(rendreProjet).catch(err=>{
+        console.warn("Rafraîchissement après envoi : "+err.message);
+      });
     }catch(e){
       toast("Envoi impossible : "+e.message,true);
       inp.value="";
     }
   });
+}
+
+/* complète S.pj pour les identifiants qui viennent d'être créés, afin que la
+   vignette porte tout de suite le vrai nom du fichier */
+async function nommerPJ(ids,tk){
+  if(!ids||!ids.length) return;
+  try{
+    if(!tk) tk=await grist.docApi.getAccessToken({readOnly:true});
+    await Promise.all(ids.map(async id=>{
+      try{
+        const rep=await fetch(tk.baseUrl+"/attachments/"+id+"?auth="+encodeURIComponent(tk.token));
+        if(!rep.ok) return;
+        const m=await rep.json();
+        if(m && m.fileName) S.pj[id]={nom:m.fileName};
+      }catch(e){}
+    }));
+  }catch(e){}
 }
 
 async function empreinte(txtClair){
@@ -2873,16 +2969,45 @@ function vueJournal(p){
     return;
   }
   const js=journalDe(p);
+  const fils=filsJournal(p);
   const actJnl=j=>(c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):"");
+
+  /* une ligne du journal ; reponse=true la décale sous sa mère */
+  const ligneJnl=(j,reponse)=>
+    '<div class="jnl'+(reponse?" jnl-rep":"")+'">'+
+      '<span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
+      (!reponse&&actJnl(j)
+        ? '<span class="pastille p-action" title="'+esc(actJnl(j))+'">'+
+          esc(actJnl(j))+'</span>':'')+
+      (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
+        ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
+      (c.colJnlCollab&&lire(c.tblJournal,j,c.colJnlCollab)
+        ? '<span class="pastille p-collab">'+esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>':'')+
+      (c.colJnlDelai&&j[c.colJnlDelai]
+        ? '<span class="pastille p-delai" title="Délai d\'exécution">⏱ '+
+          esc(dateVersFR(j[c.colJnlDelai]))+'</span>':'')+
+      '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
+      (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
+        esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
+      (c.colJnlReponse
+        ? '<button class="btn-rep" data-repj="'+j.id+'" title="Répondre">↩</button>':'')+
+      '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button>'+
+    '</div>';
   const fJnl=filtreHisto("fh-journal",
     actionsPresentes(js.map(j=>({action:actJnl(j)}))),
     js.some(j=>!actJnl(j)));
   $("#corps").innerHTML=
     '<div class="duo"><div class="duo-ajout">'+
-    '<div class="carte"><h2>Ajouter une entrée</h2><div class="grille colonne">'+
+    '<div class="carte"><h2>'+(S.reponseA?"Répondre à une entrée":"Ajouter une entrée")+'</h2>'+
+      (S.reponseA
+        ? '<div class="rep-cible">En réponse à <b>'+esc(dateVersFR(S.reponseA[c.colJnlDate]))+'</b> — '+
+          esc((lire(c.tblJournal,S.reponseA,c.colJnlTexte)||"").slice(0,120))+
+          '<button type="button" class="btn-2" id="j-annuler-rep">Annuler</button></div>'
+        : '')+
+      '<div class="grille colonne">'+
       '<div class="champ"><label>Date de saisie</label>'+
         champDateFR('id="j-date"','',dateDuJourFR())+'</div>'+
-      (c.colJnlAction?'<div class="champ"><label>Action concernée</label>'+
+      (c.colJnlAction&&!S.reponseA?'<div class="champ"><label>Action concernée</label>'+
         champAction(p,"j-action",null)+'</div>':'')+
       (c.colJnlAuteur?'<div class="champ"><label>Auteur de la saisie</label>'+
         champVierge(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
@@ -2896,22 +3021,10 @@ function vueJournal(p){
     '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
     '</div><div class="duo-histo">'+
     '<div class="carte">'+teteHisto("Journal de bord",fJnl)+'<div class="histo-liste" id="fh-journal-liste">'+
-      (js.length? js.map(j=>'<div class="jnl" data-act="'+esc(actJnl(j))+'">'+
-        '<span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
-        (actJnl(j)
-          ? '<span class="pastille p-action" title="'+esc(actJnl(j))+'">'+
-            esc(actJnl(j))+'</span>':'')+
-        (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
-          ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
-        (c.colJnlCollab&&lire(c.tblJournal,j,c.colJnlCollab)
-          ? '<span class="pastille p-collab">'+esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>':'')+
-        (c.colJnlDelai&&j[c.colJnlDelai]
-          ? '<span class="pastille p-delai" title="Délai d\'exécution">⏱ '+
-            esc(dateVersFR(j[c.colJnlDelai]))+'</span>':'')+
-        '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
-        (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
-          esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
-        '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button></div>').join("")+
+      (fils.length? fils.map(f=>
+        '<div class="jnl-fil" data-act="'+esc(actJnl(f.j))+'">'+
+          ligneJnl(f.j,false)+f.reponses.map(r=>ligneJnl(r,true)).join("")+
+        '</div>').join("")+
         '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
       : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
     '</div></div></div></div>'+
@@ -2944,12 +3057,43 @@ function vueJournal(p){
     if(info && info.type.startsWith("Ref:")) champs[c.colJnlLien]=p.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colJnlLien]=["L",p.id];
     else champs[c.colJnlLien]=p[c.colProjKey];
+
+    /* réponse : rattachement à la mère, et héritage de son action concernée
+       pour que le fil reste cohérent avec les filtres */
+    if(S.reponseA && c.colJnlReponse){
+      const ir=infoCol(c.tblJournal,c.colJnlReponse);
+      champs[c.colJnlReponse]=(ir&&ir.type.startsWith("RefList:"))
+        ? ["L",S.reponseA.id] : S.reponseA.id;
+      if(c.colJnlAction){
+        const va=S.reponseA[c.colJnlAction];
+        if(va!==undefined && va!==null && va!=="") champs[c.colJnlAction]=va;
+      }
+    }
     await ajouter(c.tblJournal,champs);
+    S.reponseA=null;
     await charger(); rendreProjet();
   };
+  const ann=$("#j-annuler-rep");
+  if(ann) ann.onclick=()=>{ S.reponseA=null; vueJournal(p); };
+  document.querySelectorAll("[data-repj]").forEach(b=>b.onclick=()=>{
+    /* un seul niveau : répondre à une réponse rattache au fil d'origine */
+    const parId=new Map(js.map(x=>[x.id,x]));
+    const cible=parId.get(Number(b.dataset.repj));
+    S.reponseA=cible?racineJnl(cible,parId):null;
+    vueJournal(p);
+    const t=$("#j-texte"); if(t) t.focus();
+  });
   document.querySelectorAll("[data-supj]").forEach(b=>b.onclick=async()=>{
+    const id=Number(b.dataset.supj);
+    const f=fils.find(x=>x.j.id===id);
+    if(f && f.reponses.length){
+      toast("Cette entrée porte "+f.reponses.length+" réponse"+
+            (f.reponses.length>1?"s":"")+" : supprimez-les d'abord.",true);
+      return;
+    }
     if(!await confirmerSuppression("Supprimer définitivement cette entrée du journal ?")) return;
-    await supprimer(c.tblJournal,Number(b.dataset.supj));
+    if(S.reponseA && S.reponseA.id===id) S.reponseA=null;
+    await supprimer(c.tblJournal,id);
     await charger(); rendreProjet();
   });
 }
@@ -4291,11 +4435,18 @@ function lignesJalonsPdf(p){
 function lignesJournalPdf(p){
   const c=S.cfg;
   if(!(c.tblJournal && c.colJnlLien)) return [];
-  return journalDe(p).map(j=>({cellules:{
+  /* les fils sont mis à plat : une mère, puis ses réponses décalées */
+  const plat=[];
+  filsJournal(p).forEach(f=>{
+    plat.push({j:f.j,rep:false});
+    f.reponses.forEach(r=>plat.push({j:r,rep:true}));
+  });
+  return plat.map(({j,rep})=>({cellules:{
     date:{type:"texte",t:dateVersFR(j[c.colJnlDate])},
     action:{type:"texte",t:c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):""},
     nature:{type:"texte",t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):""},
-    texte:{type:"texte",t:lire(c.tblJournal,j,c.colJnlTexte)},
+    texte:{type:"texte",t:(rep?"↳ ":"")+lire(c.tblJournal,j,c.colJnlTexte),
+           couleur:rep?PDFC.gris:PDFC.encre},
     auteur:{type:"texte",t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""},
     collab:{type:"texte",t:c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):""},
     delai:{type:"texte",t:c.colJnlDelai&&j[c.colJnlDelai]?dateVersFR(j[c.colJnlDelai]):""}
@@ -4464,10 +4615,16 @@ async function deposerPDF(p,blob,nom){
     if(!nouveaux.length) throw new Error("aucun identifiant renvoyé");
     const ligne=ligneDe(c.tblMain,p.id)||p;
     const actuels=valListe(ligne[c.colPJ]).map(Number).filter(Boolean);
+    const total=["L"].concat(actuels,nouveaux);
     await grist.docApi.applyUserActions([["UpdateRecord",c.tblMain,p.id,
-      {[c.colPJ]:["L"].concat(actuels,nouveaux)}]]);
+      {[c.colPJ]:total}]]);
     toast("PDF ajouté aux pièces jointes du projet");
-    await charger(); rendreProjet();
+    ligne[c.colPJ]=total;
+    await nommerPJ(nouveaux,tk);
+    rendreProjet();
+    charger().then(rendreProjet).catch(err=>{
+      console.warn("Rafraîchissement après dépôt : "+err.message);
+    });
   }catch(e){
     toast("Dépôt impossible : "+e.message,true);
     console.error(e);

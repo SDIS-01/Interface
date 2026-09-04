@@ -4514,9 +4514,11 @@ function dessinerColonneGauche(ctx,p,x,y,w){
      16 pt, ses badges mangeaient la page. On la compose à 14, hauteurs de
      badges comprises, puis on rend l'échelle générale au reste du document. */
   const zSauve=PZ, minSauve=PMIN;
+  let bas;
   if(IMPR.lisible){ PZ=14/12; PMIN=14; }
-  try{ return colonneGaucheCorps(ctx,p,x,y,w); }
+  try{ bas=colonneGaucheCorps(ctx,p,x,y,w); }
   finally{ PZ=zSauve; PMIN=minSauve; }
+  return commentaireIdentite(ctx,p,x,bas,w);   // au corps général du document
 }
 
 function colonneGaucheCorps(ctx,p,x,y,w){
@@ -4559,10 +4561,13 @@ function colonneGaucheCorps(ctx,p,x,y,w){
     y+=h+7;
   });
 
-  /* Le commentaire tenait dans la colonne d'identité au prix d'une troncature
-     muette : les lignes en trop étaient simplement abandonnées. Désormais, s'il
-     ne rentre pas en entier, il n'est pas amputé — il part sur sa propre page,
-     en pleine largeur, après la synthèse. */
+  return y;
+}
+
+/* Le commentaire de la colonne d'identité garde le corps général du document :
+   c'est du texte à lire, pas une étiquette, et 14 pt le rendait pénible. */
+function commentaireIdentite(ctx,p,x,y,w){
+  const pdf=ctx.pdf, c=S.cfg, t=c.tblMain;
   ctx.comReporte=null;
   const com=lire(t,p,c.colCommentaire);
   if(com){
@@ -4725,10 +4730,26 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const pos=ts=>posPlanning(per,ts)/per.length*wp;
 
   /* échelle de temps + filet, renvoie l'ordonnée du premier rang */
+  /* Étiquettes de période : à 16 pt, « T1 2026 » déborde d'une colonne étroite
+     et les libellés se chevauchent. On dégrade par paliers plutôt que de laisser
+     une bouillie : libellé complet, forme courte, puis une étiquette sur deux. */
   const enTete=yy=>{
     const lu=wp/per.length;
-    per.forEach((u,i)=>pTexte(pdf,xp+lu*i+lu/2,yy+fz(8),u.label,
-      {taille:9.5,couleur:PDFC.gris,align:"center"}));
+    const court=u=>u.label.replace(/(\D*)(\d{2})(\d{2})$/,(m,a,b,c)=>a+"'"+c);
+    const large=t=>pLargeur(pdf,t,9.5,"normal");
+    let mode="long";
+    if(per.some(u=>large(u.label)>lu-6)) mode="court";
+    if(per.some(u=>large(court(u))>lu-6)) mode="alterne";
+    per.forEach((u,i)=>{
+      let t=(mode==="long")?u.label:court(u);
+      if(mode==="alterne"){
+        /* on ne garde qu'une étiquette sur deux, et seulement si elle tient */
+        if(i%2) return;
+        if(large(t)>lu*2-6) t=String(u.label).slice(-2);
+      }
+      pTexte(pdf,xp+lu*i+lu/2,yy+fz(8),t,
+        {taille:9.5,couleur:PDFC.gris,align:"center"});
+    });
     yy+=fz(11);
     pFiletH(pdf,xp,cx+cw,yy,PDFC.filet);
     return yy+5;
@@ -4780,6 +4801,27 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
 /* cols : [{cle, titre, w}] — lignes : [{cellules:{cle:valeur}, fond, bordHaut}]
    nouvellePage : force le démarrage sur une page vierge (tableaux pleine largeur
    qui suivent la page à deux colonnes). */
+/* Hauteur qu'occuperait le tableau entier, en-tête et titre compris. Sert à
+   décider s'il faut le repousser en bloc sur la page suivante. */
+function hauteurTableau(ctx,cols,lignes){
+  const pdf=ctx.pdf;
+  let nbEnt=1;
+  cols.forEach(co=>{
+    nbEnt=Math.max(nbEnt,pDecoupeTitre(pdf,co.titre,co.w-8,11,"bold").length);
+  });
+  let h=fz(14)+6+fz(18)+(nbEnt-1)*fz(13.5)+1;
+  lignes.forEach(li=>{
+    let nb=1;
+    cols.forEach(co=>{
+      const v=li.cellules[co.cle];
+      if(v && v.type!=="pastille" && v.t)
+        nb=Math.max(nb,pDecoupe(pdf,v.t,co.w-8,v.taille||11,v.style).length);
+    });
+    h+=nb*fz(13.5)+10;
+  });
+  return h;
+}
+
 function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
   const pdf=ctx.pdf;
   if(!lignes.length) return;
@@ -5025,12 +5067,21 @@ function construireDoc(p){
         /* si le planning a débordé sur une page suivante, la colonne d'identité
            est restée derrière : le tableau reprend alors toute la largeur */
         const xa=ctx.ganttPagine?MX:xg, wa=ctx.ganttPagine?(PW-2*MX):wg;
-        if(IMPR.sections.actions)
-          dessinerTableau(ctx,"Actions",
-            [{cle:"num",titre:"#",w:26},{cle:"action",titre:"Action",w:wa-26-130-80-92},
-             {cle:"porteur",titre:"Porteur",w:130},{cle:"ech",titre:"Échéance",w:80},
-             {cle:"avct",titre:"Avancement",w:92}],
-            lignesActionsSynthese(p,acts,numeros),xa,wa,false);
+        if(IMPR.sections.actions){
+          const lgA=lignesActionsSynthese(p,acts,numeros);
+          const colonnes=w=>[{cle:"num",titre:"#",w:26},
+                             {cle:"action",titre:"Action",w:w-26-130-80-92},
+                             {cle:"porteur",titre:"Porteur",w:130},
+                             {cle:"ech",titre:"Échéance",w:80},
+                             {cle:"avct",titre:"Avancement",w:92}];
+          const ici=colonnes(wa);
+          /* si le tableau ne tient pas en entier sous le planning, on le
+             repousse en bloc plutôt que d'en couper deux lignes en bas de page */
+          if(ctx.y+hauteurTableau(ctx,ici,lgA)<=ctx.yBas)
+            dessinerTableau(ctx,"Actions",ici,lgA,xa,wa,false);
+          else
+            dessinerTableau(ctx,"Actions",colonnes(PW-2*MX),lgA,MX,PW-2*MX,true);
+        }
         if(ctx.comReporte){ dessinerCommentaireLong(ctx,ctx.comReporte); ctx.comReporte=null; }
       },
       detail:()=>dessinerTableau(ctx,"Actions MEO et tâches",
@@ -6459,7 +6510,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-04-j — diagnostic protégé par mot de passe";
+const VERSION="2026-09-04-k — planning lisible, bloc Actions insécable";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

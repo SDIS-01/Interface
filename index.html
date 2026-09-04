@@ -167,9 +167,12 @@ body.panneau-replie .panneau>*{display:none;}
   border-left:2px solid var(--bleu-clair);padding-left:11px;}
 .jnl-rep .date{color:var(--gris);}
 .jnl-rep .texte{font-size:12px;}
-.btn-rep{flex:0 0 auto;align-self:flex-start;border:0;background:none;cursor:pointer;
-  color:var(--bleu);font-size:14px;line-height:1;padding:2px 4px;opacity:.55;}
-.btn-rep:hover{opacity:1;}
+.btn-rep{flex:0 0 auto;align-self:flex-start;cursor:pointer;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:5px;
+  color:var(--bleu);background:var(--bleu-clair);border:1px solid var(--bleu-clair);
+  border-radius:14px;font-size:11.5px;font-weight:bold;line-height:1;padding:5px 11px;}
+.btn-rep span{font-size:13px;line-height:1;}
+.btn-rep:hover{background:var(--bleu);border-color:var(--bleu);color:#fff;}
 .rep-cible{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
   background:var(--bleu-survol);border-left:3px solid var(--bleu);
   border-radius:var(--rayon);padding:8px 10px;margin-bottom:10px;
@@ -331,7 +334,9 @@ tbody tr.ligne-com:hover{background:transparent;}
 .btn:hover{background:#001a6e;}
 .btn-2{background:#fff;color:var(--bleu);border:1px solid var(--bleu);}
 .btn-2:hover{background:var(--bleu-clair);}
-.btn-sup{background:none;border:none;color:var(--gris);padding:2px 6px;font-size:14px;}
+.btn-sup{background:none;border:none;color:var(--gris);padding:2px 6px;font-size:14px;
+  cursor:pointer;border-radius:4px;}
+.btn-sup:hover{background:#fdecec;color:#c62828;}
 
 /* ---------- Saisies en attente d'enregistrement ---------- */
 .edit.modifie{box-shadow:inset 3px 0 0 var(--orange);background:#FFF7F0;
@@ -573,11 +578,12 @@ tbody tr.ligne-com:hover{background:transparent;}
 .ap-croix{margin-left:auto;border:0;background:none;cursor:pointer;color:#fff;
   font-size:17px;line-height:1;padding:1px 7px;border-radius:4px;opacity:.8;}
 .ap-croix:hover{background:rgba(255,255,255,.18);opacity:1;}
-.ap-coche{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--encre);
-  background:#fff;border:1px solid var(--traitFort,#b9c6dc);border-radius:var(--rayon);
+.ap-coche{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:bold;
+  color:#c62828;background:#fff;border:1.5px solid #c62828;border-radius:var(--rayon);
   padding:5px 10px;cursor:pointer;white-space:nowrap;}
-.ap-coche:hover{border-color:var(--bleu);color:var(--bleu);}
-.ap-coche input{width:15px;height:15px;margin:0;flex:0 0 auto;cursor:pointer;}
+.ap-coche:hover{background:#fdecec;}
+.ap-coche input{width:15px;height:15px;margin:0;flex:0 0 auto;cursor:pointer;
+  accent-color:#c62828;}
 .ap-coche.desactive{opacity:.45;cursor:not-allowed;}
 .ap-pied{display:flex;align-items:center;}
 /* plein cadre : repli quand le plein écran natif est refusé par l'iframe Grist */
@@ -948,6 +954,7 @@ const S = {
   acccesMasque:false,         // bandeau d'accès masqué par l'utilisateur ?
   noteOuverte:null,           // note en cours de classement : {id, dest}
   reponseA:null,              // entrée de journal à laquelle on répond
+  pagesParProjet:{},          // pages additionnelles, conservées dans le document
   notesClassees:false,        // afficher aussi les notes déjà classées ?
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
@@ -3003,7 +3010,8 @@ function vueJournal(p){
       (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
         esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
       (c.colJnlReponse
-        ? '<button class="btn-rep" data-repj="'+j.id+'" title="Répondre">↩</button>':'')+
+        ? '<button class="btn-rep" data-repj="'+j.id+'" title="Répondre à cette entrée">'+
+          '<span>↩</span> Répondre</button>':'')+
       '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button>'+
     '</div>';
   const fJnl=filtreHisto("fh-journal",
@@ -3797,6 +3805,7 @@ function ordreValide(liste){
   return vus;
 }
 function enregistrerOptionsImpr(){
+  sauverAuto();
   try{ localStorage.setItem("cp-impression",JSON.stringify(
     {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
      pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
@@ -4005,6 +4014,22 @@ function pDecoupe(pdf,s,largeur,taille,style){
   const t=String(s==null?"":s);
   if(!t) return [""];
   return pdf.splitTextToSize(t,largeur);
+}
+/* Découpe réservée aux intitulés de colonnes : le retour à la ligne se fait sur
+   les espaces uniquement. jsPDF, lui, coupe au milieu d'un mot trop long pour la
+   colonne — c'est ce qui donnait « Délai d'exé / cution ». */
+function pDecoupeTitre(pdf,s,largeur,taille,style){
+  pFont(pdf,fz(taille||11),style);
+  const mots=String(s==null?"":s).split(/\s+/).filter(Boolean);
+  if(!mots.length) return [""];
+  const out=[]; let cur=mots[0];
+  for(let i=1;i<mots.length;i++){
+    const essai=cur+" "+mots[i];
+    if(pdf.getTextWidth(essai)<=largeur) cur=essai;
+    else { out.push(cur); cur=mots[i]; }
+  }
+  out.push(cur);
+  return out;
 }
 function pFiletH(pdf,x1,x2,y,couleur,epaisseur){
   pdf.setDrawColor(couleur||PDFC.filet);
@@ -4331,10 +4356,10 @@ function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
     let cx=x;
     let nbEnt=1;
     cols.forEach(co=>{
-      nbEnt=Math.max(nbEnt,pDecoupe(pdf,co.titre,co.w-8,11,"bold").length);
+      nbEnt=Math.max(nbEnt,pDecoupeTitre(pdf,co.titre,co.w-8,11,"bold").length);
     });
     cols.forEach(co=>{
-      pDecoupe(pdf,co.titre,co.w-8,11,"bold").forEach((l,k)=>
+      pDecoupeTitre(pdf,co.titre,co.w-8,11,"bold").forEach((l,k)=>
         pTexte(pdf,cx+4,ctx.y+fz(13)+k*fz(13.5),l,
           {taille:11,style:"bold",couleur:PDFC.gris}));
       cx+=co.w;
@@ -4571,10 +4596,10 @@ function construireDoc(p){
         lignesJalonsPdf(p),MX,PW-2*MX,true),
       journal:()=>{
         /* les deux dernières colonnes n'apparaissent que si elles sont paramétrées */
-        const fixes=[["date","Date de saisie",84],["action","Action",140],
-                     ["nature","Nature",100],["auteur","Auteur",110]];
-        if(c.colJnlCollab) fixes.push(["collab","Collaborateur concerné",130]);
-        if(c.colJnlDelai)  fixes.push(["delai","Délai d'exécution",84]);
+        const fixes=[["date","Date de saisie",100],["action","Action",140],
+                     ["nature","Nature",105],["auteur","Auteur",115]];
+        if(c.colJnlCollab) fixes.push(["collab","Collaborateur concerné",155]);
+        if(c.colJnlDelai)  fixes.push(["delai","Délai d'exécution",120]);
         const pris=fixes.reduce((n,f)=>n+f[2],0);
         const cols=[];
         fixes.forEach(f=>{
@@ -4760,16 +4785,32 @@ function clePagesSup(p){ return "cp-pages-"+(p?p.id:"0"); }
 
 function chargerPagesSup(p){
   pagesSup=[];
-  try{
-    const t=JSON.parse(localStorage.getItem(clePagesSup(p))||"[]");
-    if(Array.isArray(t)) pagesSup=t;
-  }catch(e){}
+  const cle=p?p.id:0;
+  const doc=S.pagesParProjet && S.pagesParProjet[cle];
+  if(Array.isArray(doc) && doc.length){
+    pagesSup=doc;
+  }else{
+    /* rien dans le document : on récupère un éventuel travail local et on le
+       remonte, pour qu'il suive désormais l'utilisateur d'un poste à l'autre */
+    try{
+      const t=JSON.parse(localStorage.getItem(clePagesSup(p))||"[]");
+      if(Array.isArray(t)) pagesSup=t;
+    }catch(e){}
+    if(pagesSup.length){
+      S.pagesParProjet=S.pagesParProjet||{};
+      S.pagesParProjet[cle]=pagesSup;
+      sauverAuto();
+    }
+  }
   pagesSup.forEach(pg=>{ if(!Array.isArray(pg.blocks)) pg.blocks=[]; });
 }
 
 function enregistrerPagesSup(p){
+  S.pagesParProjet=S.pagesParProjet||{};
+  S.pagesParProjet[p?p.id:0]=pagesSup;
+  sauverAuto();                                   // dans le document
   try{ localStorage.setItem(clePagesSup(p),JSON.stringify(pagesSup)); }
-  catch(e){ toast("Pages trop lourdes pour être conservées (images volumineuses).",true); }
+  catch(e){ /* cache local plein : le document reste la référence */ }
 }
 
 function mpStyleTexte(b){
@@ -5305,12 +5346,42 @@ function rendreReglages(){
   document.querySelectorAll(".mdp-oeil").forEach(majOeil);   // dessine l'icône
 }
 
+/* =======================================================================
+   Sauvegarde automatique dans le document
+   =======================================================================
+   Jusqu'ici les options d'impression et les pages additionnelles ne vivaient
+   que dans le localStorage du navigateur. Celui-ci est propre à un poste, et
+   les navigateurs le cloisonnent volontiers pour une iframe tierce comme un
+   widget Grist : le travail pouvait donc disparaître. Tout est désormais aussi
+   écrit dans les options du widget, donc dans le document lui-même. */
+
+let sauveEnCours=null, sauveDemandee=false;
+
+function paquetOptions(){
+  return {cfg:S.cfg,
+          impr:{sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,
+                lisible:IMPR.lisible,pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
+          pages:S.pagesParProjet||{}};
+}
+
+/* écriture différée : on regroupe les rafales de modifications de l'éditeur */
+function sauverAuto(){
+  sauveDemandee=true;
+  if(sauveEnCours) return;
+  sauveEnCours=setTimeout(async()=>{
+    sauveEnCours=null; sauveDemandee=false;
+    try{ await grist.widgetApi.setOptions(paquetOptions()); }
+    catch(e){ console.warn("Sauvegarde automatique : "+e.message); }
+    if(sauveDemandee) sauverAuto();
+  },900);
+}
+
 async function enregistrerReglages(){
   $("#corps-reglages").querySelectorAll("[data-cfg]").forEach(el=>{ S.cfg[el.dataset.cfg]=el.value; });
   const nouveau=$("#mdp-nouveau")?$("#mdp-nouveau").value:"";
   if($("#mdp-retirer") && $("#mdp-retirer").checked){ S.cfg.mdpHash=""; S.deverrouille=false; }
   else if(nouveau){ S.cfg.mdpHash=await empreinte(nouveau); S.deverrouille=false; }
-  try{ await grist.widgetApi.setOptions({cfg:S.cfg}); }catch(e){}
+  try{ await grist.widgetApi.setOptions(paquetOptions()); }catch(e){}
   $("#voile").classList.remove("ouvert");
   await tout();
   toast("Réglages enregistrés");
@@ -5424,6 +5495,16 @@ async function demarrer(){
   try{
     const o=await grist.widgetApi.getOptions();
     if(o && o.cfg) S.cfg=Object.assign({},DEF,o.cfg);
+    /* on repart du dernier travail enregistré dans le document */
+    if(o && o.pages && typeof o.pages==="object") S.pagesParProjet=o.pages;
+    if(o && o.impr){
+      if(o.impr.sections) Object.assign(IMPR.sections,o.impr.sections);
+      if(Array.isArray(o.impr.ordre)) IMPR.ordre=ordreValide(o.impr.ordre);
+      if(o.impr.zoom) IMPR.zoom=Number(o.impr.zoom)||1;
+      if(o.impr.lisible!==undefined) IMPR.lisible=!!o.impr.lisible;
+      if(o.impr.pieceJointe!==undefined) IMPR.pieceJointe=!!o.impr.pieceJointe;
+      if(o.impr.portee) IMPR.portee=o.impr.portee;
+    }
   }catch(e){}
   await chargerMeta();
   devineDefauts();

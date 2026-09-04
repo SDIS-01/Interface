@@ -260,6 +260,7 @@ body.mob #mobile{display:block;}
 .mb-champ span{color:var(--gris);flex:0 0 auto;}
 .mb-champ b{font-weight:normal;text-align:right;min-width:0;}
 .mb-rien{color:var(--gris);font-size:12.5px;padding:6px 0;}
+.mb-desc{white-space:pre-wrap;font-size:13px;line-height:1.55;}
 .mb-item{border-left:3px solid var(--trait);padding:8px 0 8px 11px;margin-bottom:9px;}
 .mb-item.retard{border-left-color:#c62828;}
 .mb-item.proche{border-left-color:var(--orange);}
@@ -292,20 +293,16 @@ body.mob #mobile{display:block;}
   border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;}
 .mb-form textarea{min-height:76px;resize:vertical;}
 .mb-form .btn{width:100%;margin-top:12px;padding:11px;font-size:14px;}
-.mb-com{margin:0 0 8px;}
-.mb-com>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:8px;
-  padding:6px 0;font-size:11.5px;color:var(--gris);}
-.mb-com>summary::-webkit-details-marker{display:none;}
-.mb-com>summary::before{content:"▸";font-size:10px;flex:0 0 auto;}
-.mb-com[open]>summary::before{content:"▾";}
-.mb-com>summary .lab{flex:0 0 auto;}
-.mb-com.plein>summary .lab{color:var(--bleu);font-weight:bold;}
-.mb-com>summary .ap{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;font-style:italic;}
-.mb-com-champ{padding-bottom:8px;}
-.mb-com-champ textarea{width:100%;font-size:13px;padding:9px 10px;
+.mb-com{margin:0 0 10px;padding-left:11px;border-left:2px solid var(--bleu-clair);}
+.mb-com[hidden]{display:none;}
+.mb-com textarea{width:100%;font-size:13px;padding:9px 10px;
   border:1px solid var(--trait);border-radius:var(--rayon);font-family:inherit;
-  min-height:70px;resize:vertical;}
+  min-height:66px;resize:vertical;}
+.mb-tache .lib.cliquable{cursor:pointer;}
+.mb-tache .lib.ouvert{color:var(--bleu);}
+/* pastille discrète : la tâche porte déjà un commentaire */
+.pt-com{display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--bleu);margin-left:6px;vertical-align:middle;}
 .mb-pj{padding:0;}
 .mb-pj>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;
   padding:13px;font-size:12px;color:var(--bleu);text-transform:uppercase;
@@ -1035,7 +1032,7 @@ const DEF = {
   tblMain:"", colProjKey:"ID_Projet_Action_AV", colActKey:"ID_Action_MEO",
   colNature:"Nature", colLibelle:"", colGroupement:"Groupement", colPorteur:"Porteur",
   colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
-  colCommentaire:"Commentaire", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
+  colCommentaire:"Commentaire", colDescriptif:"Descriptif_initiative", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
   colPJ:"Pièce_Jointe",
   colSup:"MEC_2023",
@@ -1063,6 +1060,7 @@ const CHAMPS_REGLAGES = [
     ["colActKey","Identifiant de l'action"],
     ["colGroupement","Groupement"],["colPorteur","Porteur"],["colPriorite","Priorité"],
     ["colAvancement","Avancement"],["colStatut","Statut"],["colCommentaire","Commentaire"],
+    ["colDescriptif","Descriptif du projet"],
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colPJ","Pièces jointes"],
@@ -2154,6 +2152,64 @@ function champVierge(tableId,colId,id){
   return '<input id="'+id+'" type="text">';
 }
 
+/* Champ « liste ouverte » : la liste déroulante habituelle plus la possibilité
+   de taper un nom absent. On s'appuie sur un <datalist>, qui propose les valeurs
+   existantes tout en laissant la saisie libre. */
+function champOuvert(tableId,colId,id){
+  const info=infoCol(tableId,colId);
+  if(!info) return '<input id="'+id+'" type="text" autocomplete="off">';
+  let vals=[];
+  if(info.type==="Choice") vals=info.choices.slice();
+  else if(info.type.startsWith("Ref:")){
+    const map=S.refLabels[info.refTable+"."+info.refDisplay];
+    if(map) vals=Object.keys(map).map(i=>String(map[i]));
+  }else return champVierge(tableId,colId,id);
+  vals=vals.filter(Boolean).sort((a,b)=>a.localeCompare(b,"fr"));
+  return '<input id="'+id+'" type="text" list="dl-'+id+'" autocomplete="off" '+
+    'placeholder="Choisir ou saisir un nom">'+
+    '<datalist id="dl-'+id+'">'+
+      vals.map(v=>'<option value="'+esc(v)+'"></option>').join("")+
+    '</datalist>';
+}
+
+/* Résout la saisie d'un champ ouvert. La frappe ne sert qu'à retrouver vite une
+   valeur de la liste : rien n'est créé. Un nom qui ne correspond à rien renvoie
+   undefined, à charge de l'appelant de prévenir et d'interrompre. */
+function valeurOuverte(id,tableId,colId){
+  const el=$("#"+id);
+  if(!el) return null;
+  const brut=String(el.value||"").trim();
+  const info=infoCol(tableId,colId);
+  if(!info) return brut;
+
+  if(info.type==="Choice"){
+    if(!brut) return "";
+    const t=info.choices.find(o=>pliColonne(o)===pliColonne(brut));
+    return t===undefined ? undefined : t;
+  }
+  if(!info.type.startsWith("Ref:")) return brut;
+  if(!brut) return 0;
+
+  const map=S.refLabels[info.refTable+"."+info.refDisplay]||{};
+  /* correspondance exacte d'abord, puis unique correspondance partielle : taper
+     « nevoret » suffit à désigner « NEVORET Périne » s'il n'y a qu'elle */
+  const pli=pliColonne(brut);
+  const exact=Object.keys(map).find(i=>pliColonne(map[i])===pli);
+  if(exact) return Number(exact);
+  const partiels=Object.keys(map).filter(i=>pliColonne(map[i]).includes(pli));
+  return partiels.length===1 ? Number(partiels[0]) : undefined;
+}
+
+/* Lit un champ ouvert et signale une saisie qui ne correspond à aucune valeur. */
+function lireOuvert(id,tableId,colId,libelle){
+  const v=valeurOuverte(id,tableId,colId);
+  if(v===undefined){
+    toast("« "+$("#"+id).value.trim()+" » ne correspond à aucune valeur de la liste "+
+          "pour « "+libelle+" ».",true);
+  }
+  return v;
+}
+
 function valeurChamp(id,tableId,colId){
   const el=$("#"+id);
   if(!el) return null;
@@ -2584,6 +2640,11 @@ function vueSynthese(p){
       ch("Date de suspension",date(c.colSuspension))+
       ch("Date d'abandon",date(c.colAbandon))+
     '</div></div>'+
+    (c.colDescriptif
+      ? '<div class="carte"><h2>Descriptif</h2><div class="grille">'+
+          ch("Descriptif du projet",editeur(t,p,c.colDescriptif,{multi:true}),true)+
+        '</div></div>'
+      : '')+
     '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
     '</div></div>'+
@@ -3302,9 +3363,9 @@ function vueJournal(p){
       (c.colJnlAction&&!S.reponseA?'<div class="champ"><label>Action concernée</label>'+
         champAction(p,"j-action",null)+'</div>':'')+
       (c.colJnlAuteur?'<div class="champ"><label>Auteur de la saisie</label>'+
-        champVierge(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
+        champOuvert(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
       (c.colJnlCollab?'<div class="champ"><label>Collaborateur concerné</label>'+
-        champVierge(c.tblJournal,c.colJnlCollab,"j-collab")+'</div>':'')+
+        champOuvert(c.tblJournal,c.colJnlCollab,"j-collab")+'</div>':'')+
       (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
         champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
       (c.colJnlDelai?'<div class="champ"><label>Délai d\'exécution</label>'+
@@ -3333,8 +3394,16 @@ function vueJournal(p){
       if(d===undefined){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
       champs[c.colJnlDate]=d;
     }
-    if(c.colJnlAuteur && $("#j-auteur")) champs[c.colJnlAuteur]=valeurChamp("j-auteur",c.tblJournal,c.colJnlAuteur);
-    if(c.colJnlCollab && $("#j-collab")) champs[c.colJnlCollab]=valeurChamp("j-collab",c.tblJournal,c.colJnlCollab);
+    if(c.colJnlAuteur && $("#j-auteur")){
+      const va=lireOuvert("j-auteur",c.tblJournal,c.colJnlAuteur,"Auteur de la saisie");
+      if(va===undefined) return;
+      champs[c.colJnlAuteur]=va;
+    }
+    if(c.colJnlCollab && $("#j-collab")){
+      const vc=lireOuvert("j-collab",c.tblJournal,c.colJnlCollab,"Collaborateur concerné");
+      if(vc===undefined) return;
+      champs[c.colJnlCollab]=vc;
+    }
     if(c.colJnlDelai && $("#j-delai")){
       const dl=frVersDate($("#j-delai").value);
       if(dl===undefined){ toast("Délai d'exécution invalide : saisissez-le au format jj/mm/aaaa.",true); return; }
@@ -4009,7 +4078,8 @@ function brancherNotes(p){
    déplacé ; le premier bloc retenu reçoit le bandeau et le cartouche du titre. */
 const BLOCS_IMPR=[
   ["synthese","Page de synthèse",
-    [["identite","Identité"],["planning","Planning"],["actions","Actions"]]],
+    [["identite","Identité"],["descriptif","Descriptif"],
+     ["planning","Planning"],["actions","Actions"]]],
   ["detail","Actions MEO et tâches"],
   ["instances","Instances"],
   ["journal","Journal de bord"],
@@ -4020,7 +4090,7 @@ const ORDRE_DEFAUT=BLOCS_IMPR.map(b=>b[0]);
 const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.45","Maximale"]];
 
 const IMPR={
-  sections:{synthese:true,identite:true,planning:true,actions:true,
+  sections:{synthese:true,identite:true,descriptif:true,planning:true,actions:true,
             detail:true,instances:true,journal:true,sup:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
@@ -4594,6 +4664,29 @@ function reperesGantt(p){
    quinzaine de rangs, les dernières lignes étaient dessinées hors du cadre et
    disparaissaient. Il se pagine désormais — les rangs suivants reprennent sur
    une nouvelle page, en pleine largeur, avec leur échelle de temps redessinée. */
+/* Descriptif du projet, posé avant le planning. Paginé comme le commentaire :
+   un texte long pousse le planning sur la page suivante plutôt que d'être rogné. */
+function dessinerDescriptif(ctx,p,x,y,w){
+  const pdf=ctx.pdf, c=S.cfg;
+  const txt0=c.colDescriptif?lire(c.tblMain,p,c.colDescriptif):"";
+  if(!txt0) return y;
+  pTexte(pdf,x,y+fz(10),"Descriptif",{taille:12,style:"bold",couleur:PDFC.bleu});
+  y+=fz(14)+6;
+  const lignes=pDecoupe(pdf,txt0,w-22,11,"normal");
+  let i=0;
+  while(i<lignes.length){
+    const place=Math.floor((ctx.yBas-y-18)/fz(16));
+    if(place<1){ docPage(ctx); y=ctx.y; continue; }
+    const bloc=lignes.slice(i,i+place);
+    const h=9+9+bloc.length*fz(16);
+    pAplat(pdf,x,y,w,h,PDFC.fondCom,6);
+    pAplat(pdf,x,y,3,h,PDFC.bleu,0);
+    bloc.forEach((l,k)=>pTexte(pdf,x+11,y+9+fz(12)+k*fz(16),l,{taille:11,couleur:"#333333"}));
+    y+=h; i+=bloc.length;
+  }
+  return y+12;
+}
+
 function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const pdf=ctx.pdf;
   pTexte(pdf,x,y+fz(10),"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
@@ -4924,6 +5017,7 @@ function construireDoc(p){
         ctx.y=yDep;
         const xg=IMPR.sections.identite?xd:MX;
         const wg=IMPR.sections.identite?wd:(PW-2*MX);
+        if(IMPR.sections.descriptif) ctx.y=dessinerDescriptif(ctx,p,xg,ctx.y,wg);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
         /* si le planning a débordé sur une page suivante, la colonne d'identité
            est restée derrière : le tableau reprend alors toute la largeur */
@@ -5948,6 +6042,11 @@ function mbSynthese(p){
         champ("Échéance",dateVersFR(p[c.colEch]||p[c.colFin]))+
       '</div></div>'+
 
+    (c.colDescriptif && txt(p[c.colDescriptif]).trim()
+      ? '<div class="mb-carte"><h3>Descriptif</h3>'+
+        '<div class="mb-desc">'+esc(lire(c.tblMain,p,c.colDescriptif))+'</div></div>'
+      : '')+
+
     '<div class="mb-carte"><h3>Échéances</h3>'+
       (ech.length
         ? ech.map(e=>'<div class="mb-item '+(e.etat==="depasse"?"retard":(e.etat==="proche"?"proche":""))+'">'+
@@ -5983,16 +6082,11 @@ function mbSynthese(p){
 }
 
 /* Actions et tâches réunis : une action se déplie sur ses tâches. */
-/* Bloc de commentaire repliable, éditable comme sur poste. Le résumé indique
-   s'il y a déjà quelque chose à lire, pour éviter de déplier dans le vide. */
-function mbCommentaire(tableId,ligne,colId,titre){
-  const val=txt(ligne[colId]).trim();
-  const apercu=val ? val.replace(/\s+/g," ").slice(0,42)+(val.length>42?"…":"") : "vide";
-  return '<details class="mb-com'+(val?" plein":"")+'">'+
-    '<summary><span class="lab">'+esc(titre)+'</span>'+
-    '<span class="ap">'+esc(apercu)+'</span></summary>'+
-    '<div class="mb-com-champ">'+editeur(tableId,ligne,colId,{multi:true})+'</div>'+
-    '</details>';
+/* Zone de commentaire, masquée jusqu'au clic sur la ligne. Éditable comme sur
+   poste : la saisie passe par le brouillon et la barre « Enregistrer ». */
+function mbCommentaire(tableId,ligne,colId,cle){
+  return '<div class="mb-com" data-com="'+cle+'" hidden>'+
+    editeur(tableId,ligne,colId,{multi:true})+'</div>';
 }
 
 function mbTravaux(p){
@@ -6007,19 +6101,26 @@ function mbTravaux(p){
       '<div class="dedans">'+
         /* Le commentaire ne s'ouvre qu'à la demande : sur un écran de téléphone,
            l'afficher d'office noierait les avancements, qui sont l'essentiel. */
-        (niv>0 && c.colCommentaire
-          ? mbCommentaire(c.tblMain,porteur,c.colCommentaire,"Commentaire de l'action")
+        /* le commentaire de l'action est révélé par le dépliage de l'accordéon */
+        (niv>0 && c.colCommentaire && txt(porteur[c.colCommentaire]).trim()
+          ? '<div class="mb-com ouvert">'+
+            editeur(c.tblMain,porteur,c.colCommentaire,{multi:true})+'</div>'
           : '')+
         (ts.length
           ? ts.map(t=>{
               const av=pct(t[c.colTacheAvancement]);
               const it=statutInterrompu(c.tblTache,t,c.colTacheStatut);
-              return '<div class="mb-tache"><span class="lib">'+
-                esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+'</span>'+
+              const aCom=c.colTacheCommentaire && txt(t[c.colTacheCommentaire]).trim();
+              return '<div class="mb-tache">'+
+                '<span class="lib'+(c.colTacheCommentaire?" cliquable":"")+'"'+
+                  (c.colTacheCommentaire?' data-comt="'+t.id+'"':'')+'>'+
+                  esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+
+                  (aCom?'<span class="pt-com" title="Contient un commentaire"></span>':'')+
+                '</span>'+
                 '<span class="mb-av">'+champAvct(c.tblTache,t,c.colTacheAvancement,av,it)+'</span>'+
                 '</div>'+
                 (c.colTacheCommentaire
-                  ? mbCommentaire(c.tblTache,t,c.colTacheCommentaire,"Commentaire")
+                  ? mbCommentaire(c.tblTache,t,c.colTacheCommentaire,t.id)
                   : '');
             }).join("")
           : '<div class="mb-rien">Aucune tâche.</div>')+
@@ -6042,6 +6143,15 @@ function mbTravaux(p){
   /* les avancements passent par le brouillon : rien n'est écrit tant que la
      barre « Enregistrer » n'a pas été validée */
   brancherEditeurs();
+
+  /* un clic sur le libellé d'une tâche montre ou masque son commentaire */
+  document.querySelectorAll("[data-comt]").forEach(el=>el.onclick=()=>{
+    const zone=el.closest(".mb-tache").nextElementSibling;
+    if(!zone || !zone.classList.contains("mb-com")) return;
+    zone.hidden=!zone.hidden;
+    el.classList.toggle("ouvert",!zone.hidden);
+    if(!zone.hidden){ const t=zone.querySelector("textarea"); if(t) brancherAutoHauteur(zone); }
+  });
 
   $("#mb-add-action").onclick=()=>mbFeuilleAjout({
     titre:"Nouvelle action",
@@ -6182,9 +6292,9 @@ function mbJournal(p){
         : '')+
       '<label>Commentaire</label><textarea id="mbj-texte"></textarea>'+
       (c.colJnlAuteur?'<label>Auteur de la saisie</label>'+
-        champVierge(c.tblJournal,c.colJnlAuteur,"mbj-auteur"):'')+
+        champOuvert(c.tblJournal,c.colJnlAuteur,"mbj-auteur"):'')+
       (c.colJnlCollab?'<label>Collaborateur concerné</label>'+
-        champVierge(c.tblJournal,c.colJnlCollab,"mbj-collab"):'')+
+        champOuvert(c.tblJournal,c.colJnlCollab,"mbj-collab"):'')+
       (c.colJnlNature?'<label>Nature / origine</label>'+
         champVierge(c.tblJournal,c.colJnlNature,"mbj-nature"):'')+
       '<label>Date de saisie</label>'+champDateFR('id="mbj-date"','',dateDuJourFR())+
@@ -6226,10 +6336,16 @@ function mbJournal(p){
     if(d===undefined){ toast("Date de saisie invalide : jj/mm/aaaa.",true); return; }
     const champs={[c.colJnlTexte]:texte};
     if(c.colJnlDate && d!==null) champs[c.colJnlDate]=d;
-    if(c.colJnlAuteur && $("#mbj-auteur"))
-      champs[c.colJnlAuteur]=valeurChamp("mbj-auteur",c.tblJournal,c.colJnlAuteur);
-    if(c.colJnlCollab && $("#mbj-collab"))
-      champs[c.colJnlCollab]=valeurChamp("mbj-collab",c.tblJournal,c.colJnlCollab);
+    if(c.colJnlAuteur && $("#mbj-auteur")){
+      const va=lireOuvert("mbj-auteur",c.tblJournal,c.colJnlAuteur,"Auteur de la saisie");
+      if(va===undefined) return;
+      champs[c.colJnlAuteur]=va;
+    }
+    if(c.colJnlCollab && $("#mbj-collab")){
+      const vc=lireOuvert("mbj-collab",c.tblJournal,c.colJnlCollab,"Collaborateur concerné");
+      if(vc===undefined) return;
+      champs[c.colJnlCollab]=vc;
+    }
     if(c.colJnlNature && $("#mbj-nature"))
       champs[c.colJnlNature]=valeurChamp("mbj-nature",c.tblJournal,c.colJnlNature);
     if(c.colJnlDelai && $("#mbj-delai")){
@@ -6340,7 +6456,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-04-d — commentaires mobiles, encodage PDF";
+const VERSION="2026-09-04-h — descriptif, commentaires au clic";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

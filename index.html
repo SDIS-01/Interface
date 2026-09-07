@@ -4542,63 +4542,70 @@ function docPage(ctx){
 
 /* --- colonne d'identité --------------------------------------------------- */
 
-function dessinerColonneGauche(ctx,p,x,y,w){
-  /* La colonne d'identité ne fait que 250 pt de large : au corps général de
-     16 pt, ses badges mangeaient la page. On la compose à 14, hauteurs de
-     badges comprises, puis on rend l'échelle générale au reste du document. */
-  const zSauve=PZ, minSauve=PMIN;
-  let bas;
-  if(IMPR.lisible){ PZ=14/12; PMIN=14; }
-  try{ bas=colonneGaucheCorps(ctx,p,x,y,w); }
-  finally{ PZ=zSauve; PMIN=minSauve; }
-  return commentaireIdentite(ctx,p,x,bas,w);   // au corps général du document
-}
 
-function colonneGaucheCorps(ctx,p,x,y,w){
+/* Bandeau d'identité horizontal de la page 1, calqué sur la première
+   diapositive du diaporama : l'anneau d'avancement à gauche, puis les badges
+   sur trois colonnes. Le reste de la page s'écrit alors sur toute la largeur. */
+function bandeauIdentite(ctx,p,x,y,w){
   const pdf=ctx.pdf, c=S.cfg, t=c.tblMain;
-  const av=pct(p[c.colAvancement]), inter=interrompu(p);
+  const zSauve=PZ, minSauve=PMIN;
+  if(IMPR.lisible){ PZ=14/12; PMIN=14; }   // badges à 14, comme la colonne d'avant
+  try{
+    const av=pct(p[c.colAvancement]), inter=interrompu(p);
+    pDonut(pdf,x+46,y+46,40,13,av,bandesImpr(av,inter).fill);
+    pTexte(pdf,x+102,y+46-fz(9),"Avancement",{taille:12,couleur:PDFC.gris});
+    pTexte(pdf,x+102,y+46+fz(9),"global",{taille:12,couleur:PDFC.gris});
 
-  pDonut(pdf,x+44,y+44,38,12,av,bandesImpr(av,inter).fill);
-  pTexte(pdf,x+100,y+44-fz(9),"Avancement",{taille:12,couleur:PDFC.gris});
-  pTexte(pdf,x+100,y+44+fz(9),"global",{taille:12,couleur:PDFC.gris});
-  y+=88+14;
+    const colonnes=[
+      [["Porteur",esc0(lire(t,p,c.colPorteur)),null]],
+      [["Nature",esc0(lire(t,p,c.colNature)),null],
+       ["Groupement",esc0(lire(t,p,c.colGroupement)),null],
+       ["Priorité",null,txt(lire(t,p,c.colPriorite)).trim()]],
+      [["Statut",null,txt(lire(t,p,c.colStatut)).trim()],
+       ["Début",esc0(dateVersFR(p[c.colDebut])),null],
+       ["Échéance",esc0(dateVersFR(p[c.colEch])),null],
+       ["Fin",esc0(dateVersFR(p[c.colFin])),null]]
+    ];
+    if(c.colSup) colonnes[0].push(
+      [txt(libelleColonneBrut(t,c.colSup)),esc0(lire(t,p,c.colSup)),null]);
 
-  const badges=[
-    ["Nature",esc0(lire(t,p,c.colNature)),null],
-    ["Groupement",esc0(lire(t,p,c.colGroupement)),null],
-    ["Porteur",esc0(lire(t,p,c.colPorteur)),null],
-    ["Priorité",null,txt(lire(t,p,c.colPriorite)).trim()],
-    ["Statut",null,txt(lire(t,p,c.colStatut)).trim()],
-    ["Début",esc0(dateVersFR(p[c.colDebut])),null],
-    ["Échéance prévue",esc0(dateVersFR(p[c.colEch])),null],
-    ["Date de fin",esc0(dateVersFR(p[c.colFin])),null]
-  ];
-  if(c.colSup) badges.push([txt(libelleColonneBrut(t,c.colSup)),esc0(lire(t,p,c.colSup)),null]);
+    const xb=x+225, gap=12;
+    const wc=(x+w-xb-gap*2)/3;
+    const hBadge=(b,lc)=>b[2] ? 7+7+fz(18)
+      : 7+7+pDecoupe(pdf,b[1],wc-22-lc,12,"bold").length*fz(15);
+    const lcDe=col=>col.filter(b=>b[1]||b[2])
+      .reduce((m,b)=>Math.max(m,pLargeur(pdf,b[0]+" ",12,"normal")),0);
+    const hCol=col=>{
+      const lc=lcDe(col);
+      return col.filter(b=>b[1]||b[2]).reduce((h,b)=>h+hBadge(b,lc)+7,0)-7;
+    };
+    const hMax=Math.max.apply(null,colonnes.map(hCol));
 
-  /* largeur de clé commune : les valeurs s'alignent en colonne */
-  const lcMax=badges.filter(b=>b[1]||b[2])
-    .reduce((m,b)=>Math.max(m,pLargeur(pdf,b[0]+" ",12,"normal")),0);
-  badges.forEach(([cle,valeur,pastille])=>{
-    if(!valeur && !pastille) return;
-    const lc=lcMax;
-    let lignes=[""], h;
-    if(pastille){ h=7+7+fz(18); }
-    else{
-      lignes=pDecoupe(pdf,valeur,w-22-lc,12,"bold");
-      h=7+7+lignes.length*fz(15);
-    }
-    if(y+h>ctx.yBas) return;                     // l'identité tient sur la page 1
-    pAplat(pdf,x,y,w,h,PDFC.fondBadge,6);
-    pTexte(pdf,x+11,y+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
-    if(pastille) pPastille(pdf,x+11+lc,y+7+2,pastille,
-        pastillePleineCouleurs(pastille).fond,pastillePleineCouleurs(pastille).coul,11);
-    else lignes.forEach((l,i)=>pTexte(pdf,x+11+lc,y+7+fz(11)+i*fz(15),l,
-        {taille:12,style:"bold",couleur:PDFC.bleu}));
-    y+=h+7;
-  });
-
-  return y;
+    let bas=y;
+    colonnes.forEach((col,k)=>{
+      const cx=xb+k*(wc+gap), lc=lcDe(col);
+      /* une colonne courte se centre sur la hauteur du bandeau */
+      let cy=y+(hMax-hCol(col))/2;
+      col.forEach(b=>{
+        const [cle,valeur,pastille]=b;
+        if(!valeur && !pastille) return;
+        const h=hBadge(b,lc);
+        pAplat(pdf,cx,cy,wc,h,PDFC.fondBadge,6);
+        pTexte(pdf,cx+11,cy+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
+        if(pastille) pPastille(pdf,cx+11+lc,cy+7+2,pastille,
+          pastillePleineCouleurs(pastille).fond,
+          pastillePleineCouleurs(pastille).coul,11);
+        else pDecoupe(pdf,valeur,wc-22-lc,12,"bold")
+          .forEach((l,i)=>pTexte(pdf,cx+11+lc,cy+7+fz(11)+i*fz(15),l,
+            {taille:12,style:"bold",couleur:PDFC.encre}));
+        cy+=h+7;
+      });
+      bas=Math.max(bas,cy-7);
+    });
+    return Math.max(bas,y+92)+16;
+  }finally{ PZ=zSauve; PMIN=minSauve; }
 }
+
 
 /* Le commentaire de la colonne d'identité garde le corps général du document :
    c'est du texte à lire, pas une étiquette, et 14 pt le rendait pénible. */
@@ -5088,21 +5095,21 @@ function construireDoc(p){
     pageGarde(ctx,p);
 
     chargerPagesSup(p);
-    const xd=MX+250+24, wd=PW-MX-xd;
 
     const dessiner={
       synthese:()=>{
         docPage(ctx);
-        const yDep=ctx.y;
-        if(IMPR.sections.identite) dessinerColonneGauche(ctx,p,MX,yDep,250);
-        ctx.y=yDep;
-        const xg=IMPR.sections.identite?xd:MX;
-        const wg=IMPR.sections.identite?wd:(PW-2*MX);
+        /* Page 1 : identité en bandeau horizontal, puis descriptif, planning et
+           actions sur toute la largeur — même agencement que la première
+           diapositive du diaporama. */
+        const xg=MX, wg=PW-2*MX;
+        if(IMPR.sections.identite) ctx.y=bandeauIdentite(ctx,p,MX,ctx.y,wg);
         if(IMPR.sections.descriptif) ctx.y=dessinerDescriptif(ctx,p,xg,ctx.y,wg);
+        /* le commentaire suivait la colonne d'identité : il passe en pleine
+           largeur, avec le même report en page dédiée s'il est trop long */
+        ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
-        /* si le planning a débordé sur une page suivante, la colonne d'identité
-           est restée derrière : le tableau reprend alors toute la largeur */
-        const xa=ctx.ganttPagine?MX:xg, wa=ctx.ganttPagine?(PW-2*MX):wg;
+        const xa=xg, wa=wg;
         if(IMPR.sections.actions){
           const lgA=lignesActionsSynthese(p,acts,numeros);
           const colonnes=w=>[{cle:"num",titre:"#",w:26},
@@ -6046,10 +6053,10 @@ const ODP_POL="Tahoma";
 /* zone utile d'une diapositive de contenu, sous le bandeau au logo */
 function odpZone(habillage){
   const haut=(habillage==="entete")
-    ? ODP_BANDEAU.y+ODP_BANDEAU.h+0.45      // sous le bandeau au logo
+    ? ODP_BANDEAU.y+ODP_BANDEAU.h+0.25      // juste sous le bandeau au logo
     : 0.9;                                   // page nue : on démarre en haut
   /* une page à bande de pied s'arrête juste au-dessus de celle-ci */
-  const bas=(habillage==="pied") ? ODP_PIED.y-0.25 : ODP_H-1.0;
+  const bas=(habillage==="pied") ? ODP_PIED.y-0.25 : ODP_H-0.5;
   return { x:ODP_M, y:haut, w:ODP_W-2*ODP_M, h:bas-haut };
 }
 
@@ -6599,8 +6606,8 @@ function odpSynthese(d,p,titreCartouche){
   const pg=odpPage(d,"entete");
   const z=odpZone("entete"), bas=z.y+z.h;
   const acts=actionsDe(p);
-  let y=odpTitre(pg,"Synthèse",titreCartouche,0.7);
-  y-=0.1;
+  /* pas de titre sur la synthèse : la place gagnée revient au planning */
+  let y=odpTitre(pg,null,titreCartouche,0.7);
 
   /* Identité en bandeau horizontal, planning sur toute la largeur en dessous :
      le descriptif reste au PDF, trop long pour une diapositive. */
@@ -6692,7 +6699,8 @@ function odpDetail(d,p){
     cel(""),
     cel(pct(t[c.colTacheAvancement])==null?"—":pct(t[c.colTacheAvancement])+" %",
       {align:"center"},bandesImpr(pct(t[c.colTacheAvancement]),false).pale),
-    cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",{taille:8})];
+    cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
+      {couleur:"#5f5e5a"})];
   tachesDe(p).forEach(t=>lg.push(tache(t)));
   actionsDe(p).forEach((a,i)=>{
     const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
@@ -6700,7 +6708,7 @@ function odpDetail(d,p){
              cel(lire(c.tblMain,a,c.colPorteur)),
              cel(av==null?"—":av+" %",
                {align:"center",gras:true,couleur:b.txt},b.pale),
-             cel(lire(c.tblMain,a,c.colCommentaire),{taille:8})]);
+             cel(lire(c.tblMain,a,c.colCommentaire))]);
     tachesDe(a).forEach(t=>lg.push(tache(t)));
   });
   return odpTableau(d,"Actions MEO et tâches",lire(c.tblMain,p,c.colLibelle),
@@ -7363,7 +7371,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-n — boutons d’export colorés";
+const VERSION="2026-09-07-p — PDF : page 1 en bandeau horizontal";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

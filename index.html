@@ -839,8 +839,7 @@ tbody tr.ligne-com:hover{background:transparent;}
           title="Replier / déplier la liste des projets" aria-expanded="true">◀ Projets</button>
   <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
   <div class="spacer"></div>
-  <!-- Bouton PDF masqué à la demande. Tout le code de génération reste en
-       place : retirer l'attribut hidden ci-dessous suffit à le réactiver. -->
+  <!-- Visibilité pilotée par la case « Afficher le bouton PDF » des réglages. -->
   <button class="btn-top btn-impr btn-pdf" id="btn-imprimer" hidden
           title="Générer le PDF de la fiche du projet sélectionné"><svg width="13" height="13" viewBox="0 0 24 24"
     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -1132,7 +1131,7 @@ const DEF = {
   colNoteDate:"Date", colNoteTexte:"Texte", colNoteStatut:"Statut",
   colNoteDestination:"Destination", colNoteLigne:"Ligne_creee", colNoteTraitee:"Traite_le",
   colNotePJ:"Piece_jointe",
-  btnLibelle:"", btnUrl:"", mdpHash:""
+  btnLibelle:"", btnUrl:"", mdpHash:"", pdfVisible:false
 };
 
 const CHAMPS_REGLAGES = [
@@ -1774,7 +1773,7 @@ const MENUS={
   "m-porteur":{tous:"Tous porteurs", sel:[], opts:[]},
   "m-priorite":{tous:"Toutes priorités", sel:[], opts:[]},
   "m-etat":{tous:"Tous états", sel:[], opts:[
-    ["encours","En cours"],["termine","Terminés"],["afaire","À faire"],["interrompu","Interrompus"]]},
+    ["encours","En cours"],["termine","Terminés"],["afaire","À engager"],["interrompu","Interrompus"]]},
   "m-avct":{tous:"Tout avancement", sel:[], opts:[
     ["0","0 %"],["1-49","1 à 49 %"],["50-99","50 à 99 %"],["100","100 %"],["sans","Non renseigné"]]}
 };
@@ -3221,7 +3220,7 @@ function vuePlanning(p){
     '<div class="planning"><div class="pl-grille'+(bande?" avec-rep":"")+'">'+
       entete+bande+fond+marqueur+rangs+'</div></div>'+
     '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gris)">'+
-    [["var(--rouge)","À faire"],["var(--orange)","1 à 49 %"],["var(--jaune)","50 à 99 %"],
+    [["var(--rouge)","À engager"],["var(--orange)","1 à 49 %"],["var(--jaune)","50 à 99 %"],
      ["var(--vert)","Terminé"],["var(--interrompu)","Interrompu"]]
       .map(([c2,l])=>'<span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;'+
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
@@ -5989,6 +5988,11 @@ function rendreReglages(){
         '<div class="champ"><label>'+l+'</label><select data-cfg="'+k+'" data-pour="'+bloc.tableKey+'">'+
         optionsColonnes(tid,c[k])+'</select></div>').join("")+'</div></div>';
   }).join("") +
+  '<div class="bloc-reglage"><h3>Barre supérieure</h3>'+
+  '<p>Le bouton PDF est masqué par défaut. Le diaporama reste toujours accessible.</p>'+
+  '<label class="impr-radio"><input type="checkbox" id="cfg-pdf"'+
+    (c.pdfVisible?" checked":"")+'> Afficher le bouton PDF</label>'+
+  '</div>'+
   '<div class="bloc-reglage"><h3>Verrouillage des champs de la Synthèse</h3>'+
   '<p>Un mot de passe est demandé pour rendre modifiables l\'identité et le calendrier. '+
   'Il n\'est pas stocké en clair, mais ce verrou reste un garde-fou contre la fausse manœuvre, '+
@@ -6059,6 +6063,8 @@ function sauverAuto(){
 
 async function enregistrerReglages(){
   $("#corps-reglages").querySelectorAll("[data-cfg]").forEach(el=>{ S.cfg[el.dataset.cfg]=el.value; });
+  const cp=$("#cfg-pdf");
+  if(cp) S.cfg.pdfVisible=cp.checked;
   const nouveau=$("#mdp-nouveau")?$("#mdp-nouveau").value:"";
   if($("#mdp-retirer") && $("#mdp-retirer").checked){ S.cfg.mdpHash=""; S.deverrouille=false; }
   else if(nouveau){ S.cfg.mdpHash=await empreinte(nouveau); S.deverrouille=false; }
@@ -7576,6 +7582,7 @@ async function tout(){
     reappliquerBrouillon();
     remplirFiltres();
     if(S.projetSel) S.projetSel=S.data.main.find(r=>r.id===S.projetSel.id)||null;
+    majBoutonPdf();
     rendreListe(); rendreProjet();
     if(enMobile()) rendreMobile();
   }catch(e){
@@ -7615,7 +7622,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-ak — réinitialisation des réglages du diaporama";
+const VERSION="2026-09-07-am — bouton PDF piloté par les réglages";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7700,6 +7707,12 @@ $("#pages-fermer").onclick=()=>{
 $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
 /* Bascule poste / téléphone. Le seuil est en largeur de fenêtre, donc testable
    depuis un poste en rétrécissant la fenêtre. */
+/* Le bouton PDF n'apparaît que si les réglages le demandent. */
+function majBoutonPdf(){
+  const b=$("#btn-imprimer");
+  if(b) b.hidden=!S.cfg.pdfVisible;
+}
+
 function majMobile(){
   const mob=enMobile();
   document.documentElement.classList.toggle("mob",mob);

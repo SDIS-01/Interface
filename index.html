@@ -4435,8 +4435,15 @@ function bandesImpr(av,inter){
   if(av>=1)    return {fill:"#F79646", pale:"#FDEEE1", txt:"#B35D15"};
   return             {fill:"#C0504D", pale:"#F6E1E0", txt:"#8C3A38"};
 }
-function pastillePleineCouleurs(v){
+/* Couleurs d'une pastille de priorité ou de statut. Un statut « En cours » ne
+   dit pas à lui seul s'il faut l'orange ou le jaune : on le tranche avec
+   l'avancement, quand l'appelant peut le fournir. */
+function pastillePleineCouleurs(v,av,inter){
   const t=txt(v).trim().toLowerCase();
+  if(/en cours|encours/.test(t) && av!=null){
+    const b=bandesImpr(av,inter);
+    return {fond:b.fill,coul:av>=50&&av<100?"#4d3d00":"#ffffff"};
+  }
   if(t.startsWith("p1"))       return {fond:"#C0504D",coul:"#ffffff"};
   if(t.startsWith("p2"))       return {fond:"#F79646",coul:"#ffffff"};
   if(t.startsWith("p3"))       return {fond:"#FFCC00",coul:"#4d3d00"};
@@ -4725,9 +4732,10 @@ function bandeauIdentite(ctx,p,x,y,w){
         const h=hBadge(b,lc);
         pAplat(pdf,cx,cy,wc,h,PDFC.fondBadge,6);
         pTexte(pdf,cx+11,cy+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
-        if(pastille) pPastille(pdf,cx+11+lc,cy+7+2,pastille,
-          pastillePleineCouleurs(pastille).fond,
-          pastillePleineCouleurs(pastille).coul,11);
+        if(pastille){
+          const pc=pastillePleineCouleurs(pastille,av,inter);
+          pPastille(pdf,cx+11+lc,cy+7+2,pastille,pc.fond,pc.coul,11);
+        }
         else pDecoupe(pdf,valeur,wc-22-lc,12,"bold")
           .forEach((l,i)=>pTexte(pdf,cx+11+lc,cy+7+fz(11)+i*fz(15),l,
             {taille:12,style:"bold",couleur:PDFC.encre}));
@@ -6647,7 +6655,7 @@ function odpIdentite(pg,p,x,y,w){
       pg.texte(cx+0.2,cy,lc,h,cle,
         {taille:ODP_T.badge,couleur:"#5f5e5a",valign:"middle",pad:0});
       if(pastille){
-        const pc=pastillePleineCouleurs(pastille);
+        const pc=pastillePleineCouleurs(pastille,av,inter);
         const hp=odpHautLigne(ODP_T.badge)+0.14;
         pg.pastille(cx+0.2+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
       }else{
@@ -7102,7 +7110,7 @@ function odpActionDiapo(d,a,numero){
       pg.texte(cx+0.2,cy,lc,h,cle,
         {taille:ODP_T.badge,couleur:"#5f5e5a",valign:"middle",pad:0});
       if(pastille){
-        const pc=pastillePleineCouleurs(pastille);
+        const pc=pastillePleineCouleurs(pastille,av,inter);
         const hp=odpHautLigne(ODP_T.badge)+0.14;
         pg.pastille(cx+0.2+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
       }else{
@@ -7842,7 +7850,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-aq — statut « À engager » en rouge";
+const VERSION="2026-09-07-ar — statut « En cours » coloré par l’avancement";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

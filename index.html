@@ -6329,13 +6329,17 @@ function odpPage(d,avecBandeau){
         '<style:table-column-properties style:column-width="'+cm(co.w)+'"/>');
       return n;
     });
-    const cellStyle=(fond,bord)=>d.style("table-cell",
+    /* Seul un filet horizontal très clair sépare les lignes : les traits
+       verticaux entre colonnes alourdissaient le tableau sans rien apporter,
+       l'alignement des colonnes suffit à les distinguer. */
+    const cellStyle=fond=>d.style("table-cell",
       '<style:table-cell-properties fo:background-color="'+
-        (fond?coul(fond):"transparent")+'" fo:padding="0.08cm" '+
-        'fo:border="0.01cm solid '+coul(bord||"#b9c6dc")+'" '+
+        (fond?coul(fond):"transparent")+'" fo:padding="0.1cm" '+
+        'fo:border-left="none" fo:border-right="none" fo:border-top="none" '+
+        'fo:border-bottom="0.01cm solid #E4E9F1" '+
         'style:vertical-align="middle"/>');
     const cellule=(c,fond)=>{
-      const cs=cellStyle(fond,"#b9c6dc");
+      const cs=cellStyle(fond);
       const ps=d.par(c.o||{});
       return '<table:table-cell table:style-name="'+cs+'" office:value-type="string">'+
         '<text:p text:style-name="'+ps+'">'+xmlEsc(c.t)+'</text:p></table:table-cell>';
@@ -7575,7 +7579,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-af — revue filtrable par groupement et échéance";
+const VERSION="2026-09-07-ag — tableaux du diaporama allégés";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

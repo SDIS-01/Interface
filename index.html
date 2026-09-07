@@ -950,6 +950,21 @@ tbody tr.ligne-com:hover{background:transparent;}
            pour l'écarter.</p>
         <div id="pptx-prio" class="impr-cases"></div>
       </div>
+      <div class="bloc-reglage" id="pptx-bloc-grp" hidden>
+        <h3>Groupements retenus</h3>
+        <div id="pptx-grp" class="impr-cases"></div>
+      </div>
+      <div class="bloc-reglage" id="pptx-bloc-ech" hidden>
+        <h3>Échéance</h3>
+        <p>Ne retenir que les projets dont l'échéance tombe dans cet intervalle.
+           Laissez vide pour ne pas filtrer.</p>
+        <div class="grille">
+          <div class="champ"><label>Du</label>
+            <input id="pptx-du" type="text" placeholder="jj/mm/aaaa" autocomplete="off"></div>
+          <div class="champ"><label>Au</label>
+            <input id="pptx-au" type="text" placeholder="jj/mm/aaaa" autocomplete="off"></div>
+        </div>
+      </div>
       <div class="bloc-reglage" id="pptx-bloc-tri" hidden>
         <h3>Ordre des projets</h3>
         <p>Cochez un ou plusieurs critères. Ils s'appliquent dans l'ordre où ils
@@ -4149,7 +4164,6 @@ const BLOCS_IMPR=[
     [["identite","Identité"],["descriptif","Descriptif"],
      ["planning","Planning"]]],
   ["detail","Actions MEO et tâches"],
-  ["instances","Instances"],
   ["journal","Journal de bord"],
   ["sup","Pages additionnelles"]
 ];
@@ -4169,7 +4183,7 @@ const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.4
 
 const IMPR={
   sections:{synthese:true,identite:true,descriptif:true,planning:true,actions:true,
-            detail:true,instances:true,journal:true,sup:true},
+            detail:true,journal:true,sup:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
   lisible:true,          // corps du texte à 16 pt
@@ -4178,6 +4192,8 @@ const IMPR={
   sectionsPptx:{synthese:true,identite:true,planning:true,actions:true,journal:true},
   ordrePptx:ORDRE_PPTX.slice(),
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
+  groupementsPptx:null,  // groupements retenus, null = tous
+  echDuPptx:"", echAuPptx:"",   // intervalle d'échéance de la revue
   triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
@@ -4623,7 +4639,7 @@ function docPage(ctx){
     pTexte(pdf,MX,PH-11,"SDIS de l'Ain _ Version "+new Date().toLocaleDateString("fr-FR"),
       {taille:10,couleur:PDFC.grisClair});
     ctx.yBas=PH-29-20;
-    ctx.y=H_BANDEAU+20;
+    ctx.y=H_BANDEAU+12;
   }else{
     pTexte(pdf,PW/2,29,ctx.titre,{taille:15,style:"bold",couleur:PDFC.bleu,align:"center"});
     pFiletH(pdf,0,PW,39.5,PDFC.filet);
@@ -4633,8 +4649,9 @@ function docPage(ctx){
   }
   ctx.premiere=false;
   ctx.numeros=ctx.numeros||[];
-  ctx.numeros.push({page:ctx.pages,y:ctx.y+10});  // emplacement du « Page n/N »
-  ctx.y+=fz(13)+12;                                   // .proj-title-row : marge de 12
+  ctx.numeros.push({page:ctx.pages,y:ctx.y});     // repère interne, plus rien d'écrit
+  /* la ligne réservée au « Page n/N » n'a plus lieu d'être : le contenu
+     démarre directement sous le bandeau */
   return ctx.y;
 }
 
@@ -5083,16 +5100,6 @@ function lignesActionsDetail(p,acts){
   });
   return out;
 }
-function lignesInstancesPdf(p){
-  const c=S.cfg;
-  return instancesDe(p).map(j=>({cellules:{
-    date:{type:"texte",t:dateVersFR(j.date)},
-    type:{type:"texte",t:j.type||""},
-    objet:{type:"texte",t:j.libelle||""},
-    rap:{type:"texte",t:j.rapporteur||""},
-    action:{type:"texte",t:j.action||""}
-  }}));
-}
 function lignesJournalPdf(p){
   const c=S.cfg;
   if(!(c.tblJournal && c.colJnlLien)) return [];
@@ -5250,11 +5257,6 @@ function construireDoc(p){
            {cle:"com",titre:"Commentaire",w:399}],
           lignesActionsDetail(p,acts),MX,PW-2*MX,true);
       },
-      instances:()=>dessinerTableau(ctx,"Instances",
-        [{cle:"date",titre:"Date",w:90},{cle:"type",titre:"Type",w:130},
-         {cle:"objet",titre:"Objet",w:PW-2*MX-90-130-150-190},
-         {cle:"rap",titre:"Rapporteur",w:150},{cle:"action",titre:"Action",w:190}],
-        lignesInstancesPdf(p),MX,PW-2*MX,true),
       journal:()=>{
         /* les deux dernières colonnes n'apparaissent que si elles sont paramétrées */
         const fixes=[["date","Date de saisie",100],["action","Action",140],
@@ -6958,11 +6960,23 @@ async function genererODP(mode){
     if(mode==="portefeuille"){
       /* la revue porte sur tout le portefeuille, filtré sur les seules
          priorités retenues dans la fenêtre d'export */
-      const sel=IMPR.prioritesPptx;
+      const selP=IMPR.prioritesPptx, selG=IMPR.groupementsPptx;
       const liste=projets().filter(p=>{
-        if(!sel) return true;
-        const v=txt(lire(c.tblMain,p,c.colPriorite)).trim();
-        return !v || sel.includes(v);
+        /* un projet dont la valeur n'est pas renseignée reste retenu :
+           l'écarter en silence serait incompréhensible */
+        if(selP){
+          const v=txt(lire(c.tblMain,p,c.colPriorite)).trim();
+          if(v && !selP.includes(v)) return false;
+        }
+        if(selG){
+          const g=txt(lire(c.tblMain,p,c.colGroupement)).trim();
+          if(g && !selG.includes(g)) return false;
+        }
+        if(IMPR.echDuPptx || IMPR.echAuPptx){
+          if(!dansPlage(p[c.colEch]||p[c.colFin],IMPR.echDuPptx,IMPR.echAuPptx))
+            return false;
+        }
+        return true;
       });
       if(!liste.length){ toast("Aucun projet à exporter.",true); return; }
       trierPortefeuille(liste);
@@ -7561,7 +7575,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-ac — liste d’actions déduite du réglage des tâches";
+const VERSION="2026-09-07-af — revue filtrable par groupement et échéance";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7671,6 +7685,16 @@ $("#btn-raz").onclick=reinitialiserFiltres;
 $("#btn-enr-brouillon").onclick=enregistrerBrouillon;
 $("#btn-abandonner").onclick=abandonnerBrouillon;
 /* priorités présentes dans le portefeuille, pour le filtre de la revue */
+/* valeurs distinctes d'une colonne sur l'ensemble du portefeuille */
+function valeursPortefeuille(colId){
+  const c=S.cfg, vues=[];
+  projets().forEach(p=>{
+    const v=txt(lire(c.tblMain,p,colId)).trim();
+    if(v && !vues.includes(v)) vues.push(v);
+  });
+  return vues.sort((a,b)=>a.localeCompare(b,"fr"));
+}
+
 function prioritesPortefeuille(){
   const c=S.cfg;
   const vues=[];
@@ -7685,11 +7709,23 @@ function majFormulairePptx(){
   const mode=document.querySelector('input[name=pptx-mode]:checked');
   const portefeuille = mode && mode.value==="portefeuille";
   $("#pptx-bloc-prio").hidden=!portefeuille;
+  $("#pptx-bloc-grp").hidden=!portefeuille;
+  $("#pptx-bloc-ech").hidden=!portefeuille;
   $("#pptx-bloc-tri").hidden=!portefeuille;
   rendreSectionsPptx();
   const ct0=$("#pptx-taches");
   if(ct0) ct0.checked=IMPR.taches!==false;
   if(!portefeuille) return;
+  const grp=valeursPortefeuille(S.cfg.colGroupement);
+  const selG=IMPR.groupementsPptx;
+  $("#pptx-grp").innerHTML = grp.length
+    ? grp.map(v=>'<label class="impr-radio"><input type="checkbox" data-grp="'+
+        esc(v)+'"'+((!selG||selG.includes(v))?" checked":"")+'> '+esc(v)+'</label>').join("")
+    : '<p style="color:var(--gris);font-size:11.5px;margin:0">'+
+      'Aucun groupement renseigné.</p>';
+  $("#pptx-du").value=IMPR.echDuPptx||"";
+  $("#pptx-au").value=IMPR.echAuPptx||"";
+
   const tri=IMPR.triPptx||[];
   document.querySelectorAll("[data-tri]")
     .forEach(el=>{ el.checked=tri.includes(el.dataset.tri); });
@@ -7719,6 +7755,12 @@ $("#pptx-ok").onclick=async()=>{
     : null;
   IMPR.triPptx=[...document.querySelectorAll("[data-tri]")]
     .filter(el=>el.checked).map(el=>el.dataset.tri);
+  const casesG=[...document.querySelectorAll("[data-grp]")];
+  IMPR.groupementsPptx = casesG.length
+    ? casesG.filter(c2=>c2.checked).map(c2=>c2.dataset.grp)
+    : null;
+  IMPR.echDuPptx=($("#pptx-du")||{}).value||"";
+  IMPR.echAuPptx=($("#pptx-au")||{}).value||"";
   const ct=$("#pptx-taches");
   IMPR.taches = ct ? ct.checked : true;
   $("#voile-pptx").classList.remove("ouvert");

@@ -926,11 +926,20 @@ tbody tr.ligne-com:hover{background:transparent;}
         imprimer ». Les pages additionnelles ne sont pas exportées.</p>
       <div class="bloc-reglage">
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="projet" checked>
-          Dossier du projet sélectionné — synthèse, actions et tâches,
-          instances, journal de bord</label>
+          Dossier complet du projet sélectionné — synthèse, actions et tâches,
+          journal de bord</label>
+        <label class="impr-radio"><input type="radio" name="pptx-mode" value="projet-filtre">
+          Dossier du projet sélectionné, restreint aux actions retenues par les
+          filtres en cours</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="portefeuille">
           Revue de portefeuille — un tableau d'ensemble, puis une
           diapositive de synthèse par projet</label>
+      </div>
+      <div class="bloc-reglage" id="pptx-bloc-prio" hidden>
+        <h3>Priorités retenues</h3>
+        <p>La revue porte sur l'ensemble des projets. Décochez une priorité
+           pour l'écarter.</p>
+        <div id="pptx-prio" class="impr-cases"></div>
       </div>
     </div>
     <footer>
@@ -1153,6 +1162,7 @@ const S = {
   reponseA:null,              // entrée de journal à laquelle on répond
   pagesParProjet:{},          // pages additionnelles, conservées dans le document
   mob:{ecran:"accueil",onglet:"synthese",q:"",clos:false,pjOuvert:false},
+  odpActionsFiltrees:false,   // mode d'export du diaporama
   notesClassees:false,        // afficher aussi les notes déjà classées ?
   fraction:false,             // avancement stocké en 0–1 ?
   pret:false
@@ -4132,6 +4142,7 @@ const IMPR={
   zoom:1,
   lisible:true,          // corps du texte à 16 pt
   planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
+  prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
   instancesGarde:null
@@ -6601,11 +6612,17 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
 }
 
 /* --- diapositive de synthèse -------------------------------------------- */
+/* Actions retenues pour le diaporama : toutes, ou celles que les filtres de la
+   console laissent passer, selon le mode d'export choisi. */
+function actionsODP(p){
+  return S.odpActionsFiltrees ? actionsImpression(p) : actionsDe(p);
+}
+
 function odpSynthese(d,p,titreCartouche){
   const c=S.cfg;
   const pg=odpPage(d,"entete");
   const z=odpZone("entete"), bas=z.y+z.h;
-  const acts=actionsDe(p);
+  const acts=actionsODP(p);
   /* pas de titre sur la synthèse : la place gagnée revient au planning */
   let y=odpTitre(pg,null,titreCartouche,0.7);
 
@@ -6622,13 +6639,12 @@ function odpSynthese(d,p,titreCartouche){
 
 /* Reliquat du planning : en pleine largeur, sur autant de diapositives qu'il
    faut. Sollicité seulement quand la première page ne suffit pas. */
-function odpPlanningSuite(d,p,reste){
-  const c=S.cfg, acts=actionsDe(p);
-  const titre=lire(c.tblMain,p,c.colLibelle);
+function odpPlanningSuite(d,p,reste,titreCartouche){
+  const acts=actionsODP(p);
   while(reste && reste.length){
     const pg=odpPage(d,"pied");
     const z=odpZone("pied");
-    const y=odpTitre(pg,null);
+    const y=odpTitre(pg,null,titreCartouche);
     const r=odpPlanning(pg,p,acts,z.x,y,z.w,z.y+z.h-y,reste);
     if(!r.trace) break;
     reste=r.reste;
@@ -6676,7 +6692,7 @@ function cel(t,o,fond){
 }
 
 function odpActions(d,p){
-  const c=S.cfg, z=odpZone("pied"), acts=actionsDe(p);
+  const c=S.cfg, z=odpZone("pied"), acts=actionsODP(p);
   if(!acts.length) return null;
   return odpTableau(d,"Actions",lire(c.tblMain,p,c.colLibelle),
     [{t:"#",w:z.w*0.05},{t:"Action",w:z.w*0.44},{t:"Porteur",w:z.w*0.20},
@@ -6702,7 +6718,7 @@ function odpDetail(d,p){
     cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
       {couleur:"#5f5e5a"})];
   tachesDe(p).forEach(t=>lg.push(tache(t)));
-  actionsDe(p).forEach((a,i)=>{
+  actionsODP(p).forEach((a,i)=>{
     const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
     lg.push([cel((i+1)+". "+lire(c.tblMain,a,c.colLibelle),{gras:true}),
              cel(lire(c.tblMain,a,c.colPorteur)),
@@ -6775,13 +6791,26 @@ async function genererODP(mode){
   const c=S.cfg;
   try{
     const d=odpNouveau();
+    S.odpActionsFiltrees = (mode==="projet-filtre");
     if(mode==="portefeuille"){
-      const liste=(IMPR.portee==="filtrees"?projetsFiltres():projets());
+      /* la revue porte sur tout le portefeuille, filtré sur les seules
+         priorités retenues dans la fenêtre d'export */
+      const sel=IMPR.prioritesPptx;
+      const liste=projets().filter(p=>{
+        if(!sel) return true;
+        const v=txt(lire(c.tblMain,p,c.colPriorite)).trim();
+        return !v || sel.includes(v);
+      });
       if(!liste.length){ toast("Aucun projet à exporter.",true); return; }
       odpGarde(d,"Suivi des projets et actions",null);
       odpEnsemble(d,liste);
       /* en revue de portefeuille, le cartouche rappelle de quel projet il s'agit */
-      liste.forEach(p=>odpSynthese(d,p,lire(c.tblMain,p,c.colLibelle)));
+      liste.forEach(p=>{
+        const r=odpSynthese(d,p,lire(c.tblMain,p,c.colLibelle));
+        /* le planning d'un projet chargé se poursuit sur une diapositive
+           supplémentaire au lieu d'être tronqué */
+        if(r.reste) odpPlanningSuite(d,p,r.reste,lire(c.tblMain,p,c.colLibelle));
+      });
       await odpEcrire(d,"Revue de portefeuille — "+
         new Date().toISOString().slice(0,10)+".odp");
       toast(liste.length+" projet"+(liste.length>1?"s":"")+" exporté"+
@@ -6792,7 +6821,7 @@ async function genererODP(mode){
       const titre=lire(c.tblMain,p,c.colLibelle)||"Projet";
       odpGarde(d,titre,p);
       const f={ synthese:()=>{ const r=odpSynthese(d,p);
-                               if(r.reste) odpPlanningSuite(d,p,r.reste);
+                               if(r.reste) odpPlanningSuite(d,p,r.reste,null);
                                if(IMPR.sections.actions) odpActions(d,p); },
                 detail:()=>odpDetail(d,p),
                 journal:()=>odpJournal(d,p) };
@@ -7371,7 +7400,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-p — PDF : page 1 en bandeau horizontal";
+const VERSION="2026-09-07-q — revue de portefeuille complète et filtrable";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7475,14 +7504,47 @@ brancherMenus();
 $("#btn-raz").onclick=reinitialiserFiltres;
 $("#btn-enr-brouillon").onclick=enregistrerBrouillon;
 $("#btn-abandonner").onclick=abandonnerBrouillon;
+/* priorités présentes dans le portefeuille, pour le filtre de la revue */
+function prioritesPortefeuille(){
+  const c=S.cfg;
+  const vues=[];
+  projets().forEach(p=>{
+    const v=txt(lire(c.tblMain,p,c.colPriorite)).trim();
+    if(v && !vues.includes(v)) vues.push(v);
+  });
+  return vues.sort((a,b)=>a.localeCompare(b,"fr"));
+}
+
+function majFormulairePptx(){
+  const mode=document.querySelector('input[name=pptx-mode]:checked');
+  const portefeuille = mode && mode.value==="portefeuille";
+  const bloc=$("#pptx-bloc-prio");
+  bloc.hidden=!portefeuille;
+  if(!portefeuille) return;
+  const prios=prioritesPortefeuille();
+  const sel=IMPR.prioritesPptx;
+  $("#pptx-prio").innerHTML = prios.length
+    ? prios.map(v=>'<label class="impr-radio"><input type="checkbox" data-prio="'+
+        esc(v)+'"'+((!sel||sel.includes(v))?" checked":"")+'> '+esc(v)+'</label>').join("")
+    : '<p style="color:var(--gris);font-size:11.5px;margin:0">'+
+      'Aucune priorité renseignée : tous les projets seront exportés.</p>';
+}
+
 $("#btn-pptx").onclick=()=>{
   if(enMobile()){ toast("L'export du diaporama n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet.",true); return; }
+  majFormulairePptx();
   $("#voile-pptx").classList.add("ouvert");
+  document.querySelectorAll('input[name=pptx-mode]')
+    .forEach(r=>r.onchange=majFormulairePptx);
 };
 $("#pptx-annuler").onclick=()=>$("#voile-pptx").classList.remove("ouvert");
 $("#pptx-ok").onclick=async()=>{
   const m=document.querySelector('input[name=pptx-mode]:checked');
+  const cases=[...document.querySelectorAll("[data-prio]")];
+  IMPR.prioritesPptx = cases.length
+    ? cases.filter(c2=>c2.checked).map(c2=>c2.dataset.prio)
+    : null;
   $("#voile-pptx").classList.remove("ouvert");
   await genererODP(m?m.value:"projet");
 };

@@ -1039,9 +1039,12 @@ tbody tr.ligne-com:hover{background:transparent;}
         <div id="impr-sections" class="bl-liste"></div>
       </div>
       <div class="bloc-reglage">
-        <h3>Planning</h3>
-        <p>Par défaut le planning imprimé ne montre que le projet et ses actions.</p>
-        <label class="impr-radio"><input type="checkbox" id="impr-pl-taches"> Détailler aussi les tâches</label>
+        <h3>Tâches</h3>
+        <p>Ce réglage vaut pour le PDF comme pour le diaporama.</p>
+        <label class="impr-radio"><input type="checkbox" id="impr-taches" checked>
+          Détailler les tâches sous chaque action</label>
+        <label class="impr-radio"><input type="checkbox" id="impr-pl-taches">
+          Les faire figurer aussi dans le planning</label>
       </div>
       <div class="bloc-reglage">
         <h3>Taille du texte</h3>
@@ -4156,7 +4159,7 @@ const IMPR={
   zoom:1,
   lisible:true,          // corps du texte à 16 pt
   planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
-  tachesPptx:true,       // le diaporama détaille ou non les tâches
+  taches:true,           // détailler les tâches sous les actions (PDF et diaporama)
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
   triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
@@ -4178,6 +4181,7 @@ function chargerOptionsImpr(){
     if(o.zoom) IMPR.zoom=Number(o.zoom)||1;
     if(o.lisible!==undefined) IMPR.lisible=!!o.lisible;
     if(o.planningTaches!==undefined) IMPR.planningTaches=!!o.planningTaches;
+    if(o.taches!==undefined) IMPR.taches=!!o.taches;
     if(o.pieceJointe!==undefined) IMPR.pieceJointe=!!o.pieceJointe;
     if(o.portee) IMPR.portee=o.portee;
   }catch(e){}
@@ -4192,7 +4196,7 @@ function enregistrerOptionsImpr(){
   sauverAuto();
   try{ localStorage.setItem("cp-impression",JSON.stringify(
     {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
-     planningTaches:IMPR.planningTaches,
+     planningTaches:IMPR.planningTaches, taches:IMPR.taches,
      pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
 }
 
@@ -4213,6 +4217,8 @@ function ouvrirImpression(){
   }
   const pt=$("#impr-pl-taches");
   if(pt) pt.checked=IMPR.planningTaches;
+  const cta=$("#impr-taches");
+  if(cta) cta.checked=IMPR.taches!==false;
   const cl=$("#impr-lisible");
   if(cl){
     cl.checked=IMPR.lisible;
@@ -4300,6 +4306,7 @@ function retenirOptionsImpr(){
   if(z) IMPR.zoom=Number(z.value)||1;
   const cl=$("#impr-lisible");  if(cl)  IMPR.lisible=cl.checked;
   const pt=$("#impr-pl-taches"); if(pt) IMPR.planningTaches=pt.checked;
+  const cta=$("#impr-taches");   if(cta) IMPR.taches=cta.checked;
 
   const t=document.querySelector('[name=impr-portee]:checked');
   if(t) IMPR.portee=t.value;
@@ -4977,26 +4984,37 @@ function lignesActionsSynthese(p,acts,numeros){
 }
 function lignesActionsDetail(p,acts){
   const c=S.cfg, t=c.tblMain, out=[];
-  const avecTaches=!!(c.tblTache && c.colTacheLien);
-  acts.forEach(r=>{
+  /* Même parti pris que le diaporama : les tâches sont détaillées à la demande,
+     et la ligne d'action ne se détache — gras, fond bleu très clair, numéro —
+     que lorsqu'elles le sont. Sans tâches, le tableau n'a qu'un niveau. */
+  const avecTaches=!!(c.tblTache && c.colTacheLien) && IMPR.taches!==false;
+  const tachesProjet=avecTaches?tachesDe(p):[];
+  const ligneTache=k=>{
+    const a2=pct(k[c.colTacheAvancement]);
+    const i2=statutInterrompu(c.tblTache,k,c.colTacheStatut);
+    const c2=bandesImpr(a2,i2);
+    return {cellules:{
+      num:{type:"texte",t:""},
+      lib:{type:"texte",t:"   "+(lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"),
+           couleur:PDFC.gris},
+      resp:{type:"texte",t:lire(c.tblTache,k,c.colTachePorteur),couleur:PDFC.gris},
+      avct:{type:"pastille",t:i2?"Interrompu":(a2==null?"–":a2+"%"),fond:c2.pale,coul:c2.txt},
+      com:{type:"texte",t:lire(c.tblTache,k,c.colTacheCommentaire),couleur:PDFC.gris}
+    }};
+  };
+  tachesProjet.forEach(k=>out.push(ligneTache(k)));
+  acts.forEach((r,i)=>{
     const av=pct(r[c.colAvancement]), inter=interrompu(r), co=bandesImpr(av,inter);
-    out.push({fond:PDFC.fondAction,bordHaut:true,cellules:{
-      lib:{type:"texte",t:lire(t,r,c.colLibelle)||"(action sans libellé)",style:"bold"},
-      resp:{type:"texte",t:lire(t,r,c.colPorteur)},
+    const g=avecTaches?"bold":undefined;
+    out.push({fond:avecTaches?PDFC.fondBadge:undefined,bordHaut:true,cellules:{
+      num:{type:"texte",t:String(i+1),style:"bold"},
+      lib:{type:"texte",t:lire(t,r,c.colLibelle)||"(action sans libellé)",style:g},
+      resp:{type:"texte",t:lire(t,r,c.colPorteur),style:g},
       avct:{type:"pastille",t:inter?"Interrompu":(av==null?"–":av+"%"),fond:co.pale,coul:co.txt},
-      com:{type:"texte",t:lire(t,r,c.colCommentaire)}
+      com:{type:"texte",t:lire(t,r,c.colCommentaire),style:g}
     }});
     if(avecTaches) tachesDe(r).forEach(k=>{
-      const a2=pct(k[c.colTacheAvancement]);
-      const i2=statutInterrompu(c.tblTache,k,c.colTacheStatut);
-      const c2=bandesImpr(a2,i2);
-      out.push({cellules:{
-        lib:{type:"texte",t:"   "+(lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"),
-             taille:10.5,couleur:PDFC.gris},
-        resp:{type:"texte",t:lire(c.tblTache,k,c.colTachePorteur),taille:10.5,couleur:PDFC.gris},
-        avct:{type:"pastille",t:i2?"Interrompu":(a2==null?"–":a2+"%"),fond:c2.pale,coul:c2.txt},
-        com:{type:"texte",t:lire(c.tblTache,k,c.colTacheCommentaire),taille:10.5,couleur:PDFC.gris}
-      }});
+      out.push(ligneTache(k));
     });
   });
   return out;
@@ -5137,7 +5155,11 @@ function construireDoc(p){
         ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
         const xa=xg, wa=wg;
-        if(IMPR.sections.actions){
+        /* Sans les tâches, le tableau de la synthèse et celui de la section
+           détail ne se distinguent plus que par la colonne Commentaire. On
+           masque alors le premier, qui en est dépourvu. */
+        const doubleEmploi = IMPR.taches===false && IMPR.sections.detail;
+        if(IMPR.sections.actions && !doubleEmploi){
           const lgA=lignesActionsSynthese(p,acts,numeros);
           const colonnes=w=>[{cle:"num",titre:"#",w:26},
                              {cle:"action",titre:"Action",w:w-26-130-80-92},
@@ -5154,10 +5176,16 @@ function construireDoc(p){
         }
         if(ctx.comReporte){ dessinerCommentaireLong(ctx,ctx.comReporte); ctx.comReporte=null; }
       },
-      detail:()=>dessinerTableau(ctx,"Actions MEO et tâches",
-        [{cle:"lib",titre:"Action / Tâche",w:430},{cle:"resp",titre:"Responsable",w:120},
-         {cle:"avct",titre:"Avancement",w:100},{cle:"com",titre:"Commentaire",w:413}],
-        lignesActionsDetail(p,acts),MX,PW-2*MX,true),
+      detail:()=>{
+        const avecT=!!(c.tblTache && c.colTacheLien) && IMPR.taches!==false;
+        dessinerTableau(ctx,avecT?"Actions & tâches":"Actions",
+          [{cle:"num",titre:"#",w:34},
+           {cle:"lib",titre:avecT?"Action / Tâche":"Action",w:410},
+           {cle:"resp",titre:"Responsable",w:120},
+           {cle:"avct",titre:"Avancement",w:100},
+           {cle:"com",titre:"Commentaire",w:399}],
+          lignesActionsDetail(p,acts),MX,PW-2*MX,true);
+      },
       instances:()=>dessinerTableau(ctx,"Instances",
         [{cle:"date",titre:"Date",w:90},{cle:"type",titre:"Type",w:130},
          {cle:"objet",titre:"Objet",w:PW-2*MX-90-130-150-190},
@@ -5931,6 +5959,7 @@ function paquetOptions(){
   return {cfg:S.cfg,
           impr:{sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,
                 lisible:IMPR.lisible,planningTaches:IMPR.planningTaches,
+                taches:IMPR.taches,
                 pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
           pages:S.pagesParProjet||{}};
 }
@@ -6774,7 +6803,7 @@ function odpActionsTaches(d,p){
   };
 
   /* les tâches ne figurent que si on les a demandées */
-  const avecT=IMPR.tachesPptx!==false;
+  const avecT=IMPR.taches!==false;
   if(avecT) tachesDe(p).forEach(t=>lg.push(tache(t)));
 
   actionsODP(p).forEach((a,i)=>{
@@ -7482,7 +7511,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-x — lignes d’action mises en avant";
+const VERSION="2026-09-07-z — plus de tableau d’actions en double";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7506,6 +7535,7 @@ async function demarrer(){
       if(o.impr.zoom) IMPR.zoom=Number(o.impr.zoom)||1;
       if(o.impr.lisible!==undefined) IMPR.lisible=!!o.impr.lisible;
       if(o.impr.planningTaches!==undefined) IMPR.planningTaches=!!o.impr.planningTaches;
+      if(o.impr.taches!==undefined) IMPR.taches=!!o.impr.taches;
       if(o.impr.pieceJointe!==undefined) IMPR.pieceJointe=!!o.impr.pieceJointe;
       if(o.impr.portee) IMPR.portee=o.impr.portee;
     }
@@ -7603,7 +7633,7 @@ function majFormulairePptx(){
   $("#pptx-bloc-prio").hidden=!portefeuille;
   $("#pptx-bloc-tri").hidden=!portefeuille;
   const ct0=$("#pptx-taches");
-  if(ct0) ct0.checked=IMPR.tachesPptx!==false;
+  if(ct0) ct0.checked=IMPR.taches!==false;
   if(!portefeuille) return;
   const tri=IMPR.triPptx||[];
   document.querySelectorAll("[data-tri]")
@@ -7635,7 +7665,7 @@ $("#pptx-ok").onclick=async()=>{
   IMPR.triPptx=[...document.querySelectorAll("[data-tri]")]
     .filter(el=>el.checked).map(el=>el.dataset.tri);
   const ct=$("#pptx-taches");
-  IMPR.tachesPptx = ct ? ct.checked : true;
+  IMPR.taches = ct ? ct.checked : true;
   $("#voile-pptx").classList.remove("ouvert");
   await genererODP(m?m.value:"projet");
 };

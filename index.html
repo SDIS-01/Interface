@@ -5212,13 +5212,9 @@ function construireDoc(p){
 
 
 
-    /* numérotation : « Page n/N » une fois le total connu */
+    /* Plus de « Page n/N » : les repères sont conservés — ils servent à la
+       pagination interne — mais rien n'est écrit sur la page. */
     const total=ctx.numeros.length;
-    ctx.numeros.forEach((rep,i)=>{
-      ctx.pdf.setPage(rep.page);
-      pTexte(ctx.pdf,PW-MX,rep.y,"Page "+(i+1)+"/"+total,
-        {taille:10,couleur:PDFC.gris,align:"right"});
-    });
 
   return {pdf:ctx.pdf,
           nom:titre.replace(/[^a-z0-9_\-]+/gi,"_").slice(0,60)+".pdf",
@@ -7511,7 +7507,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-z — plus de tableau d’actions en double";
+const VERSION="2026-09-07-aa — PDF sans numérotation";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

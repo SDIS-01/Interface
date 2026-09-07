@@ -6779,14 +6779,20 @@ function odpActionsTaches(d,p){
 
   actionsODP(p).forEach((a,i)=>{
     const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
+    /* Quand les tâches sont détaillées, la ligne d'action se détache en gras
+       sur fond bleu très clair : c'est ce qui rend la hiérarchie lisible. Sans
+       les tâches, le tableau n'a qu'un niveau et cette mise en avant n'a plus
+       d'objet. */
+    const o=g=>Object.assign({couleur:ACTION},g||{},avecT?{gras:true}:{});
+    const fond=avecT?"#EEF2F8":undefined;
     lg.push([
-      cel(i+1,{align:"center",gras:true,couleur:ACTION}),
-      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",{couleur:ACTION}),
-      cel(lire(c.tblMain,a,c.colPorteur),{couleur:ACTION}),
-      cel(dateVersFR(a[c.colEch]||a[c.colFin]),{align:"center",couleur:ACTION}),
+      cel(i+1,{align:"center",gras:true,couleur:ACTION},fond),
+      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",o(),fond),
+      cel(lire(c.tblMain,a,c.colPorteur),o(),fond),
+      cel(dateVersFR(a[c.colEch]||a[c.colFin]),o({align:"center"}),fond),
       cel(av==null?"—":av+" %",
-        {align:"center",couleur:couleurLisible(b.txt)},b.pale),
-      cel(lire(c.tblMain,a,c.colCommentaire),{couleur:ACTION})]);
+        o({align:"center",couleur:couleurLisible(b.txt)}),b.pale),
+      cel(lire(c.tblMain,a,c.colCommentaire),o(),fond)]);
     if(avecT) tachesDe(a).forEach(t=>lg.push(tache(t)));
   });
 
@@ -7476,7 +7482,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-w — gras réservé au numéro d’action";
+const VERSION="2026-09-07-x — lignes d’action mises en avant";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

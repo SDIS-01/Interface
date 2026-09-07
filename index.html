@@ -941,6 +941,16 @@ tbody tr.ligne-com:hover{background:transparent;}
            pour l'écarter.</p>
         <div id="pptx-prio" class="impr-cases"></div>
       </div>
+      <div class="bloc-reglage" id="pptx-bloc-tri" hidden>
+        <h3>Ordre des projets</h3>
+        <p>Cochez un ou plusieurs critères. Ils s'appliquent dans l'ordre où ils
+           sont listés : le premier coché regroupe, les suivants départagent.</p>
+        <div id="pptx-tri" class="impr-cases">
+          <label class="impr-radio"><input type="checkbox" data-tri="groupement"> Groupement</label>
+          <label class="impr-radio"><input type="checkbox" data-tri="priorite"> Priorité</label>
+          <label class="impr-radio"><input type="checkbox" data-tri="echeance"> Échéance</label>
+        </div>
+      </div>
     </div>
     <footer>
       <button class="btn-2" id="pptx-annuler">Annuler</button>
@@ -4143,6 +4153,7 @@ const IMPR={
   lisible:true,          // corps du texte à 16 pt
   planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
+  triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
   instancesGarde:null
@@ -6036,14 +6047,16 @@ const ODP_W=28, ODP_H=21, ODP_M=1.4;
 /* Dossier de projet : tout est écrit en 12, seul le pourcentage d'avancement
    garde une taille d'affichage. Le titre de la garde et le cartouche des
    revues de portefeuille conservent la leur. */
-const ODP_T={ corps:12, badge:12, section:12, titre:20, surtitre:12,
+const ODP_T={ corps:12, badge:12, section:12, titre:14, surtitre:12,
               garde:28, avct:20 };
 /* À 16 pt en Tahoma, une ligne fait environ 0,62 cm de haut et l'on écrit à peu
    près 3 caractères par centimètre — valeur relevée sur un rendu réel, une
    estimation plus généreuse faisait déborder les libellés sur deux lignes.
    Ces constantes servent à paginer et à couper sans rogner. */
-function odpLignes(t,largeurCm,taille){
-  const parCm=3.0*16/(taille||ODP_T.corps);
+function odpLignes(t,largeurCm,taille,gras){
+  /* le gras occupe environ 10 % de plus que le romain : sans cette correction,
+     un badge estimé sur une ligne en réclamait deux et débordait */
+  const parCm=3.0*16/(taille||ODP_T.corps)/(gras?1.10:1);
   const n=Math.max(1,Math.ceil(String(t==null?"":t).length/Math.max(4,largeurCm*parCm)));
   return Math.min(n,6);
 }
@@ -6465,7 +6478,7 @@ function odpIdentite(pg,p,x,y,w){
   const wc=(x+w-xb-gap*2)/3;
   /* hauteur d'une colonne, pour pouvoir centrer celles qui ont moins d'entrées */
   const hCol=col=>col.filter(b2=>b2[1]||b2[2]).reduce((h,b2)=>{
-    const nb=b2[2]?1:odpLignes(b2[1],wc-2.5,ODP_T.badge);
+    const nb=b2[2]?1:odpLignes(b2[1],wc-2.5,ODP_T.badge,true);
     return h+nb*odpHautLigne(ODP_T.badge)+0.43;
   },0)-0.13;
   const hMaxCol=Math.max.apply(null,colonnes.map(hCol));
@@ -6480,7 +6493,7 @@ function odpIdentite(pg,p,x,y,w){
     let cy=y+(hMaxCol-hCol(col))/2;
     col.forEach(([cle,valeur,pastille])=>{
       if(!valeur && !pastille) return;
-      const nb=pastille?1:odpLignes(valeur,wc-0.45-lc,ODP_T.badge);
+      const nb=pastille?1:odpLignes(valeur,wc-0.5-lc,ODP_T.badge,true);
       const h=nb*odpHautLigne(ODP_T.badge)+0.3;
       pg.rect(cx,cy,wc,h,{fond:"#eef2f8",rayon:0.12});
       pg.texte(cx+0.2,cy,lc,h,cle,
@@ -6561,10 +6574,14 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
     const utile=u.debut>=tCourant && u.debut<tSuivant;
     /* un trimestre trop étroit pour son libellé est laissé de côté, sauf s'il
        fait partie des deux que l'on veut voir coûte que coûte */
-    if(lu<0.85 && !utile) return;
-    pg.texte(xp+lu*i,y,lu,0.52,"T"+((i%4)+1),
+    if(lu<1.0 && !utile) return;
+    /* Un trimestre mis en avant mais trop étroit voyait son « T3 » se couper
+       en deux lignes. On lui laisse déborder sur ses voisins, qui sont de toute
+       façon masqués dans ce cas, plutôt que de le comprimer. */
+    const large=Math.max(lu,1.1);
+    pg.texte(xp+lu*i+lu/2-large/2,y,large,0.52,"T"+((i%4)+1),
       {taille:utile?ODP_T.badge:12,gras:utile,
-       couleur:utile?"#002395":"#888780",align:"center",pad:0});
+       couleur:utile?"#002395":"#888780",align:"center",pad:0,padX:0});
   });
   y+=0.56;
   pg.ligne(xp,y,xp+wp,y,{couleur:"#b9c6dc",epaisseur:0.02});
@@ -6612,6 +6629,36 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
 }
 
 /* --- diapositive de synthèse -------------------------------------------- */
+/* Tri de la revue de portefeuille : les critères cochés s'appliquent dans
+   l'ordre où ils apparaissent dans la fenêtre, le premier regroupant et les
+   suivants départageant. Sans critère, l'ordre alphabétique d'origine est
+   conservé. */
+function trierPortefeuille(liste){
+  const c=S.cfg, tri=IMPR.triPptx||[];
+  if(!tri.length) return liste;
+  /* la priorité se lit P1, P2, P3… : on trie sur le numéro, pas sur le texte */
+  const rangPrio=p=>{
+    const v=txt(lire(c.tblMain,p,c.colPriorite)).trim();
+    const m=v.match(/(\d+)/);
+    return m ? Number(m[1]) : (v?900:999);      // sans priorité, en dernier
+  };
+  const cles={
+    groupement:p=>lire(c.tblMain,p,c.colGroupement)||"\uffff",
+    priorite:rangPrio,
+    echeance:p=>Number(p[c.colEch]||p[c.colFin])||Infinity
+  };
+  return liste.sort((a,b)=>{
+    for(const t of tri){
+      const f=cles[t];
+      if(!f) continue;
+      const va=f(a), vb=f(b);
+      if(va===vb) continue;
+      return (typeof va==="string") ? va.localeCompare(vb,"fr") : va-vb;
+    }
+    return 0;
+  });
+}
+
 /* Actions retenues pour le diaporama : toutes, ou celles que les filtres de la
    console laissent passer, selon le mode d'export choisi. */
 function actionsODP(p){
@@ -6766,18 +6813,20 @@ function odpEnsemble(d,liste){
   return odpTableau(d,"Vue d'ensemble du portefeuille",
     liste.length+" projet"+(liste.length>1?"s":""),
     [{t:"Projet",w:z.w*0.32},{t:"Groupement",w:z.w*0.13},{t:"Porteur",w:z.w*0.18},
-     {t:"Échéance",w:z.w*0.15},{t:"Avct",w:z.w*0.11},{t:"Alertes",w:z.w*0.11}],
+     {t:"Priorité",w:z.w*0.11},{t:"Échéance",w:z.w*0.15},{t:"Avct",w:z.w*0.11}],
     liste.map(p=>{
       const av=pct(p[c.colAvancement]), it=interrompu(p), b=bandesImpr(av,it);
-      const r=echeancesDe(p).filter(e=>e.etat==="depasse").length;
+      const prio=txt(lire(c.tblMain,p,c.colPriorite)).trim();
+      const pc=prio?pastillePleineCouleurs(prio):null;
       return [cel(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)"),
               cel(lire(c.tblMain,p,c.colGroupement)),
               cel(lire(c.tblMain,p,c.colPorteur)),
+              cel(prio||"—",
+                {align:"center",gras:!!prio,couleur:pc?pc.coul:"#5f5e5a"},
+                pc?pc.fond:undefined),
               cel(dateVersFR(p[c.colEch]||p[c.colFin]),{align:"center"}),
               cel(av==null?"—":av+" %",
-                {align:"center",gras:true,couleur:b.txt},b.pale),
-              cel(r?(r+" en retard"):"—",
-                {align:"center",gras:!!r,couleur:r?"#C0504D":"#5f5e5a"})];
+                {align:"center",gras:true,couleur:b.txt},b.pale)];
     }));
 }
 
@@ -6802,6 +6851,7 @@ async function genererODP(mode){
         return !v || sel.includes(v);
       });
       if(!liste.length){ toast("Aucun projet à exporter.",true); return; }
+      trierPortefeuille(liste);
       odpGarde(d,"Suivi des projets et actions",null);
       odpEnsemble(d,liste);
       /* en revue de portefeuille, le cartouche rappelle de quel projet il s'agit */
@@ -7400,7 +7450,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-q — revue de portefeuille complète et filtrable";
+const VERSION="2026-09-07-r — revue triée, priorité en colonne";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7518,9 +7568,12 @@ function prioritesPortefeuille(){
 function majFormulairePptx(){
   const mode=document.querySelector('input[name=pptx-mode]:checked');
   const portefeuille = mode && mode.value==="portefeuille";
-  const bloc=$("#pptx-bloc-prio");
-  bloc.hidden=!portefeuille;
+  $("#pptx-bloc-prio").hidden=!portefeuille;
+  $("#pptx-bloc-tri").hidden=!portefeuille;
   if(!portefeuille) return;
+  const tri=IMPR.triPptx||[];
+  document.querySelectorAll("[data-tri]")
+    .forEach(el=>{ el.checked=tri.includes(el.dataset.tri); });
   const prios=prioritesPortefeuille();
   const sel=IMPR.prioritesPptx;
   $("#pptx-prio").innerHTML = prios.length
@@ -7545,6 +7598,8 @@ $("#pptx-ok").onclick=async()=>{
   IMPR.prioritesPptx = cases.length
     ? cases.filter(c2=>c2.checked).map(c2=>c2.dataset.prio)
     : null;
+  IMPR.triPptx=[...document.querySelectorAll("[data-tri]")]
+    .filter(el=>el.checked).map(el=>el.dataset.tri);
   $("#voile-pptx").classList.remove("ouvert");
   await genererODP(m?m.value:"projet");
 };

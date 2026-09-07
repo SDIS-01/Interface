@@ -936,6 +936,11 @@ tbody tr.ligne-com:hover{background:transparent;}
           diapositive de synthèse par projet</label>
       </div>
       <div class="bloc-reglage">
+        <h3>Contenu et ordre des diapositives</h3>
+        <p>Décochez ce que vous ne voulez pas, déplacez les blocs avec ▲ et ▼.</p>
+        <div id="pptx-sections" class="bl-liste"></div>
+      </div>
+      <div class="bloc-reglage">
         <label class="impr-radio"><input type="checkbox" id="pptx-taches" checked>
           Détailler les tâches sous chaque action</label>
       </div>
@@ -4142,13 +4147,23 @@ function brancherNotes(p){
 const BLOCS_IMPR=[
   ["synthese","Page de synthèse",
     [["identite","Identité"],["descriptif","Descriptif"],
-     ["planning","Planning"],["actions","Actions"]]],
+     ["planning","Planning"]]],
   ["detail","Actions MEO et tâches"],
   ["instances","Instances"],
   ["journal","Journal de bord"],
   ["sup","Pages additionnelles"]
 ];
 const ORDRE_DEFAUT=BLOCS_IMPR.map(b=>b[0]);
+
+/* Le diaporama a sa propre liste : ni instances, ni descriptif, ni pages
+   additionnelles, et les actions y sont réunies avec leurs tâches. */
+const BLOCS_PPTX=[
+  ["synthese","Diapositive de synthèse",
+    [["identite","Identité"],["planning","Planning"]]],
+  ["actions","Actions & tâches"],
+  ["journal","Journal de bord"]
+];
+const ORDRE_PPTX=BLOCS_PPTX.map(b=>b[0]);
 
 const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.45","Maximale"]];
 
@@ -4160,6 +4175,8 @@ const IMPR={
   lisible:true,          // corps du texte à 16 pt
   planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
   taches:true,           // détailler les tâches sous les actions (PDF et diaporama)
+  sectionsPptx:{synthese:true,identite:true,planning:true,actions:true,journal:true},
+  ordrePptx:ORDRE_PPTX.slice(),
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
   triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
@@ -4182,6 +4199,10 @@ function chargerOptionsImpr(){
     if(o.lisible!==undefined) IMPR.lisible=!!o.lisible;
     if(o.planningTaches!==undefined) IMPR.planningTaches=!!o.planningTaches;
     if(o.taches!==undefined) IMPR.taches=!!o.taches;
+    if(o.sectionsPptx) Object.assign(IMPR.sectionsPptx,o.sectionsPptx);
+    if(Array.isArray(o.ordrePptx))
+      IMPR.ordrePptx=ORDRE_PPTX.filter(k=>o.ordrePptx.includes(k))
+        .sort((a,b)=>o.ordrePptx.indexOf(a)-o.ordrePptx.indexOf(b));
     if(o.pieceJointe!==undefined) IMPR.pieceJointe=!!o.pieceJointe;
     if(o.portee) IMPR.portee=o.portee;
   }catch(e){}
@@ -4197,6 +4218,7 @@ function enregistrerOptionsImpr(){
   try{ localStorage.setItem("cp-impression",JSON.stringify(
     {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
      planningTaches:IMPR.planningTaches, taches:IMPR.taches,
+     sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx,
      pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
 }
 
@@ -4245,7 +4267,8 @@ function blocsRetenus(){
   return IMPR.ordre.filter(k=>{
     if(!IMPR.sections[k]) return false;
     if(k==="synthese")
-      return IMPR.sections.identite||IMPR.sections.planning||IMPR.sections.actions;
+      return IMPR.sections.identite||IMPR.sections.descriptif||
+             IMPR.sections.planning||IMPR.taches===false;
     if(k==="sup") return pagesSup.length>0;
     return true;
   });
@@ -4281,6 +4304,47 @@ function rendreBlocsImpr(){
   zone.querySelectorAll("[data-descendre]").forEach(b=>b.onclick=()=>deplacerBloc(b.dataset.descendre,1));
   zone.querySelectorAll("[data-sec]").forEach(cb=>cb.onchange=()=>{
     IMPR.sections[cb.dataset.sec]=cb.checked;
+  });
+}
+
+/* Liste des diapositives, sur le modèle de celle des pages du PDF mais avec
+   ses propres blocs et son propre ordre. */
+function rendreSectionsPptx(){
+  const zone=$("#pptx-sections");
+  if(!zone) return;
+  const ordre=IMPR.ordrePptx, n=ordre.length;
+  zone.innerHTML=ordre.map((cle,i)=>{
+    const def=BLOCS_PPTX.find(b=>b[0]===cle);
+    if(!def) return "";
+    const sous=def[2];
+    return '<div class="bl-ligne">'+
+      '<label class="bl-tete"><input type="checkbox" data-psec="'+cle+'"'+
+        (IMPR.sectionsPptx[cle]?" checked":"")+'> <span>'+esc(def[1])+'</span></label>'+
+      '<span class="bl-fleches">'+
+        '<button type="button" class="bl-f" data-pmonter="'+cle+'"'+(i===0?" disabled":"")+
+          ' title="Monter">▲</button>'+
+        '<button type="button" class="bl-f" data-pdescendre="'+cle+'"'+(i===n-1?" disabled":"")+
+          ' title="Descendre">▼</button>'+
+      '</span>'+
+      (sous?'<div class="bl-sous">'+sous.map(([sk,sl])=>
+        '<label><input type="checkbox" data-psec="'+sk+'"'+
+        (IMPR.sectionsPptx[sk]?" checked":"")+'> '+esc(sl)+'</label>').join("")+'</div>':'')+
+    '</div>';
+  }).join("");
+
+  const deplacer=(cle,sens)=>{
+    const i=IMPR.ordrePptx.indexOf(cle), j=i+sens;
+    if(i<0||j<0||j>=IMPR.ordrePptx.length) return;
+    const o=IMPR.ordrePptx;
+    [o[i],o[j]]=[o[j],o[i]];
+    rendreSectionsPptx();
+  };
+  zone.querySelectorAll("[data-pmonter]")
+    .forEach(b=>b.onclick=()=>deplacer(b.dataset.pmonter,-1));
+  zone.querySelectorAll("[data-pdescendre]")
+    .forEach(b=>b.onclick=()=>deplacer(b.dataset.pdescendre,1));
+  zone.querySelectorAll("[data-psec]").forEach(cb=>cb.onchange=()=>{
+    IMPR.sectionsPptx[cb.dataset.psec]=cb.checked;
   });
 }
 
@@ -5155,11 +5219,11 @@ function construireDoc(p){
         ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
         const xa=xg, wa=wg;
-        /* Sans les tâches, le tableau de la synthèse et celui de la section
-           détail ne se distinguent plus que par la colonne Commentaire. On
-           masque alors le premier, qui en est dépourvu. */
-        const doubleEmploi = IMPR.taches===false && IMPR.sections.detail;
-        if(IMPR.sections.actions && !doubleEmploi){
+        /* La liste des actions n'a plus de case à elle : elle découle du
+           réglage des tâches. Avec les tâches, les actions figurent déjà dans
+           le tableau « Actions & tâches » et la répéter ici n'apporterait rien ;
+           sans elles, la synthèse porte cette liste. */
+        if(IMPR.taches===false){
           const lgA=lignesActionsSynthese(p,acts,numeros);
           const colonnes=w=>[{cle:"num",titre:"#",w:26},
                              {cle:"action",titre:"Action",w:w-26-130-80-92},
@@ -5956,6 +6020,7 @@ function paquetOptions(){
           impr:{sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,
                 lisible:IMPR.lisible,planningTaches:IMPR.planningTaches,
                 taches:IMPR.taches,
+                sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx,
                 pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
           pages:S.pagesParProjet||{}};
 }
@@ -6714,8 +6779,8 @@ function odpSynthese(d,p,titreCartouche){
   /* Identité en bandeau horizontal, planning sur toute la largeur en dessous :
      le descriptif reste au PDF, trop long pour une diapositive. */
   const xi=0.7, wi=ODP_W-2*xi;
-  if(IMPR.sections.identite) y=odpIdentite(pg,p,xi,y,wi);
-  if(IMPR.sections.planning){
+  if(IMPR.sectionsPptx.identite) y=odpIdentite(pg,p,xi,y,wi);
+  if(IMPR.sectionsPptx.planning){
     const r=odpPlanning(pg,p,acts,xi,y,wi,bas-y);
     return {pg,reste:r.reste};
   }
@@ -6919,23 +6984,12 @@ async function genererODP(mode){
       if(!p){ toast("Sélectionnez d'abord un projet.",true); return; }
       const titre=lire(c.tblMain,p,c.colLibelle)||"Projet";
       odpGarde(d,titre,p);
-      /* un seul tableau pour les actions et leurs tâches : il est produit
-         dès que l'une des deux sections correspondantes est retenue */
-      let tableauFait=false;
-      const actionsTaches=()=>{
-        if(tableauFait) return;
-        tableauFait=true;
-        odpActionsTaches(d,p);
-      };
+      const sec=IMPR.sectionsPptx;
       const f={ synthese:()=>{ const r=odpSynthese(d,p);
-                               if(r.reste) odpPlanningSuite(d,p,r.reste,null);
-                               if(IMPR.sections.actions) actionsTaches(); },
-                detail:actionsTaches,
+                               if(r.reste) odpPlanningSuite(d,p,r.reste,null); },
+                actions:()=>odpActionsTaches(d,p),
                 journal:()=>odpJournal(d,p) };
-      IMPR.ordre.forEach(cle=>{
-        if(!IMPR.sections[cle]||cle==="sup") return;
-        if(f[cle]) f[cle]();
-      });
+      IMPR.ordrePptx.forEach(cle=>{ if(sec[cle] && f[cle]) f[cle](); });
       await odpEcrire(d,titre.replace(/[\\/:*?"<>|]/g,"-").slice(0,80)+".odp");
       toast("Diaporama Impress exporté");
     }
@@ -7507,7 +7561,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-aa — PDF sans numérotation";
+const VERSION="2026-09-07-ac — liste d’actions déduite du réglage des tâches";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7532,6 +7586,10 @@ async function demarrer(){
       if(o.impr.lisible!==undefined) IMPR.lisible=!!o.impr.lisible;
       if(o.impr.planningTaches!==undefined) IMPR.planningTaches=!!o.impr.planningTaches;
       if(o.impr.taches!==undefined) IMPR.taches=!!o.impr.taches;
+      if(o.impr.sectionsPptx) Object.assign(IMPR.sectionsPptx,o.impr.sectionsPptx);
+      if(Array.isArray(o.impr.ordrePptx))
+        IMPR.ordrePptx=ORDRE_PPTX.filter(k=>o.impr.ordrePptx.includes(k))
+          .sort((a,b)=>o.impr.ordrePptx.indexOf(a)-o.impr.ordrePptx.indexOf(b));
       if(o.impr.pieceJointe!==undefined) IMPR.pieceJointe=!!o.impr.pieceJointe;
       if(o.impr.portee) IMPR.portee=o.impr.portee;
     }
@@ -7628,6 +7686,7 @@ function majFormulairePptx(){
   const portefeuille = mode && mode.value==="portefeuille";
   $("#pptx-bloc-prio").hidden=!portefeuille;
   $("#pptx-bloc-tri").hidden=!portefeuille;
+  rendreSectionsPptx();
   const ct0=$("#pptx-taches");
   if(ct0) ct0.checked=IMPR.taches!==false;
   if(!portefeuille) return;

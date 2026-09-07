@@ -934,6 +934,9 @@ tbody tr.ligne-com:hover{background:transparent;}
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="projet-filtre">
           Dossier du projet sélectionné, restreint aux actions retenues par les
           filtres en cours</label>
+        <label class="impr-radio"><input type="radio" name="pptx-mode" value="revue-actions">
+          Revue détaillée du projet sélectionné — une diapositive par action,
+          avec son planning et ses tâches</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="portefeuille">
           Revue de portefeuille — un tableau d'ensemble, puis une
           diapositive de synthèse par projet</label>
@@ -952,6 +955,13 @@ tbody tr.ligne-com:hover{background:transparent;}
         <p>La revue porte sur l'ensemble des projets. Décochez une priorité
            pour l'écarter.</p>
         <div id="pptx-prio" class="impr-cases"></div>
+      </div>
+      <div class="bloc-reglage" id="pptx-bloc-act" hidden>
+        <h3>Actions retenues</h3>
+        <p>Décochez un porteur ou une tranche d'avancement pour écarter les
+           actions correspondantes.</p>
+        <div id="pptx-porteurs" class="impr-cases"></div>
+        <div id="pptx-avct" class="impr-cases" style="margin-top:7px"></div>
       </div>
       <div class="bloc-reglage" id="pptx-bloc-grp" hidden>
         <h3>Groupements retenus</h3>
@@ -4197,6 +4207,7 @@ const IMPR={
   ordrePptx:ORDRE_PPTX.slice(),
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
   groupementsPptx:null,  // groupements retenus, null = tous
+  porteursRevue:null, avctRevue:null,   // filtres de la revue détaillée
   echDuPptx:"", echAuPptx:"",   // intervalle d'échéance de la revue
   triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
@@ -6992,6 +7003,183 @@ function odpEnsemble(d,liste){
     }));
 }
 
+
+/* =======================================================================
+   Revue détaillée d'un projet : une diapositive par action
+   =======================================================================
+   Même principe que la revue de portefeuille, appliqué aux actions d'un seul
+   projet. Chaque action reçoit sa page : identité, planning de ses tâches et
+   tableau de celles-ci. Au-delà de dix tâches le planning s'efface et l'on
+   s'en tient au tableau, qui reste lisible quel que soit le volume. */
+
+const ODP_TRANCHES=[["afaire","À engager"],["debut","1 à 49 %"],
+                    ["avance","50 à 99 %"],["termine","Terminé"],
+                    ["interrompu","Interrompu"]];
+
+function trancheAvct(av,inter){
+  if(inter) return "interrompu";
+  if(av==null||av===0) return "afaire";
+  if(av>=100) return "termine";
+  if(av>=50) return "avance";
+  return "debut";
+}
+
+/* actions retenues pour la revue détaillée, filtres de la fenêtre appliqués */
+function actionsRevue(p){
+  const c=S.cfg;
+  const selP=IMPR.porteursRevue, selA=IMPR.avctRevue;
+  return actionsDe(p).filter(a=>{
+    if(selP){
+      const v=txt(lire(c.tblMain,a,c.colPorteur)).trim();
+      if(v && !selP.includes(v)) return false;
+    }
+    if(selA){
+      const t=trancheAvct(pct(a[c.colAvancement]),interrompu(a));
+      if(!selA.includes(t)) return false;
+    }
+    return true;
+  });
+}
+
+/* Diapositive d'une action : identité en bandeau, planning de ses tâches,
+   puis le tableau de celles-ci. */
+function odpActionDiapo(d,a,numero){
+  const c=S.cfg;
+  const pg=odpPage(d,"entete");
+  const z=odpZone("entete"), bas=z.y+z.h;
+  const lib=lire(c.tblMain,a,c.colLibelle)||"(sans libellé)";
+  let y=odpTitre(pg,null,numero+". "+lib,0.7);
+
+  const av=pct(a[c.colAvancement]), inter=interrompu(a);
+  const b=bandesImpr(av,inter);
+  const x=0.7, w=ODP_W-2*x;
+
+  /* anneau d'avancement */
+  const r=1.25, ep=0.42;
+  pg.donut(x+r,y+0.1+r,r,ep,av,b.fill);
+  pg.texte(x-0.2,y+0.1,r*2+0.4,r*2,av==null?"—":av+" %",
+    {taille:ODP_T.avct,gras:true,couleur:"#1a1a1a",align:"center",
+     valign:"middle",pad:0});
+
+  /* badges : responsabilité à gauche, calendrier à droite */
+  const colonnes=[
+    [["Porteur",lire(c.tblMain,a,c.colPorteur),null],
+     ["Statut",null,txt(lire(c.tblMain,a,c.colStatut)).trim()]],
+    [["Début",dateVersFR(a[c.colDebut]),null],
+     ["Échéance",dateVersFR(a[c.colEch]),null],
+     ["Fin",dateVersFR(a[c.colFin]),null]]
+  ];
+  const xb=x+r*2+0.6, gap=0.3;
+  const wc=Math.min(7.2,(x+w-xb-gap)/2);
+  let basB=y;
+  colonnes.forEach((col,k)=>{
+    const cx=xb+k*(wc+gap);
+    const lc=Math.min(wc*0.5,
+      col.filter(e=>e[1]||e[2]).reduce((m,e)=>Math.max(m,e[0].length*0.29+0.5),2.2));
+    let cy=y+0.1;
+    col.forEach(([cle,valeur,pastille])=>{
+      if(!valeur && !pastille) return;
+      const nb=pastille?1:odpLignes(valeur,wc-0.5-lc,ODP_T.badge,true);
+      const h=nb*odpHautLigne(ODP_T.badge)+0.3;
+      pg.rect(cx,cy,wc,h,{fond:"#eef2f8",rayon:0.12});
+      pg.texte(cx+0.2,cy,lc,h,cle,
+        {taille:ODP_T.badge,couleur:"#5f5e5a",valign:"middle",pad:0});
+      if(pastille){
+        const pc=pastillePleineCouleurs(pastille);
+        const hp=odpHautLigne(ODP_T.badge)+0.14;
+        pg.pastille(cx+0.2+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
+      }else{
+        pg.texte(cx+0.2+lc,cy,wc-0.4-lc,h,valeur,
+          {taille:ODP_T.badge,gras:true,couleur:"#1a1a1a",valign:"middle",pad:0});
+      }
+      cy+=h+0.13;
+    });
+    basB=Math.max(basB,cy);
+  });
+
+  /* commentaire de l'action, à droite des badges s'il y a la place */
+  const com=lire(c.tblMain,a,c.colCommentaire);
+  const xc=xb+2*(wc+gap), wcom=x+w-xc;
+  if(com && wcom>4){
+    const nb=Math.min(5,odpLignes(com,wcom-0.5,ODP_T.corps));
+    const h=nb*odpHautLigne(ODP_T.corps)+0.3;
+    pg.rect(xc,y+0.1,0.08,h,{fond:"#002395"});
+    pg.texte(xc+0.28,y+0.1,wcom-0.28,h,com,{taille:ODP_T.corps,couleur:"#1a1a1a"});
+    basB=Math.max(basB,y+0.1+h+0.13);
+  }
+  y=Math.max(basB,y+0.1+r*2)+0.45;
+
+  /* planning de l'action et de ses tâches, tant qu'elles restent peu nombreuses */
+  const taches=tachesDe(a);
+  if(taches.length && taches.length<=10){
+    const rangs=[];
+    const bo=r2=>({d:Number(r2[c.colDebut])||null,f:Number(r2[c.colFin]||r2[c.colEch])||null});
+    const bt=t=>({d:Number(t[c.colTacheDebut])||null,f:Number(t[c.colTacheFin])||null});
+    const ba=bo(a);
+    if(ba.d||ba.f) rangs.push({lib:lib,niv:0,d:ba.d,f:ba.f,av,inter});
+    taches.forEach(t=>{
+      const q=bt(t);
+      if(!q.d && !q.f) return;
+      rangs.push({lib:lire(c.tblTache,t,c.colTacheLibelle),niv:1,d:q.d,f:q.f,
+        av:pct(t[c.colTacheAvancement]),
+        inter:statutInterrompu(c.tblTache,t,c.colTacheStatut)});
+    });
+    if(rangs.length>1){
+      const hMax=Math.min(6.5,(bas-y)*0.55);
+      const res=odpPlanning(pg,a,[],x,y,w,hMax,rangs);
+      if(res.trace) y=Math.min(bas-2.2,y+hMax);
+    }
+  }
+
+  /* tableau des tâches, sur ce qui reste de la diapositive */
+  if(taches.length){
+    const cols=[{t:"Tâche",w:w*0.40},{t:"Avancement",w:w*0.14},
+                {t:"Commentaire",w:w*0.46}];
+    const lg=taches.map(t=>{
+      const at=pct(t[c.colTacheAvancement]);
+      const it=statutInterrompu(c.tblTache,t,c.colTacheStatut);
+      const bt2=bandesImpr(at,it);
+      return [cel(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)"),
+              cel(at==null?"—":at+" %",
+                {align:"center",couleur:couleurLisible(bt2.txt)},bt2.pale),
+              cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"")];
+    });
+    const hs=odpHauteurs(cols,lg);
+    const hEnt=odpHautLigne(ODP_T.corps)*2+0.34;
+    let i=0, dispo=bas-y-hEnt-0.4, cumul=0, n=0;
+    while(n<lg.length && cumul+hs[n]<=dispo){ cumul+=hs[n]; n++; }
+    if(!n) n=1;
+    pg.tableau(x,y,w,cols,lg.slice(0,n),hs.slice(0,n),hEnt);
+    /* le reliquat part sur des pages de continuation, sans en-tête de bandeau */
+    i=n;
+    while(i<lg.length){
+      const pg2=odpPage(d,"pied");
+      const z2=odpZone("pied");
+      const y2=odpTitre(pg2,null,null,z2.x);
+      let d2=z2.y+z2.h-y2-hEnt-0.6, c2=0, n2=0;
+      while(i+n2<lg.length && c2+hs[i+n2]<=d2){ c2+=hs[i+n2]; n2++; }
+      if(!n2) n2=1;
+      pg2.tableau(z2.x,y2,z2.w,cols,lg.slice(i,i+n2),hs.slice(i,i+n2),hEnt);
+      i+=n2;
+    }
+  }
+  return pg;
+}
+
+/* Commentaire global du projet, sur sa propre diapositive. */
+function odpCommentaireProjet(d,p){
+  const c=S.cfg;
+  const com=lire(c.tblMain,p,c.colCommentaire);
+  if(!com) return null;
+  const pg=odpPage(d,"pied");
+  const z=odpZone("pied");
+  const y=odpTitre(pg,"Commentaire",null,z.x);
+  const h=z.y+z.h-y-0.3;
+  pg.rect(z.x,y,0.09,h,{fond:"#002395"});
+  pg.texte(z.x+0.32,y,z.w-0.32,h,com,{taille:ODP_T.corps,couleur:"#1a1a1a"});
+  return pg;
+}
+
 /* --- point d'entrée ------------------------------------------------------ */
 async function genererODP(mode){
   if(!window.JSZip){
@@ -7039,6 +7227,21 @@ async function genererODP(mode){
         new Date().toISOString().slice(0,10)+".odp");
       toast(liste.length+" projet"+(liste.length>1?"s":"")+" exporté"+
             (liste.length>1?"s":""));
+    }else if(mode==="revue-actions"){
+      const p=S.projetSel;
+      if(!p){ toast("Sélectionnez d'abord un projet.",true); return; }
+      const titre=lire(c.tblMain,p,c.colLibelle)||"Projet";
+      const acts=actionsRevue(p);
+      if(!acts.length){ toast("Aucune action ne correspond aux filtres.",true); return; }
+      odpGarde(d,titre,p);
+      const r=odpSynthese(d,p,titre);
+      if(r.reste) odpPlanningSuite(d,p,r.reste,titre);
+      acts.forEach((a,i)=>odpActionDiapo(d,a,i+1));
+      odpCommentaireProjet(d,p);
+      if(IMPR.sectionsPptx.journal) odpJournal(d,p);
+      await odpEcrire(d,"Revue — "+titre.replace(/[\\/:*?"<>|]/g,"-").slice(0,70)+".odp");
+      toast(acts.length+" action"+(acts.length>1?"s":"")+" détaillée"+
+            (acts.length>1?"s":""));
     }else{
       const p=S.projetSel;
       if(!p){ toast("Sélectionnez d'abord un projet.",true); return; }
@@ -7622,7 +7825,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-am — bouton PDF piloté par les réglages";
+const VERSION="2026-09-07-an — revue détaillée par action";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7758,9 +7961,29 @@ function prioritesPortefeuille(){
   return vues.sort((a,b)=>a.localeCompare(b,"fr"));
 }
 
+/* Porteurs et tranches d'avancement présents parmi les actions du projet. */
+function remplirFiltresRevue(){
+  const c=S.cfg, p=S.projetSel;
+  const acts=p?actionsDe(p):[];
+  const porteurs=[...new Set(acts.map(a=>txt(lire(c.tblMain,a,c.colPorteur)).trim())
+    .filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+  const selP=IMPR.porteursRevue;
+  $("#pptx-porteurs").innerHTML = porteurs.length
+    ? porteurs.map(v=>'<label class="impr-radio"><input type="checkbox" data-porteur="'+
+        esc(v)+'"'+((!selP||selP.includes(v))?" checked":"")+'> '+esc(v)+'</label>').join("")
+    : '<p style="color:var(--gris);font-size:11.5px;margin:0">Aucun porteur renseigné.</p>';
+  const selA=IMPR.avctRevue;
+  $("#pptx-avct").innerHTML = ODP_TRANCHES.map(([k,l])=>
+    '<label class="impr-radio"><input type="checkbox" data-avct="'+k+'"'+
+    ((!selA||selA.includes(k))?" checked":"")+'> '+esc(l)+'</label>').join("");
+}
+
 function majFormulairePptx(){
   const mode=document.querySelector('input[name=pptx-mode]:checked');
   const portefeuille = mode && mode.value==="portefeuille";
+  const revue = mode && mode.value==="revue-actions";
+  $("#pptx-bloc-act").hidden=!revue;
+  if(revue) remplirFiltresRevue();
   $("#pptx-bloc-prio").hidden=!portefeuille;
   $("#pptx-bloc-grp").hidden=!portefeuille;
   $("#pptx-bloc-ech").hidden=!portefeuille;
@@ -7810,6 +8033,7 @@ $("#pptx-raz").onclick=()=>{
   IMPR.prioritesPptx=null;
   IMPR.groupementsPptx=null;
   IMPR.echDuPptx=""; IMPR.echAuPptx="";
+  IMPR.porteursRevue=null; IMPR.avctRevue=null;
   IMPR.triPptx=[];
   const m=document.querySelector('input[name=pptx-mode][value=projet]');
   if(m) m.checked=true;
@@ -7824,6 +8048,14 @@ $("#pptx-ok").onclick=async()=>{
     : null;
   IMPR.triPptx=[...document.querySelectorAll("[data-tri]")]
     .filter(el=>el.checked).map(el=>el.dataset.tri);
+  const casesPo=[...document.querySelectorAll("[data-porteur]")];
+  IMPR.porteursRevue = casesPo.length
+    ? casesPo.filter(c2=>c2.checked).map(c2=>c2.dataset.porteur)
+    : null;
+  const casesAv=[...document.querySelectorAll("[data-avct]")];
+  IMPR.avctRevue = casesAv.length
+    ? casesAv.filter(c2=>c2.checked).map(c2=>c2.dataset.avct)
+    : null;
   const casesG=[...document.querySelectorAll("[data-grp]")];
   IMPR.groupementsPptx = casesG.length
     ? casesG.filter(c2=>c2.checked).map(c2=>c2.dataset.grp)

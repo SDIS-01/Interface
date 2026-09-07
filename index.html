@@ -6781,11 +6781,11 @@ function odpActionsTaches(d,p){
     const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
     lg.push([
       cel(i+1,{align:"center",gras:true,couleur:ACTION}),
-      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",{gras:true,couleur:ACTION}),
+      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",{couleur:ACTION}),
       cel(lire(c.tblMain,a,c.colPorteur),{couleur:ACTION}),
       cel(dateVersFR(a[c.colEch]||a[c.colFin]),{align:"center",couleur:ACTION}),
       cel(av==null?"—":av+" %",
-        {align:"center",gras:true,couleur:couleurLisible(b.txt)},b.pale),
+        {align:"center",couleur:couleurLisible(b.txt)},b.pale),
       cel(lire(c.tblMain,a,c.colCommentaire),{couleur:ACTION})]);
     if(avecT) tachesDe(a).forEach(t=>lg.push(tache(t)));
   });
@@ -7476,7 +7476,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-u — tâches optionnelles, actions en noir";
+const VERSION="2026-09-07-w — gras réservé au numéro d’action";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

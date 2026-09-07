@@ -4442,6 +4442,9 @@ function pastillePleineCouleurs(v){
   if(t.startsWith("p3"))       return {fond:"#FFCC00",coul:"#4d3d00"};
   if(/interromp/.test(t))      return {fond:"#595959",coul:"#ffffff"};
   if(/termin/.test(t))         return {fond:"#9BBB59",coul:"#ffffff"};
+  /* « À engager » reprend le rouge de la légende du planning, celui qui
+     signale un avancement nul */
+  if(/engager|à faire|a faire/.test(t)) return {fond:"#C0504D",coul:"#ffffff"};
   if(/poursuite/.test(t))      return {fond:"#8064A2",coul:"#ffffff"};
   return {fond:"#002395",coul:"#ffffff"};
 }
@@ -6195,9 +6198,9 @@ function odpLignes(t,largeurCm,taille,gras){
 function odpHautLigne(taille){ return (taille||ODP_T.corps)*0.0385; }
 /* Coupe un libellé à ce qui tient sur une ligne. Le planning du PDF fait de
    même : un rang, une ligne, sinon les barres et les textes se chevauchent. */
-function odpCoupe(t,largeurCm,taille){
+function odpCoupe(t,largeurCm,taille,gras){
   const s=String(t==null?"":t);
-  const max=Math.max(6,Math.floor(largeurCm*3.0*16/(taille||ODP_T.corps)));
+  const max=Math.max(6,Math.floor(largeurCm*3.0*16/(taille||ODP_T.corps)/(gras?1.10:1)));
   return s.length<=max ? s : s.slice(0,max-1).trimEnd()+"…";
 }
 const ODP_BANDEAU={x:0.2,y:0.049,w:27.738,h:3.051};
@@ -6546,24 +6549,33 @@ function odpGarde(d,titre,projet){
 function odpEntete(pg,titreProjet){
   /* Le cartouche n'apparaît que s'il a quelque chose à dire, et seulement sur
      une page qui porte le bandeau : dans un dossier de projet, répéter le même
-     titre sur chaque diapositive n'apporte rien. */
-  if(!titreProjet || pg.habillage!=="entete") return;
+     titre sur chaque diapositive n'apporte rien.
+     Sa hauteur suit le texte : un libellé long débordait du cadre blanc. */
+  if(!titreProjet || pg.habillage!=="entete") return 0;
   const hb=ODP_BANDEAU.y+ODP_BANDEAU.h;
-  const x=ODP_W*0.205, w=ODP_W*0.986-x, h=1.5, y=hb/2-h/2;
+  const x=ODP_W*0.205, w=ODP_W*0.986-x;
+  const t=odpCoupe(titreProjet,(w-0.7)*4,ODP_T.titre);   // quatre lignes au plus
+  const nb=odpLignes(t,w-0.7,ODP_T.titre,true);
+  const h=Math.max(1.5,nb*odpHautLigne(ODP_T.titre)+0.45);
+  const y=Math.max(0.12,hb/2-h/2);
   pg.rect(x,y,w,h,{fond:"#ffffff",rayon:0.12});
-  pg.texte(x,y,w,h,titreProjet,
-    {taille:ODP_T.titre,gras:true,couleur:"#002395",align:"center",valign:"middle",pad:0});
+  pg.texte(x+0.35,y,w-0.7,h,t,
+    {taille:ODP_T.titre,gras:true,couleur:"#002395",align:"center",
+     valign:"middle",pad:0});
+  return y+h;                                            // bas du cartouche
 }
 
 /* Titre de section, sous le bandeau : bleu, gras, aligné à gauche. */
 function odpTitre(pg,titre,titreProjet,xGauche){
   const z=odpZone(pg.habillage);
-  odpEntete(pg,titreProjet);
-  if(!titre) return z.y;                     // page sans titre : on part du haut
+  const basCartouche=odpEntete(pg,titreProjet);
+  /* si le cartouche a grandi au-delà du bandeau, le contenu descend d'autant */
+  const y0=Math.max(z.y,(basCartouche||0)+0.3);
+  if(!titre) return y0;                      // page sans titre : on part du haut
   const x=xGauche==null?z.x:xGauche;
-  pg.texte(x,z.y,z.w,0.6,titre,
+  pg.texte(x,y0,z.w,0.6,titre,
     {taille:ODP_T.section,gras:true,couleur:"#002395",valign:"middle"});
-  return z.y+0.7;
+  return y0+0.7;
 }
 
 function odpJauge(pg,x,y,w,h,v,inter){
@@ -6748,7 +6760,8 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
      longs en prennent deux. Une hauteur uniforme calée sur le plus long faisait
      perdre quatre rangs par diapositive. */
   const hUne=odpHautLigne(ODP_T.corps);
-  const hRang=r=>Math.min(2,odpLignes(r.lib||"",lwMax-r.niv*0.35,ODP_T.corps))
+  /* le rang de tête est en gras, donc plus large : on en tient compte */
+  const hRang=r=>Math.min(2,odpLignes(r.lib||"",lwMax-r.niv*0.35,ODP_T.corps,!r.niv))
                  *hUne+0.24;
   /* on remplit jusqu'à la hauteur disponible, le reliquat passe à la suite */
   const dispo=hMax-1.6;
@@ -6765,7 +6778,7 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
     const dec=r.niv*0.35;
     const lw=lwMax-dec;
     pg.texte(x+dec,y,lw,hl,
-      odpCoupe(r.lib||"(sans libellé)",lw*2,ODP_T.corps),
+      odpCoupe(r.lib||"(sans libellé)",lw*2,ODP_T.corps,!r.niv),
       {taille:ODP_T.corps,gras:!r.niv,
        couleur:r.niv>1?"#5f5e5a":(r.niv?"#1a1a1a":"#002395"),
        valign:"middle",pad:0});
@@ -6850,11 +6863,15 @@ function odpSynthese(d,p,titreCartouche){
    faut. Sollicité seulement quand la première page ne suffit pas. */
 function odpPlanningSuite(d,p,reste,titreCartouche){
   const acts=actionsODP(p);
+  /* Même géométrie que la synthèse : la marge standard, plus étroite,
+     resserrait l'échelle juste sous le seuil et faisait disparaître les
+     libellés de trimestre d'une page à l'autre. */
+  const x=0.7, w=ODP_W-2*x;
   while(reste && reste.length){
     const pg=odpPage(d,"pied");
     const z=odpZone("pied");
-    const y=odpTitre(pg,null,titreCartouche);
-    const r=odpPlanning(pg,p,acts,z.x,y,z.w,z.y+z.h-y,reste);
+    const y=odpTitre(pg,null,titreCartouche,x);
+    const r=odpPlanning(pg,p,acts,x,y,w,z.y+z.h-y,reste);
     if(!r.trace) break;
     reste=r.reste;
   }
@@ -7048,7 +7065,7 @@ function odpActionDiapo(d,a,numero){
   const pg=odpPage(d,"entete");
   const z=odpZone("entete"), bas=z.y+z.h;
   const lib=lire(c.tblMain,a,c.colLibelle)||"(sans libellé)";
-  let y=odpTitre(pg,null,numero+". "+lib,0.7);
+  let y=odpTitre(pg,null,lib,0.7);
 
   const av=pct(a[c.colAvancement]), inter=interrompu(a);
   const b=bandesImpr(av,inter);
@@ -7825,7 +7842,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-an — revue détaillée par action";
+const VERSION="2026-09-07-aq — statut « À engager » en rouge";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

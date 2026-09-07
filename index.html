@@ -61,6 +61,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   padding:4px 13px;display:inline-flex;align-items:center;gap:6px;}
 .btn-top.btn-impr svg{flex:0 0 auto;}
 .btn-top.btn-impr:hover{background:var(--bleu-clair);}
+/* display:inline-flex l'emporterait sur le masquage natif */
+.btn-top[hidden]{display:none!important;}
 /* les deux exports se distinguent par leur couleur : rouge pour le PDF,
    orange clair pour le diaporama */
 .btn-top.btn-pdf{background:#E30613;color:#fff;border-color:#E30613;}
@@ -837,7 +839,9 @@ tbody tr.ligne-com:hover{background:transparent;}
           title="Replier / déplier la liste des projets" aria-expanded="true">◀ Projets</button>
   <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
   <div class="spacer"></div>
-  <button class="btn-top btn-impr btn-pdf" id="btn-imprimer"
+  <!-- Bouton PDF masqué à la demande. Tout le code de génération reste en
+       place : retirer l'attribut hidden ci-dessous suffit à le réactiver. -->
+  <button class="btn-top btn-impr btn-pdf" id="btn-imprimer" hidden
           title="Générer le PDF de la fiche du projet sélectionné"><svg width="13" height="13" viewBox="0 0 24 24"
     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
     aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg> PDF</button>
@@ -7610,7 +7614,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-ai — PDF : planning insécable, commentaire aéré";
+const VERSION="2026-09-07-aj — bouton PDF masqué";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

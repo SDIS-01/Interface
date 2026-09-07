@@ -4740,7 +4740,7 @@ function commentaireIdentite(ctx,p,x,y,w){
       pAplat(pdf,x,y,3,hVoulue,PDFC.bleu,0);
       lignes.forEach((l,i)=>pTexte(pdf,x+11,y+9+fz(12)+i*fz(16),l,
         {taille:11,couleur:"#333333"}));
-      y+=hVoulue;
+      y+=hVoulue+12;          /* le titre suivant ne colle plus au cadre */
     }else{
       ctx.comReporte=com;
       if(y+fz(30)<ctx.yBas){
@@ -4749,7 +4749,7 @@ function commentaireIdentite(ctx,p,x,y,w){
         y+=fz(14)+4;
         pTexte(pdf,x,y+fz(9),"Voir la page suivante.",
           {taille:11,style:"italic",couleur:PDFC.gris});
-        y+=fz(14);
+        y+=fz(14)+12;
       }
     }
   }
@@ -4855,11 +4855,25 @@ function dessinerDescriptif(ctx,p,x,y,w){
 
 function dessinerGantt(ctx,p,acts,numeros,x,y,w){
   const pdf=ctx.pdf;
+  ctx.ganttPagine=false;
+  const datees=rangsGantt(p,acts,numeros);
+  const ins=reperesGantt(p);
+
+  /* Il faut de la place pour le titre, l'échelle et au moins deux rangs.
+     Sinon seul l'en-tête s'écrivait en bas de page et tout le planning
+     repartait sur la suivante, sous un « Planning (suite) » orphelin. */
+  if(datees.length){
+    const mini=fz(14)+6 + fz(11)+5 + 2*fz(22)+10;
+    if(y+mini>ctx.yBas){
+      docPage(ctx);
+      x=MX; w=PW-2*MX; y=ctx.y;
+      ctx.ganttPagine=true;
+    }
+  }
+
   pTexte(pdf,x,y+fz(10),"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
   y+=fz(14)+6;
 
-  const datees=rangsGantt(p,acts,numeros);
-  const ins=reperesGantt(p);
   if(!datees.length){
     pTexte(pdf,x,y+fz(8),"Aucune date renseignée sur le projet, ses actions ou ses tâches.",
       {taille:11,couleur:PDFC.vide});
@@ -4921,7 +4935,6 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
     pdf.setLineWidth(0.6);
   };
 
-  ctx.ganttPagine=false;
   poser();
   y=enTete(y);
   yHaut=y;
@@ -6621,13 +6634,29 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
   if(!rangs){
     rangs=[];
     const bornes=r=>({d:Number(r[c.colDebut])||null,f:Number(r[c.colFin]||r[c.colEch])||null});
+    /* les tâches ont leurs propres colonnes de dates */
+    const bornesT=t=>({d:Number(t[c.colTacheDebut])||null,
+                       f:Number(t[c.colTacheFin])||null});
+    const avecT=!!IMPR.planningTaches && !!(c.tblTache && c.colTacheLien);
+    const pousserTaches=(porteur,niv)=>{
+      if(!avecT) return;
+      tachesDe(porteur).forEach(t=>{
+        const b=bornesT(t);
+        if(!b.d && !b.f) return;
+        rangs.push({lib:lire(c.tblTache,t,c.colTacheLibelle),niv,d:b.d,f:b.f,
+          av:pct(t[c.colTacheAvancement]),
+          inter:statutInterrompu(c.tblTache,t,c.colTacheStatut)});
+      });
+    };
     const bp=bornes(p);
     if(bp.d||bp.f) rangs.push({lib:lire(c.tblMain,p,c.colLibelle),niv:0,d:bp.d,f:bp.f,
       av:pct(p[c.colAvancement]),inter:interrompu(p)});
+    pousserTaches(p,1);
     acts.forEach((a,i)=>{
       const b=bornes(a);
       if(b.d||b.f) rangs.push({lib:(i+1)+". "+lire(c.tblMain,a,c.colLibelle),niv:1,
         d:b.d,f:b.f,av:pct(a[c.colAvancement]),inter:interrompu(a)});
+      pousserTaches(a,2);
     });
   }
   if(!rangs.length) return {reste:null,trace:false};
@@ -6697,7 +6726,7 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
      longs en prennent deux. Une hauteur uniforme calée sur le plus long faisait
      perdre quatre rangs par diapositive. */
   const hUne=odpHautLigne(ODP_T.corps);
-  const hRang=r=>Math.min(2,odpLignes(r.lib||"",lwMax-(r.niv?0.35:0),ODP_T.corps))
+  const hRang=r=>Math.min(2,odpLignes(r.lib||"",lwMax-r.niv*0.35,ODP_T.corps))
                  *hUne+0.24;
   /* on remplit jusqu'à la hauteur disponible, le reliquat passe à la suite */
   const dispo=hMax-1.6;
@@ -6711,10 +6740,12 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
   rangs.forEach(r=>{
     const hl=hRang(r);
     const hb=Math.min(0.38,hUne*0.55);
-    const lw=lwMax-(r.niv?0.35:0);
-    pg.texte(x+(r.niv?0.35:0),y,lw,hl,
+    const dec=r.niv*0.35;
+    const lw=lwMax-dec;
+    pg.texte(x+dec,y,lw,hl,
       odpCoupe(r.lib||"(sans libellé)",lw*2,ODP_T.corps),
-      {taille:ODP_T.corps,gras:!r.niv,couleur:r.niv?"#1a1a1a":"#002395",
+      {taille:ODP_T.corps,gras:!r.niv,
+       couleur:r.niv>1?"#5f5e5a":(r.niv?"#1a1a1a":"#002395"),
        valign:"middle",pad:0});
     const g=pos(r.d||r.f), lb=Math.max(0.15,Math.min(wp-g,pos(r.f||r.d)-g));
     const yb=y+(hl-hb)/2;
@@ -7579,7 +7610,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-ag — tableaux du diaporama allégés";
+const VERSION="2026-09-07-ai — PDF : planning insécable, commentaire aéré";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

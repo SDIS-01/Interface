@@ -6629,6 +6629,14 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
 }
 
 /* --- diapositive de synthèse -------------------------------------------- */
+/* Teintes de fond trop claires pour être lues en texte sur blanc : on leur
+   substitue la nuance sombre déjà employée par les tableaux d'avancement. */
+const ODP_LISIBLE={"#FFCC00":"#8C6D00","#9BBB59":"#5E7A34","#F79646":"#B35D15"};
+function couleurLisible(c){
+  const v=String(c||"").toUpperCase();
+  return ODP_LISIBLE[v]||c;
+}
+
 /* Tri de la revue de portefeuille : les critères cochés s'appliquent dans
    l'ordre où ils apparaissent dans la fenêtre, le premier regroupant et les
    suivants départageant. Sans critère, l'ordre alphabétique d'origine est
@@ -6821,9 +6829,11 @@ function odpEnsemble(d,liste){
       return [cel(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)"),
               cel(lire(c.tblMain,p,c.colGroupement)),
               cel(lire(c.tblMain,p,c.colPorteur)),
+              /* la priorité s'écrit dans sa couleur : remplir la cellule
+                 attirait l'œil bien plus que l'information ne le mérite */
               cel(prio||"—",
-                {align:"center",gras:!!prio,couleur:pc?pc.coul:"#5f5e5a"},
-                pc?pc.fond:undefined),
+                {align:"center",gras:!!prio,
+                 couleur:pc?couleurLisible(pc.fond):"#5f5e5a"}),
               cel(dateVersFR(p[c.colEch]||p[c.colFin]),{align:"center"}),
               cel(av==null?"—":av+" %",
                 {align:"center",gras:true,couleur:b.txt},b.pale)];
@@ -7450,7 +7460,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-r — revue triée, priorité en colonne";
+const VERSION="2026-09-07-s — priorité en couleur de texte";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

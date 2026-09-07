@@ -935,6 +935,10 @@ tbody tr.ligne-com:hover{background:transparent;}
           Revue de portefeuille — un tableau d'ensemble, puis une
           diapositive de synthèse par projet</label>
       </div>
+      <div class="bloc-reglage">
+        <label class="impr-radio"><input type="checkbox" id="pptx-taches" checked>
+          Détailler les tâches sous chaque action</label>
+      </div>
       <div class="bloc-reglage" id="pptx-bloc-prio" hidden>
         <h3>Priorités retenues</h3>
         <p>La revue porte sur l'ensemble des projets. Décochez une priorité
@@ -4152,6 +4156,7 @@ const IMPR={
   zoom:1,
   lisible:true,          // corps du texte à 16 pt
   planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
+  tachesPptx:true,       // le diaporama détaille ou non les tâches
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
   triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
@@ -6746,47 +6751,50 @@ function cel(t,o,fond){
   return {t:t==null?"":String(t),o,fond};
 }
 
-function odpActions(d,p){
-  const c=S.cfg, z=odpZone("pied"), acts=actionsODP(p);
-  if(!acts.length) return null;
-  return odpTableau(d,"Actions",lire(c.tblMain,p,c.colLibelle),
-    [{t:"#",w:z.w*0.05},{t:"Action",w:z.w*0.44},{t:"Porteur",w:z.w*0.20},
-     {t:"Échéance",w:z.w*0.16},{t:"Avancement",w:z.w*0.15}],
-    acts.map((a,i)=>{
-      const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
-      return [cel(i+1,{align:"center",couleur:"#5f5e5a"}),
-              cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)"),
-              cel(lire(c.tblMain,a,c.colPorteur)),
-              cel(dateVersFR(a[c.colEch]||a[c.colFin]),{align:"center"}),
-              cel(av==null?"—":av+" %",
-                {align:"center",gras:true,couleur:b.txt},b.pale)];
-    }));
-}
-
-function odpDetail(d,p){
+/* Actions et tâches réunies sur une seule diapositive : deux tableaux séparés
+   répétaient les mêmes libellés d'action pour peu de chose. Les actions sont en
+   bleu France et gardent leur numéro dans la colonne « # » ; les tâches sont en
+   retrait, en gris, sans numéro. */
+function odpActionsTaches(d,p){
   const c=S.cfg, z=odpZone("pied"), lg=[];
-  const tache=t=>[
-    cel("    "+lire(c.tblTache,t,c.colTacheLibelle),{couleur:"#5f5e5a"}),
-    cel(""),
-    cel(pct(t[c.colTacheAvancement])==null?"—":pct(t[c.colTacheAvancement])+" %",
-      {align:"center"},bandesImpr(pct(t[c.colTacheAvancement]),false).pale),
-    cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
-      {couleur:"#5f5e5a"})];
-  tachesDe(p).forEach(t=>lg.push(tache(t)));
+  const ACTION="#1a1a1a", TACHE="#5f5e5a";
+
+  const tache=t=>{
+    const av=pct(t[c.colTacheAvancement]);
+    const it=statutInterrompu(c.tblTache,t,c.colTacheStatut);
+    const b=bandesImpr(av,it);
+    return [cel(""),
+            cel("    "+lire(c.tblTache,t,c.colTacheLibelle),{couleur:TACHE}),
+            cel(""),
+            cel(""),
+            cel(av==null?"—":av+" %",
+              {align:"center",couleur:couleurLisible(b.txt)},b.pale),
+            cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
+              {couleur:TACHE})];
+  };
+
+  /* les tâches ne figurent que si on les a demandées */
+  const avecT=IMPR.tachesPptx!==false;
+  if(avecT) tachesDe(p).forEach(t=>lg.push(tache(t)));
+
   actionsODP(p).forEach((a,i)=>{
     const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
-    lg.push([cel((i+1)+". "+lire(c.tblMain,a,c.colLibelle),{gras:true}),
-             cel(lire(c.tblMain,a,c.colPorteur)),
-             cel(av==null?"—":av+" %",
-               {align:"center",gras:true,couleur:b.txt},b.pale),
-             cel(lire(c.tblMain,a,c.colCommentaire))]);
-    tachesDe(a).forEach(t=>lg.push(tache(t)));
+    lg.push([
+      cel(i+1,{align:"center",gras:true,couleur:ACTION}),
+      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",{gras:true,couleur:ACTION}),
+      cel(lire(c.tblMain,a,c.colPorteur),{couleur:ACTION}),
+      cel(dateVersFR(a[c.colEch]||a[c.colFin]),{align:"center",couleur:ACTION}),
+      cel(av==null?"—":av+" %",
+        {align:"center",gras:true,couleur:couleurLisible(b.txt)},b.pale),
+      cel(lire(c.tblMain,a,c.colCommentaire),{couleur:ACTION})]);
+    if(avecT) tachesDe(a).forEach(t=>lg.push(tache(t)));
   });
-  return odpTableau(d,"Actions MEO et tâches",lire(c.tblMain,p,c.colLibelle),
-    [{t:"Action / Tâche",w:z.w*0.40},{t:"Responsable",w:z.w*0.18},
-     {t:"Avancement",w:z.w*0.14},{t:"Commentaire",w:z.w*0.28}],lg);
-}
 
+  return odpTableau(d,avecT?"Actions & tâches":"Actions",lire(c.tblMain,p,c.colLibelle),
+    [{t:"#",w:z.w*0.04},{t:avecT?"Action / Tâche":"Action",w:z.w*0.34},
+     {t:"Porteur",w:z.w*0.15},{t:"Échéance",w:z.w*0.12},
+     {t:"Avancement",w:z.w*0.13},{t:"Commentaire",w:z.w*0.22}],lg);
+}
 
 function odpJournal(d,p){
   const c=S.cfg, z=odpZone("pied"), lg=[];
@@ -6880,10 +6888,18 @@ async function genererODP(mode){
       if(!p){ toast("Sélectionnez d'abord un projet.",true); return; }
       const titre=lire(c.tblMain,p,c.colLibelle)||"Projet";
       odpGarde(d,titre,p);
+      /* un seul tableau pour les actions et leurs tâches : il est produit
+         dès que l'une des deux sections correspondantes est retenue */
+      let tableauFait=false;
+      const actionsTaches=()=>{
+        if(tableauFait) return;
+        tableauFait=true;
+        odpActionsTaches(d,p);
+      };
       const f={ synthese:()=>{ const r=odpSynthese(d,p);
                                if(r.reste) odpPlanningSuite(d,p,r.reste,null);
-                               if(IMPR.sections.actions) odpActions(d,p); },
-                detail:()=>odpDetail(d,p),
+                               if(IMPR.sections.actions) actionsTaches(); },
+                detail:actionsTaches,
                 journal:()=>odpJournal(d,p) };
       IMPR.ordre.forEach(cle=>{
         if(!IMPR.sections[cle]||cle==="sup") return;
@@ -7460,7 +7476,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-s — priorité en couleur de texte";
+const VERSION="2026-09-07-u — tâches optionnelles, actions en noir";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7580,6 +7596,8 @@ function majFormulairePptx(){
   const portefeuille = mode && mode.value==="portefeuille";
   $("#pptx-bloc-prio").hidden=!portefeuille;
   $("#pptx-bloc-tri").hidden=!portefeuille;
+  const ct0=$("#pptx-taches");
+  if(ct0) ct0.checked=IMPR.tachesPptx!==false;
   if(!portefeuille) return;
   const tri=IMPR.triPptx||[];
   document.querySelectorAll("[data-tri]")
@@ -7610,6 +7628,8 @@ $("#pptx-ok").onclick=async()=>{
     : null;
   IMPR.triPptx=[...document.querySelectorAll("[data-tri]")]
     .filter(el=>el.checked).map(el=>el.dataset.tri);
+  const ct=$("#pptx-taches");
+  IMPR.tachesPptx = ct ? ct.checked : true;
   $("#voile-pptx").classList.remove("ouvert");
   await genererODP(m?m.value:"projet");
 };

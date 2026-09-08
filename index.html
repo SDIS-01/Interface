@@ -63,6 +63,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .btn-top.btn-impr:hover{background:var(--bleu-clair);}
 /* display:inline-flex l'emporterait sur le masquage natif */
 .btn-top[hidden]{display:none!important;}
+.btn-top.btn-barre{text-decoration:none;display:inline-flex;align-items:center;
+  margin-right:8px;}
 /* les deux exports se distinguent par leur couleur : rouge pour le PDF,
    orange clair pour le diaporama */
 .btn-top.btn-pdf{background:#E30613;color:#fff;border-color:#E30613;}
@@ -839,6 +841,7 @@ tbody tr.ligne-com:hover{background:transparent;}
           title="Replier / déplier la liste des projets" aria-expanded="true">◀ Projets</button>
   <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
   <div class="spacer"></div>
+  <span id="btns-barre"></span>
   <!-- Visibilité pilotée par la case « Afficher le bouton PDF » des réglages. -->
   <button class="btn-top btn-impr btn-pdf" id="btn-imprimer" hidden
           title="Générer le PDF de la fiche du projet sélectionné"><svg width="13" height="13" viewBox="0 0 24 24"
@@ -1149,7 +1152,11 @@ const DEF = {
   colNoteDate:"Date", colNoteTexte:"Texte", colNoteStatut:"Statut",
   colNoteDestination:"Destination", colNoteLigne:"Ligne_creee", colNoteTraitee:"Traite_le",
   colNotePJ:"Piece_jointe",
-  btnLibelle:"", btnUrl:"", mdpHash:"", pdfVisible:false
+  btnLibelle:"", btnUrl:"", mdpHash:"", pdfVisible:false,
+  /* trois boutons libres de la barre supérieure */
+  barre1Libelle:"", barre1Url:"",
+  barre2Libelle:"", barre2Url:"",
+  barre3Libelle:"", barre3Url:""
 };
 
 const CHAMPS_REGLAGES = [
@@ -6049,7 +6056,19 @@ function rendreReglages(){
       'display:flex;align-items:center;gap:7px;font-size:12px">'+
       '<input type="checkbox" id="mdp-retirer"> Retirer le mot de passe</label></div>'+
   '</div></div>'+
-  '<div class="bloc-reglage"><h3>Bouton personnalisé</h3>'+
+  '<div class="bloc-reglage"><h3>Boutons de la barre supérieure</h3>'+
+  '<p>Trois raccourcis libres, à gauche du bouton Diaporama. Un bouton dont le '+
+  'nom ou l\'adresse est vide ne s\'affiche pas.</p>'+
+  [1,2,3].map(n=>'<div class="grille" style="margin-bottom:7px">'+
+    '<div class="champ"><label>Nom du bouton '+n+'</label>'+
+    '<input type="text" data-cfg="barre'+n+'Libelle" value="'+
+      esc(c["barre"+n+"Libelle"])+'" placeholder="Ex. : Intranet"></div>'+
+    '<div class="champ"><label>Adresse (URL)</label>'+
+    '<input type="text" data-cfg="barre'+n+'Url" value="'+
+      esc(c["barre"+n+"Url"])+'" placeholder="https://…"></div>'+
+  '</div>').join("")+
+  '</div>'+
+  '<div class="bloc-reglage"><h3>Bouton personnalisé de la fiche</h3>'+
   '<p>Ce bouton s\'affiche en haut à droite de la fiche projet. Laissez vide pour le masquer.</p>'+
   '<div class="grille">'+
     '<div class="champ"><label>Nom du bouton</label>'+
@@ -7856,6 +7875,7 @@ async function tout(){
     remplirFiltres();
     if(S.projetSel) S.projetSel=S.data.main.find(r=>r.id===S.projetSel.id)||null;
     majBoutonPdf();
+    majBoutonsBarre();
     rendreListe(); rendreProjet();
     if(enMobile()) rendreMobile();
   }catch(e){
@@ -7895,7 +7915,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-g — diapositive de commentaire dans le dossier";
+const VERSION="2026-09-08-h — trois boutons libres dans la barre";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -7980,6 +8000,20 @@ $("#pages-fermer").onclick=()=>{
 $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
 /* Bascule poste / téléphone. Le seuil est en largeur de fenêtre, donc testable
    depuis un poste en rétrécissant la fenêtre. */
+/* Trois boutons libres dans la barre supérieure : chacun n'apparaît que si son
+   libellé et son adresse sont renseignés dans les réglages. */
+function majBoutonsBarre(){
+  const c=S.cfg, zone=$("#btns-barre");
+  if(!zone) return;
+  zone.innerHTML=[1,2,3].map(n=>{
+    const lib=txt(c["barre"+n+"Libelle"]).trim();
+    const u=urlSure(c["barre"+n+"Url"]);
+    if(!lib || !u) return "";
+    return '<a class="btn-top btn-barre" href="'+esc(u)+'" target="_blank" '+
+      'rel="noopener" title="'+esc(u)+'">'+esc(lib)+'</a>';
+  }).join("");
+}
+
 /* Le bouton PDF n'apparaît que si les réglages le demandent. */
 function majBoutonPdf(){
   const b=$("#btn-imprimer");

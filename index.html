@@ -947,8 +947,11 @@ tbody tr.ligne-com:hover{background:transparent;}
         <div id="pptx-sections" class="bl-liste"></div>
       </div>
       <div class="bloc-reglage">
+        <h3>Tâches</h3>
         <label class="impr-radio"><input type="checkbox" id="pptx-taches" checked>
           Détailler les tâches sous chaque action</label>
+        <label class="impr-radio"><input type="checkbox" id="pptx-pl-taches">
+          Les faire figurer aussi dans le planning</label>
       </div>
       <div class="bloc-reglage" id="pptx-bloc-prio" hidden>
         <h3>Priorités retenues</h3>
@@ -5097,7 +5100,8 @@ function lignesActionsSynthese(p,acts,numeros){
       num:{type:"texte",t:String(numeros.get(r.id)||"")},
       action:{type:"texte",t:lire(t,r,c.colLibelle)||"(action sans libellé)"},
       porteur:{type:"texte",t:lire(t,r,c.colPorteur)},
-      ech:{type:"texte",t:dateVersFR(r[c.colEch])},
+      ech:{type:"texte",t:inter?"Interrompu":dateVersFR(r[c.colEch]),
+           couleur:inter?PDFC.gris:PDFC.encre},
       avct:{type:"pastille",t:inter?"Interrompu":(av==null?"–":av+"%"),fond:co.pale,coul:co.txt}
     }};
   });
@@ -6940,7 +6944,7 @@ function odpActionsTaches(d,p){
     return [cel(""),
             cel("    "+lire(c.tblTache,t,c.colTacheLibelle),{couleur:TACHE}),
             cel(""),
-            cel(""),
+            cel(it?"Interrompu":"",{align:"center",couleur:"#595959"}),
             cel(av==null?"—":av+" %",
               {align:"center",couleur:couleurLisible(b.txt)},b.pale),
             cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
@@ -6963,7 +6967,9 @@ function odpActionsTaches(d,p){
       cel(i+1,{align:"center",gras:true,couleur:ACTION},fond),
       cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",o(),fond),
       cel(lire(c.tblMain,a,c.colPorteur),o(),fond),
-      cel(dateVersFR(a[c.colEch]||a[c.colFin]),o({align:"center"}),fond),
+      /* une ligne interrompue n'a plus d'échéance qui vaille : on le dit */
+      cel(it?"Interrompu":dateVersFR(a[c.colEch]||a[c.colFin]),
+        o({align:"center",couleur:it?"#595959":ACTION}),fond),
       cel(av==null?"—":av+" %",
         o({align:"center",couleur:couleurLisible(b.txt)}),b.pale),
       cel(lire(c.tblMain,a,c.colCommentaire),o(),fond)]);
@@ -6972,8 +6978,8 @@ function odpActionsTaches(d,p){
 
   return odpTableau(d,avecT?"Actions & tâches":"Actions",lire(c.tblMain,p,c.colLibelle),
     [{t:"#",w:z.w*0.04},{t:avecT?"Action / Tâche":"Action",w:z.w*0.34},
-     {t:"Porteur",w:z.w*0.15},{t:"Échéance",w:z.w*0.12},
-     {t:"Avancement",w:z.w*0.13},{t:"Commentaire",w:z.w*0.22}],lg);
+     {t:"Porteur",w:z.w*0.15},{t:"Échéance",w:z.w*0.14},
+     {t:"Avancement",w:z.w*0.13},{t:"Commentaire",w:z.w*0.20}],lg);
 }
 
 function odpJournal(d,p){
@@ -7091,7 +7097,7 @@ function odpActionDiapo(d,a,numero){
     [["Porteur",lire(c.tblMain,a,c.colPorteur),null],
      ["Statut",null,txt(lire(c.tblMain,a,c.colStatut)).trim()]],
     [["Début",dateVersFR(a[c.colDebut]),null],
-     ["Échéance",dateVersFR(a[c.colEch]),null],
+     ["Échéance",inter?"Interrompu":dateVersFR(a[c.colEch]),null],
      ["Fin",dateVersFR(a[c.colFin]),null]]
   ];
   const xb=x+r*2+0.6, gap=0.3;
@@ -7850,7 +7856,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-07-ar — statut « En cours » coloré par l’avancement";
+const VERSION="2026-09-08-b — tâches du planning réglables depuis le diaporama";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -8016,6 +8022,8 @@ function majFormulairePptx(){
   rendreSectionsPptx();
   const ct0=$("#pptx-taches");
   if(ct0) ct0.checked=IMPR.taches!==false;
+  const cpt=$("#pptx-pl-taches");
+  if(cpt) cpt.checked=!!IMPR.planningTaches;
   if(!portefeuille) return;
   const grp=valeursPortefeuille(S.cfg.colGroupement);
   const selG=IMPR.groupementsPptx;
@@ -8055,6 +8063,7 @@ $("#pptx-raz").onclick=()=>{
   IMPR.sectionsPptx={synthese:true,identite:true,planning:true,actions:true,journal:true};
   IMPR.ordrePptx=ORDRE_PPTX.slice();
   IMPR.taches=true;
+  IMPR.planningTaches=false;
   IMPR.prioritesPptx=null;
   IMPR.groupementsPptx=null;
   IMPR.echDuPptx=""; IMPR.echAuPptx="";
@@ -8089,6 +8098,8 @@ $("#pptx-ok").onclick=async()=>{
   IMPR.echAuPptx=($("#pptx-au")||{}).value||"";
   const ct=$("#pptx-taches");
   IMPR.taches = ct ? ct.checked : true;
+  const cpt=$("#pptx-pl-taches");
+  if(cpt) IMPR.planningTaches=cpt.checked;
   $("#voile-pptx").classList.remove("ouvert");
   await genererODP(m?m.value:"projet");
 };

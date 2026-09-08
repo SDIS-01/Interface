@@ -959,6 +959,11 @@ tbody tr.ligne-com:hover{background:transparent;}
            pour l'écarter.</p>
         <div id="pptx-prio" class="impr-cases"></div>
       </div>
+      <div class="bloc-reglage" id="pptx-bloc-ins">
+        <h3>Instances sur la page de garde</h3>
+        <p>Elles s'affichent en bas à droite, triées par date.</p>
+        <div id="pptx-instances" class="impr-liste"></div>
+      </div>
       <div class="bloc-reglage" id="pptx-bloc-act" hidden>
         <h3>Actions retenues</h3>
         <p>Décochez un porteur ou une tranche d'avancement pour écarter les
@@ -6014,6 +6019,15 @@ function rendreReglages(){
         '<div class="champ"><label>'+l+'</label><select data-cfg="'+k+'" data-pour="'+bloc.tableKey+'">'+
         optionsColonnes(tid,c[k])+'</select></div>').join("")+'</div></div>';
   }).join("") +
+  '<div class="bloc-reglage"><h3>Taille du texte du PDF</h3>'+
+  '<p>Sans effet sur le diaporama, dont les tailles sont fixées par le modèle.</p>'+
+  '<label class="impr-radio"><input type="checkbox" id="cfg-lisible"'+
+    (IMPR.lisible?" checked":"")+'> Corps du texte à 16&nbsp;pt, titres plus gros</label>'+
+  '<select id="cfg-zoom" class="impr-select">'+
+    ZOOMS_IMPR.map(([v,l])=>'<option value="'+v+'"'+
+      (String(IMPR.zoom)===v?" selected":"")+'>'+esc(l)+' ('+
+      Math.round(Number(v)*100)+'&nbsp;%)</option>').join("")+
+  '</select></div>'+
   '<div class="bloc-reglage"><h3>Barre supérieure</h3>'+
   '<p>Le bouton PDF est masqué par défaut. Le diaporama reste toujours accessible.</p>'+
   '<label class="impr-radio"><input type="checkbox" id="cfg-pdf"'+
@@ -6091,6 +6105,9 @@ async function enregistrerReglages(){
   $("#corps-reglages").querySelectorAll("[data-cfg]").forEach(el=>{ S.cfg[el.dataset.cfg]=el.value; });
   const cp=$("#cfg-pdf");
   if(cp) S.cfg.pdfVisible=cp.checked;
+  const cl2=$("#cfg-lisible");  if(cl2) IMPR.lisible=cl2.checked;
+  const cz=$("#cfg-zoom");      if(cz)  IMPR.zoom=Number(cz.value)||1;
+  enregistrerOptionsImpr();
   const nouveau=$("#mdp-nouveau")?$("#mdp-nouveau").value:"";
   if($("#mdp-retirer") && $("#mdp-retirer").checked){ S.cfg.mdpHash=""; S.deverrouille=false; }
   else if(nouveau){ S.cfg.mdpHash=await empreinte(nouveau); S.deverrouille=false; }
@@ -6674,7 +6691,7 @@ function odpIdentite(pg,p,x,y,w){
 }
 
 /* planning : une barre par rang, échelle en trimestres ou en années */
-function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
+function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes,tousDonnes){
   const c=S.cfg;
   let rangs=rangsDonnes;
   if(!rangs){
@@ -6705,10 +6722,11 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
       pousserTaches(a,2);
     });
   }
-  if(!rangs.length) return {reste:null,trace:false};
-  /* l'échelle de temps est calculée sur l'ensemble des rangs, pas sur ceux de
-     la page : les diapositives successives partagent donc le même axe */
-  const tous=rangsDonnes?rangsDonnes:rangs;
+  if(!rangs.length) return {reste:null,trace:false,tous:tousDonnes||[]};
+  /* L'échelle de temps se calcule sur l'ensemble des rangs, jamais sur ceux de
+     la page en cours : sans cela, chaque page de suite se dotait de son propre
+     axe et les barres n'étaient plus comparables d'une page à l'autre. */
+  const tous=tousDonnes||rangs;
 
   const dates=tous.map(r=>r.d||r.f).concat(tous.map(r=>r.f||r.d));
   /* l'axe englobe toujours le trimestre en cours et le suivant : c'est ce que
@@ -6804,7 +6822,7 @@ function odpPlanning(pg,p,acts,x,y,w,hMax,rangsDonnes){
   const auj=aujourdHuiUTC();
   if(auj>=per[0].debut&&auj<per[per.length-1].fin)
     pg.ligne(xp+pos(auj),yDeb-0.12,xp+pos(auj),y,{couleur:"#E30613",epaisseur:0.04});
-  return {reste,trace:true};
+  return {reste,trace:true,tous};
 }
 
 /* --- diapositive de synthèse -------------------------------------------- */
@@ -6866,14 +6884,14 @@ function odpSynthese(d,p,titreCartouche){
   if(IMPR.sectionsPptx.identite) y=odpIdentite(pg,p,xi,y,wi);
   if(IMPR.sectionsPptx.planning){
     const r=odpPlanning(pg,p,acts,xi,y,wi,bas-y);
-    return {pg,reste:r.reste};
+    return {pg,reste:r.reste,tous:r.tous};
   }
   return {pg,reste:null};
 }
 
 /* Reliquat du planning : en pleine largeur, sur autant de diapositives qu'il
    faut. Sollicité seulement quand la première page ne suffit pas. */
-function odpPlanningSuite(d,p,reste,titreCartouche){
+function odpPlanningSuite(d,p,reste,titreCartouche,tous){
   const acts=actionsODP(p);
   /* Même géométrie que la synthèse : la marge standard, plus étroite,
      resserrait l'échelle juste sous le seuil et faisait disparaître les
@@ -6883,7 +6901,7 @@ function odpPlanningSuite(d,p,reste,titreCartouche){
     const pg=odpPage(d,"pied");
     const z=odpZone("pied");
     const y=odpTitre(pg,null,titreCartouche,x);
-    const r=odpPlanning(pg,p,acts,x,y,w,z.y+z.h-y,reste);
+    const r=odpPlanning(pg,p,acts,x,y,w,z.y+z.h-y,reste,tous);
     if(!r.trace) break;
     reste=r.reste;
   }
@@ -7157,7 +7175,7 @@ function odpActionDiapo(d,a,numero){
     });
     if(rangs.length>1){
       const hMax=Math.min(6.5,(bas-y)*0.55);
-      const res=odpPlanning(pg,a,[],x,y,w,hMax,rangs);
+      const res=odpPlanning(pg,a,[],x,y,w,hMax,rangs,rangs);
       if(res.trace) y=Math.min(bas-2.2,y+hMax);
     }
   }
@@ -7252,7 +7270,7 @@ async function genererODP(mode){
         const r=odpSynthese(d,p,lire(c.tblMain,p,c.colLibelle));
         /* le planning d'un projet chargé se poursuit sur une diapositive
            supplémentaire au lieu d'être tronqué */
-        if(r.reste) odpPlanningSuite(d,p,r.reste,lire(c.tblMain,p,c.colLibelle));
+        if(r.reste) odpPlanningSuite(d,p,r.reste,lire(c.tblMain,p,c.colLibelle),r.tous);
       });
       await odpEcrire(d,"Revue de portefeuille — "+
         new Date().toISOString().slice(0,10)+".odp");
@@ -7266,7 +7284,7 @@ async function genererODP(mode){
       if(!acts.length){ toast("Aucune action ne correspond aux filtres.",true); return; }
       odpGarde(d,titre,p);
       const r=odpSynthese(d,p,titre);
-      if(r.reste) odpPlanningSuite(d,p,r.reste,titre);
+      if(r.reste) odpPlanningSuite(d,p,r.reste,titre,r.tous);
       acts.forEach((a,i)=>odpActionDiapo(d,a,i+1));
       odpCommentaireProjet(d,p);
       if(IMPR.sectionsPptx.journal) odpJournal(d,p);
@@ -7280,7 +7298,7 @@ async function genererODP(mode){
       odpGarde(d,titre,p);
       const sec=IMPR.sectionsPptx;
       const f={ synthese:()=>{ const r=odpSynthese(d,p);
-                               if(r.reste) odpPlanningSuite(d,p,r.reste,null); },
+                               if(r.reste) odpPlanningSuite(d,p,r.reste,null,r.tous); },
                 actions:()=>odpActionsTaches(d,p),
                 journal:()=>odpJournal(d,p) };
       IMPR.ordrePptx.forEach(cle=>{ if(sec[cle] && f[cle]) f[cle](); });
@@ -7856,7 +7874,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-b — tâches du planning réglables depuis le diaporama";
+const VERSION="2026-09-08-d — axe du planning continu entre les pages";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -8012,6 +8030,21 @@ function remplirFiltresRevue(){
 function majFormulairePptx(){
   const mode=document.querySelector('input[name=pptx-mode]:checked');
   const portefeuille = mode && mode.value==="portefeuille";
+  /* les instances ne figurent que sur la garde d'un projet : sans objet en
+     revue de portefeuille, qui n'en a pas */
+  const bIns=$("#pptx-bloc-ins");
+  bIns.hidden=portefeuille;
+  if(!portefeuille){
+    const xs=S.projetSel?instancesDe(S.projetSel):[];
+    const selI=IMPR.instancesGarde;
+    $("#pptx-instances").innerHTML = xs.length
+      ? xs.map(j=>'<label><input type="checkbox" data-ins="'+j.table+":"+j.id+'"'+
+          ((!selI || selI.includes(j.table+":"+j.id))?" checked":"")+'> '+
+          (j.date?'<span>'+esc(dateVersFR(j.date))+' — </span>':'')+
+          esc(j.libelle||"(sans libellé)")+'</label>').join("")
+      : '<div class="vide">Aucune instance enregistrée pour ce projet.</div>';
+  }
+
   const revue = mode && mode.value==="revue-actions";
   $("#pptx-bloc-act").hidden=!revue;
   if(revue) remplirFiltresRevue();
@@ -8068,6 +8101,7 @@ $("#pptx-raz").onclick=()=>{
   IMPR.groupementsPptx=null;
   IMPR.echDuPptx=""; IMPR.echAuPptx="";
   IMPR.porteursRevue=null; IMPR.avctRevue=null;
+  IMPR.instancesGarde=null;
   IMPR.triPptx=[];
   const m=document.querySelector('input[name=pptx-mode][value=projet]');
   if(m) m.checked=true;
@@ -8082,6 +8116,9 @@ $("#pptx-ok").onclick=async()=>{
     : null;
   IMPR.triPptx=[...document.querySelectorAll("[data-tri]")]
     .filter(el=>el.checked).map(el=>el.dataset.tri);
+  const casesI=[...document.querySelectorAll("[data-ins]")];
+  if(casesI.length)
+    IMPR.instancesGarde=casesI.filter(c2=>c2.checked).map(c2=>c2.dataset.ins);
   const casesPo=[...document.querySelectorAll("[data-porteur]")];
   IMPR.porteursRevue = casesPo.length
     ? casesPo.filter(c2=>c2.checked).map(c2=>c2.dataset.porteur)

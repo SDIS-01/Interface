@@ -2559,7 +2559,8 @@ function brancherPJ(){
   document.querySelectorAll(".pj-chip").forEach(b=>b.onclick=async()=>{
     try{
       const tk=await grist.docApi.getAccessToken({readOnly:true});
-      window.open(tk.baseUrl+"/attachments/"+b.dataset.pj+"/download?auth="+tk.token,"_blank","noopener");
+      window.open(tk.baseUrl+"/attachments/"+b.dataset.pj+
+        "/download?auth="+encodeURIComponent(tk.token),"_blank","noopener");
     }catch(e){ toast("Ouverture impossible : "+e.message,true); }
   });
 
@@ -2575,10 +2576,15 @@ function brancherPJ(){
       for(const f of inp.files){
         const fd=new FormData();
         fd.append("upload",f,f.name);
-        const rep=await fetch(tk.baseUrl+"/attachments?auth="+tk.token,{
+        const rep=await fetch(tk.baseUrl+"/attachments?auth="+
+          encodeURIComponent(tk.token),{
           method:"POST", body:fd, headers:{"X-Requested-With":"XMLHttpRequest"}
         });
-        if(!rep.ok) throw new Error(rep.status+" "+rep.statusText);
+        if(!rep.ok){
+          const detail=await rep.text().catch(()=>"");
+          throw new Error(rep.status+" "+rep.statusText+
+            (detail?" — "+detail.slice(0,160):""));
+        }
         const res=await rep.json();
         (Array.isArray(res)?res:[res]).forEach(x=>nouveaux.push(Number(x)));
       }
@@ -2602,6 +2608,7 @@ function brancherPJ(){
       });
     }catch(e){
       toast("Envoi impossible : "+e.message,true);
+      console.error("Envoi de pièce jointe :",e);
       inp.value="";
     }
   });
@@ -7934,7 +7941,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-m — actions classées par identifiant";
+const VERSION="2026-09-08-n — jeton encodé pour les pièces jointes";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -1154,9 +1154,9 @@ const DEF = {
   colNotePJ:"Piece_jointe",
   btnLibelle:"", btnUrl:"", mdpHash:"", pdfVisible:false,
   /* trois boutons libres de la barre supérieure */
-  barre1Libelle:"", barre1Url:"",
-  barre2Libelle:"", barre2Url:"",
-  barre3Libelle:"", barre3Url:""
+  barre1Libelle:"", barre1Url:"", barre1Coul:"",
+  barre2Libelle:"", barre2Url:"", barre2Coul:"",
+  barre3Libelle:"", barre3Url:"", barre3Coul:""
 };
 
 const CHAMPS_REGLAGES = [
@@ -6066,6 +6066,11 @@ function rendreReglages(){
     '<div class="champ"><label>Adresse (URL)</label>'+
     '<input type="text" data-cfg="barre'+n+'Url" value="'+
       esc(c["barre"+n+"Url"])+'" placeholder="https://…"></div>'+
+    '<div class="champ"><label>Couleur</label>'+
+    '<select data-cfg="barre'+n+'Coul">'+
+      COULEURS_BOUTON.map(([v,l])=>'<option value="'+v+'"'+
+        (String(c["barre"+n+"Coul"]||"")===v?" selected":"")+'>'+esc(l)+'</option>').join("")+
+    '</select></div>'+
   '</div>').join("")+
   '</div>'+
   '<div class="bloc-reglage"><h3>Bouton personnalisé de la fiche</h3>'+
@@ -7915,7 +7920,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-h — trois boutons libres dans la barre";
+const VERSION="2026-09-08-i — couleur des boutons de la barre";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -8000,6 +8005,26 @@ $("#pages-fermer").onclick=()=>{
 $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
 /* Bascule poste / téléphone. Le seuil est en largeur de fenêtre, donc testable
    depuis un poste en rétrécissant la fenêtre. */
+/* Couleurs proposées pour les boutons libres : le fond, et la couleur de texte
+   qui reste lisible dessus. La chaîne vide correspond au style par défaut,
+   translucide sur le bleu de la barre. */
+const COULEURS_BOUTON=[
+  ["",        "Par défaut",  "",        ""],
+  ["E30613",  "Rouge",       "#E30613", "#ffffff"],
+  ["FBD9A8",  "Orange clair","#FBD9A8", "#7A4A10"],
+  ["F79646",  "Orange",      "#F79646", "#ffffff"],
+  ["FFCC00",  "Jaune",       "#FFCC00", "#4d3d00"],
+  ["9BBB59",  "Vert",        "#9BBB59", "#ffffff"],
+  ["8064A2",  "Violet",      "#8064A2", "#ffffff"],
+  ["FFFFFF",  "Blanc",       "#ffffff", "#002395"],
+  ["595959",  "Gris",        "#595959", "#ffffff"]
+];
+function styleBouton(cle){
+  const t=COULEURS_BOUTON.find(x=>x[0]===String(cle||""));
+  if(!t || !t[2]) return "";
+  return ' style="background:'+t[2]+';color:'+t[3]+';border-color:'+t[2]+'"';
+}
+
 /* Trois boutons libres dans la barre supérieure : chacun n'apparaît que si son
    libellé et son adresse sont renseignés dans les réglages. */
 function majBoutonsBarre(){
@@ -8010,7 +8035,8 @@ function majBoutonsBarre(){
     const u=urlSure(c["barre"+n+"Url"]);
     if(!lib || !u) return "";
     return '<a class="btn-top btn-barre" href="'+esc(u)+'" target="_blank" '+
-      'rel="noopener" title="'+esc(u)+'">'+esc(lib)+'</a>';
+      'rel="noopener" title="'+esc(u)+'"'+styleBouton(c["barre"+n+"Coul"])+'>'+
+      esc(lib)+'</a>';
   }).join("");
 }
 

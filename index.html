@@ -1710,7 +1710,7 @@ function instancesDe(p){
         id:j.id, table:c.tblInstance, genre:"Instance",
         date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
         libelle:lib,
-        action:actionDeLigne(c.tblInstance,j,c.colInsAction),
+        action:actionUtile(c.tblInstance,j,c.colInsAction,p),
         type:c.colInsType?lire(c.tblInstance,j,c.colInsType):"",
         rapporteur:c.colInsRapporteur?lire(c.tblInstance,j,c.colInsRapporteur):""
       });
@@ -2385,6 +2385,16 @@ function valeurAction(idChamp,tableId,colId){
 }
 
 /* libellé lisible de l'action portée par une ligne existante */
+/* Une instance ou une entrée de journal qui désigne le projet lui-même n'a rien
+   à afficher dans la colonne Action : la pastille répéterait le titre déjà porté
+   par l'en-tête. On la laisse vide dans ce cas. */
+function actionUtile(tableId,ligne,colId,projet){
+  const a=actionDeLigne(tableId,ligne,colId);
+  if(!a || !projet) return a;
+  const lib=lire(S.cfg.tblMain,projet,S.cfg.colLibelle);
+  return pliColonne(a)===pliColonne(lib) ? "" : a;
+}
+
 function actionDeLigne(tableId,ligne,colId){
   if(!colId||!ligne) return "";
   const c=S.cfg;
@@ -3472,7 +3482,7 @@ function vueJournal(p){
   const js=journalDe(p);
   /* les échéances non closes sont dans le bandeau du haut, pas ici */
   const fils=filsJournal(p).filter(f=>!echeanceOuverte(f.j));
-  const actJnl=j=>(c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):"");
+  const actJnl=j=>(c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):"");
 
   /* une ligne du journal ; reponse=true la décale sous sa mère */
   const ligneJnl=(j,reponse)=>
@@ -5214,7 +5224,7 @@ function lignesJournalPdf(p){
     const clos=!!(c.colJnlTraite && j[c.colJnlTraite]===true);
     return {cellules:{
     date:{type:"texte",t:dateVersFR(j[c.colJnlDate])},
-    action:{type:"texte",t:c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):""},
+    action:{type:"texte",t:c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):""},
     nature:{type:"texte",t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):""},
     texte:{type:"texte",
            /* une réponse est décalée par un chevron ; l'échéance, elle, se
@@ -7091,7 +7101,7 @@ function odpJournal(d,p){
       const ouvert=ech&&!clos;
       lg.push([
         cel(dateVersFR(j[c.colJnlDate]),{align:"center"}),
-        cel(c.colJnlAction?actionDeLigne(c.tblJournal,j,c.colJnlAction):""),
+        cel(c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):""),
         /* le commentaire reste en noir : seule la colonne du délai porte
            l'alerte, sans quoi la moitié du tableau vire au rouge */
         cel((rep?"» ":"")+lire(c.tblJournal,j,c.colJnlTexte),
@@ -7953,7 +7963,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-o — tâches classées par libellé";
+const VERSION="2026-09-08-p — colonne Action masquée si redondante";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

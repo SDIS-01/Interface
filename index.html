@@ -2920,13 +2920,13 @@ function vueTaches(p){
   brancherFiltres("ft",S.fTaches,()=>vueTaches(p),"m-ft-action");
   document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
     const act=S.data.main.find(r=>r.id===Number(b.dataset.addt));
+    if(!act){ toast("Porteur introuvable pour cette tâche.",true); return; }
     const rep=await feuilleAjout({titre:"Nouvelle tâche",
-      sous:act?lire(t,act,c.colLibelle):"",libelle:"Libellé de la tâche",
+      sous:lire(c.tblMain,act,c.colLibelle),libelle:"Libellé de la tâche",
       libelleFin:"Date de fin"});
     if(!rep) return;
-    const lib=rep.lib;
     const info=infoCol(c.tblTache,c.colTacheLien);
-    const champs={[c.colTacheLibelle]:lib};
+    const champs={[c.colTacheLibelle]:rep.lib};
     if(c.colTacheDebut) champs[c.colTacheDebut]=rep.debut;
     if(c.colTacheFin)   champs[c.colTacheFin]=rep.fin;
     if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
@@ -7922,7 +7922,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-k — tâches créables sans action préalable";
+const VERSION="2026-09-08-l — ajout de tâche réparé";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

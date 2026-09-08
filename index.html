@@ -1622,8 +1622,20 @@ function porteursDeTaches(p){
 function tachesDe(action){
   const c=S.cfg;
   if(!c.tblTache||!c.colTacheLien) return [];
-  const cle=txt(action[c.colActKey]);
-  return S.data.taches.filter(t=>lieA(c.tblTache,t,c.colTacheLien,action.id,cle));
+  const cle=txt(action[c.colActKey])||cleProjet(action);
+  return S.data.taches
+    .filter(t=>lieA(c.tblTache,t,c.colTacheLien,action.id,cle))
+    .sort(compareTaches);
+}
+
+/* Même principe que pour les actions : les tâches suivaient l'ordre de leur
+   création dans Grist. On les classe sur leur libellé, avec une comparaison
+   numérique pour que « 2. » vienne avant « 10. ». */
+function compareTaches(a,b){
+  const c=S.cfg;
+  return lire(c.tblTache,a,c.colTacheLibelle)
+    .localeCompare(lire(c.tblTache,b,c.colTacheLibelle),
+                   "fr",{numeric:true,sensitivity:"base"});
 }
 /* Identifiant de l'entrée mère, ou null pour une entrée de premier niveau. */
 function mereJnl(j){
@@ -7941,7 +7953,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-n — jeton encodé pour les pièces jointes";
+const VERSION="2026-09-08-o — tâches classées par libellé";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

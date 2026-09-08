@@ -1596,7 +1596,19 @@ function actionsDe(p){
     if(cle && textes.includes(cle)) return true;
     if(lib && textes.includes(lib)) return true;     // l'action désigne son projet par son libellé
     return false;
-  });
+  }).sort(compareActions);
+}
+
+/* Ordre d'affichage des actions. Sans tri, elles suivaient l'ordre des lignes
+   dans Grist, qui est celui de leur création. On les classe sur leur
+   identifiant, ou sur leur libellé s'il n'y en a pas, avec une comparaison
+   numérique : MEO2 vient ainsi avant MEO10, ce qu'un tri purement
+   alphabétique inverse. */
+function compareActions(a,b){
+  const c=S.cfg;
+  const cle=r=>txt(c.colActKey?r[c.colActKey]:"").trim()
+              || lire(c.tblMain,r,c.colLibelle);
+  return cle(a).localeCompare(cle(b),"fr",{numeric:true,sensitivity:"base"});
 }
 /* lignes susceptibles de porter des tâches : les actions, et le projet lui-même */
 /* Porteurs possibles d'une tâche : les actions du projet, et le projet lui-même
@@ -7922,7 +7934,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-l — ajout de tâche réparé";
+const VERSION="2026-09-08-m — actions classées par identifiant";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

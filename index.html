@@ -2824,9 +2824,13 @@ function vueActions(p){
   brancherRepli();
   brancherFiltres("fa",S.fActions,()=>vueActions(p),"m-fa-action");
   $("#add-action").onclick=async()=>{
-    const lib=prompt("Libellé de la nouvelle action :");
-    if(!lib) return;
+    const r=await feuilleAjout({titre:"Nouvelle action",
+      sous:lire(t,p,c.colLibelle),libelle:"Libellé de l'action"});
+    if(!r) return;
+    const lib=r.lib;
     const champs={[c.colLibelle]:lib};
+    if(c.colDebut) champs[c.colDebut]=r.debut;
+    if(c.colEch)   champs[c.colEch]=r.fin;
     const infoN=infoCol(t,c.colNature);
     champs[c.colNature] = (infoN&&infoN.type.startsWith("Ref:")) ? p[c.colNature] : "MEO";
     if(c.colProjKey) champs[c.colProjKey]=p[c.colProjKey];
@@ -2912,11 +2916,16 @@ function vueTaches(p){
   brancherRepli();
   brancherFiltres("ft",S.fTaches,()=>vueTaches(p),"m-ft-action");
   document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
-    const lib=prompt("Libellé de la nouvelle tâche :");
-    if(!lib) return;
     const act=S.data.main.find(r=>r.id===Number(b.dataset.addt));
+    const rep=await feuilleAjout({titre:"Nouvelle tâche",
+      sous:act?lire(t,act,c.colLibelle):"",libelle:"Libellé de la tâche",
+      libelleFin:"Date de fin"});
+    if(!rep) return;
+    const lib=rep.lib;
     const info=infoCol(c.tblTache,c.colTacheLien);
     const champs={[c.colTacheLibelle]:lib};
+    if(c.colTacheDebut) champs[c.colTacheDebut]=rep.debut;
+    if(c.colTacheFin)   champs[c.colTacheFin]=rep.fin;
     if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
     else champs[c.colTacheLien]=act[c.colActKey];
@@ -7619,11 +7628,13 @@ function mbTravaux(p){
     titre:"Nouvelle action",
     sous:lire(c.tblMain,p,c.colLibelle),
     libelle:"Libellé de l'action",
-    action:async lib=>{
+    action:async (lib,r)=>{
       const t=c.tblMain, champs={[c.colLibelle]:lib};
       const infoN=infoCol(t,c.colNature);
       champs[c.colNature]=(infoN&&infoN.type.startsWith("Ref:"))?p[c.colNature]:"MEO";
       if(c.colProjKey) champs[c.colProjKey]=p[c.colProjKey];
+      if(c.colDebut) champs[c.colDebut]=r.debut;
+      if(c.colEch)   champs[c.colEch]=r.fin;
       await ajouter(t,champs);
     }
   });
@@ -7634,10 +7645,12 @@ function mbTravaux(p){
     mbFeuilleAjout({
       titre:"Nouvelle tâche",
       sous:lire(c.tblMain,porteur,c.colLibelle),
-      libelle:"Libellé de la tâche",
-      action:async lib=>{
+      libelle:"Libellé de la tâche", libelleFin:"Date de fin",
+      action:async (lib,r)=>{
         const info=infoCol(c.tblTache,c.colTacheLien);
         const champs={[c.colTacheLibelle]:lib};
+        if(c.colTacheDebut) champs[c.colTacheDebut]=r.debut;
+        if(c.colTacheFin)   champs[c.colTacheFin]=r.fin;
         if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=porteur.id;
         else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",porteur.id];
         else champs[c.colTacheLien]=porteur[c.colActKey];
@@ -7648,27 +7661,13 @@ function mbTravaux(p){
 }
 
 /* Feuille de saisie d'un libellé — commune à l'ajout d'action et de tâche. */
-function mbFeuilleAjout(o){
-  const v=document.createElement("div");
-  v.className="mb-voile";
-  v.innerHTML='<div class="mb-feuille mb-form">'+
-    '<h3>'+esc(o.titre)+'</h3><p class="sous">'+esc(o.sous||"")+'</p>'+
-    '<label>'+esc(o.libelle)+'</label><textarea id="mba-lib"></textarea>'+
-    '<button class="btn" id="mba-ok">Ajouter</button>'+
-    '<button class="btn-2 mb-chip" id="mba-annuler" style="width:100%;margin-top:9px;padding:10px">Annuler</button>'+
-    '</div>';
-  document.body.appendChild(v);
-  const fermer=()=>v.remove();
-  v.onclick=e=>{ if(e.target===v) fermer(); };
-  v.querySelector("#mba-annuler").onclick=fermer;
-  v.querySelector("#mba-lib").focus();
-  v.querySelector("#mba-ok").onclick=async()=>{
-    const lib=v.querySelector("#mba-lib").value.trim();
-    if(!lib){ toast("Saisissez un libellé.",true); return; }
-    await o.action(lib);
-    fermer();
-    await charger(); rendreMobile();
-  };
+/* Le mobile réutilise la feuille d'ajout du poste : mêmes champs, mêmes
+   contrôles, donc les mêmes dates obligatoires. */
+async function mbFeuilleAjout(o){
+  const r=await feuilleAjout(o);
+  if(!r) return;
+  await o.action(r.lib,r);
+  await charger(); rendreMobile();
 }
 
 function mbInstances(p){
@@ -7920,7 +7919,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-i — couleur des boutons de la barre";
+const VERSION="2026-09-08-j — dates obligatoires à la création";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -8023,6 +8022,46 @@ function styleBouton(cle){
   const t=COULEURS_BOUTON.find(x=>x[0]===String(cle||""));
   if(!t || !t[2]) return "";
   return ' style="background:'+t[2]+';color:'+t[3]+';border-color:'+t[2]+'"';
+}
+
+/* =======================================================================
+   Saisie d'une action ou d'une tâche
+   =======================================================================
+   Les dates sont exigées à la création : une ligne sans début ni échéance
+   n'apparaît pas au planning et se retrouve invisible dans les revues. Mieux
+   vaut la refuser à la saisie que la laisser se perdre. */
+function feuilleAjout(o){
+  return new Promise(resolve=>{
+    const v=document.createElement("div");
+    v.className="mb-voile";
+    v.innerHTML='<div class="mb-feuille mb-form" style="max-width:520px;margin:auto;'+
+      'border-radius:10px">'+
+      '<h3>'+esc(o.titre)+'</h3>'+(o.sous?'<p class="sous">'+esc(o.sous)+'</p>':'')+
+      '<label>'+esc(o.libelle)+'</label><textarea id="fa-lib"></textarea>'+
+      '<label>Date de début</label>'+champDateFR('id="fa-debut"','',dateDuJourFR())+
+      '<label>'+esc(o.libelleFin||"Échéance prévue")+'</label>'+
+        champDateFR('id="fa-fin"','','')+
+      '<button class="btn" id="fa-ok">Ajouter</button>'+
+      '<button class="btn-2" id="fa-annuler" style="width:100%;margin-top:9px;'+
+        'padding:10px">Annuler</button></div>';
+    document.body.appendChild(v);
+    const fermer=r=>{ v.remove(); resolve(r); };
+    v.onclick=e=>{ if(e.target===v) fermer(null); };
+    v.querySelector("#fa-annuler").onclick=()=>fermer(null);
+    v.querySelector("#fa-lib").focus();
+    v.querySelector("#fa-ok").onclick=()=>{
+      const lib=v.querySelector("#fa-lib").value.trim();
+      if(!lib){ toast("Saisissez un libellé.",true); return; }
+      const d=frVersDate(v.querySelector("#fa-debut").value);
+      const f=frVersDate(v.querySelector("#fa-fin").value);
+      if(d===undefined||d===null){
+        toast("La date de début est obligatoire (jj/mm/aaaa).",true); return; }
+      if(f===undefined||f===null){
+        toast("La date de fin est obligatoire (jj/mm/aaaa).",true); return; }
+      if(f<d){ toast("La date de fin précède la date de début.",true); return; }
+      fermer({lib,debut:d,fin:f});
+    };
+  });
 }
 
 /* Trois boutons libres dans la barre supérieure : chacun n'apparaît que si son

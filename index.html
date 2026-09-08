@@ -1599,9 +1599,12 @@ function actionsDe(p){
   });
 }
 /* lignes susceptibles de porter des tâches : les actions, et le projet lui-même */
+/* Porteurs possibles d'une tâche : les actions du projet, et le projet lui-même
+   dès qu'il porte déjà des tâches. On l'ajoute aussi lorsqu'il n'a aucune
+   action : sans cela l'onglet restait vide et l'on ne pouvait rien créer. */
 function porteursDeTaches(p){
   const liste=actionsDe(p);
-  return tachesDe(p).length ? [p].concat(liste) : liste;
+  return (tachesDe(p).length || !liste.length) ? [p].concat(liste) : liste;
 }
 
 function tachesDe(action){
@@ -2928,7 +2931,7 @@ function vueTaches(p){
     if(c.colTacheFin)   champs[c.colTacheFin]=rep.fin;
     if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
-    else champs[c.colTacheLien]=act[c.colActKey];
+    else champs[c.colTacheLien]=txt(act[c.colActKey])||cleProjet(act);
     await ajouter(c.tblTache,champs);
     await charger(); rendreProjet();
   });
@@ -3811,7 +3814,7 @@ async function classerNote(p,note,dest,extra){
     const info=infoCol(c.tblTache,c.colTacheLien);
     if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
-    else champs[c.colTacheLien]=act[c.colActKey];
+    else champs[c.colTacheLien]=txt(act[c.colActKey])||cleProjet(act);
     table=c.tblTache; id=await ajouter(table,champs);
   }
   else if(dest==="commentaire"){
@@ -7653,7 +7656,7 @@ function mbTravaux(p){
         if(c.colTacheFin)   champs[c.colTacheFin]=r.fin;
         if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=porteur.id;
         else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",porteur.id];
-        else champs[c.colTacheLien]=porteur[c.colActKey];
+        else champs[c.colTacheLien]=txt(porteur[c.colActKey])||cleProjet(porteur);
         await ajouter(c.tblTache,champs);
       }
     });
@@ -7919,7 +7922,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-j — dates obligatoires à la création";
+const VERSION="2026-09-08-k — tâches créables sans action préalable";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

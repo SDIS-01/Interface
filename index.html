@@ -7074,10 +7074,14 @@ function odpActionsTaches(d,p){
     const av=pct(t[c.colTacheAvancement]);
     const it=statutInterrompu(c.tblTache,t,c.colTacheStatut);
     const b=bandesImpr(av,it);
+    /* Le porteur et l'échéance de la tâche restaient vides : les colonnes
+       existaient mais on n'y écrivait rien. */
     return [cel(""),
             cel("    "+lire(c.tblTache,t,c.colTacheLibelle),{couleur:TACHE}),
-            cel(""),
-            cel(it?"Interrompu":"",{align:"center",couleur:"#595959"}),
+            cel(c.colTachePorteur?lire(c.tblTache,t,c.colTachePorteur):"",
+              {couleur:TACHE}),
+            cel(it?"Interrompu":dateVersFR(t[c.colTacheFin]),
+              {align:"center",couleur:it?"#595959":TACHE}),
             cel(av==null?"—":av+" %",
               {align:"center",gras:true,couleur:b.txt}),
             cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
@@ -7112,9 +7116,11 @@ function odpActionsTaches(d,p){
   });
 
   return odpTableau(d,avecT?"Actions & tâches":"Actions",lire(c.tblMain,p,c.colLibelle),
-    [{t:"#",w:z.w*0.04},{t:avecT?"Action / Tâche":"Action",w:z.w*0.34},
-     {t:"Porteur",w:z.w*0.15},{t:"Échéance",w:z.w*0.14},
-     {t:"Avancement",w:z.w*0.13},{t:"Commentaire",w:z.w*0.20}],lg);
+    /* Le commentaire est la colonne qui déborde en pratique : on lui reprend
+       la place des colonnes courtes, dont le contenu est de longueur connue. */
+    [{t:"#",w:z.w*0.04},{t:avecT?"Action / Tâche":"Action",w:z.w*0.30},
+     {t:"Porteur",w:z.w*0.12},{t:"Échéance",w:z.w*0.12},
+     {t:"Avancement",w:z.w*0.13},{t:"Commentaire",w:z.w*0.29}],lg);
 }
 
 function odpJournal(d,p){
@@ -7988,7 +7994,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-c — gras limité au libellé de l’action";
+const VERSION="2026-09-09-d — porteur et échéance des tâches";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

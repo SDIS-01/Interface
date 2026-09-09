@@ -4511,8 +4511,12 @@ function bandesImpr(av,inter){
    dit pas à lui seul s'il faut l'orange ou le jaune : on le tranche avec
    l'avancement, quand l'appelant peut le fournir. */
 function pastillePleineCouleurs(v,av,inter){
-  const t=txt(v).trim().toLowerCase();
-  if(/en cours|encours/.test(t) && av!=null){
+  /* Les libellés de statut arrivent tels que saisis dans Grist : « En cours »,
+     « En_cours », « EN COURS » ou avec une espace insécable. On ramène tout à
+     des lettres et des espaces simples avant de comparer. */
+  const t=txt(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-zA-Z0-9]+/g," ").trim().toLowerCase();
+  if(/^en ?cours/.test(t) && av!=null){
     const b=bandesImpr(av,inter);
     return {fond:b.fill,coul:av>=50&&av<100?"#4d3d00":"#ffffff"};
   }
@@ -4523,7 +4527,7 @@ function pastillePleineCouleurs(v,av,inter){
   if(/termin/.test(t))         return {fond:"#9BBB59",coul:"#ffffff"};
   /* « À engager » reprend le rouge de la légende du planning, celui qui
      signale un avancement nul */
-  if(/engager|à faire|a faire/.test(t)) return {fond:"#C0504D",coul:"#ffffff"};
+  if(/engager|a faire/.test(t)) return {fond:"#C0504D",coul:"#ffffff"};
   if(/poursuite/.test(t))      return {fond:"#8064A2",coul:"#ffffff"};
   return {fond:"#7f6f6c",coul:"#ffffff"};
 }
@@ -6489,14 +6493,15 @@ function odpPage(d,avecBandeau){
         '<style:table-column-properties style:column-width="'+cm(co.w)+'"/>');
       return n;
     });
-    /* Seul un filet horizontal très clair sépare les lignes : les traits
-       verticaux entre colonnes alourdissaient le tableau sans rien apporter,
-       l'alignement des colonnes suffit à les distinguer. */
+    /* Grille complète en filet clair, comme la revue annuelle : les traits
+       verticaux structurent les colonnes de chiffres, que le seul alignement
+       ne suffisait pas à tenir. */
+    const FILET='0.01cm solid '+ODP_C.trait;
     const cellStyle=fond=>d.style("table-cell",
       '<style:table-cell-properties fo:background-color="'+
         (fond?coul(fond):"transparent")+'" fo:padding="0.1cm" '+
-        'fo:border-left="none" fo:border-right="none" fo:border-top="none" '+
-        'fo:border-bottom="0.01cm solid #E4E9F1" '+
+        'fo:border-left="'+FILET+'" fo:border-right="'+FILET+'" '+
+        'fo:border-top="'+FILET+'" fo:border-bottom="'+FILET+'" '+
         'style:vertical-align="middle"/>');
     const cellule=(c,fond)=>{
       const cs=cellStyle(fond);
@@ -6508,15 +6513,18 @@ function odpPage(d,avecBandeau){
       '<style:table-row-properties style:row-height="'+cm(hauteur)+
       '" style:min-row-height="'+cm(hauteur)+'" style:use-optimal-row-height="false"/>');
     const rows=[];
-    /* En-tête sur fond bleuté très clair, intitulés en noir gras : le bleu plein
-       écrasait le tableau une fois projeté. */
+    /* En-tête sur aplat gris pierre, intitulés en blanc gras. */
     rows.push('<table:table-row table:style-name="'+rangee(hEntete)+'">'+
       cols.map(co=>cellule({t:co.t,
         o:{taille:ODP_T.badge,gras:true,couleur:ODP_C.enteteTxt}},ODP_C.entete)).join("")+
       '</table:table-row>');
+    /* Zébrures : une ligne sur deux sur fond pâle, ce qui guide l'œil sur les
+       tableaux larges. Un fond imposé par l'appelant — mise en avant d'une
+       action — l'emporte sur la zébrure. */
     lignes.forEach((lg,k)=>{
+      const zebre=(k%2) ? ODP_C.zebre : null;
       rows.push('<table:table-row table:style-name="'+rangee(hauteurs[k])+'">'+
-        lg.map(c=>cellule(c,c.fond)).join("")+'</table:table-row>');
+        lg.map(c=>cellule(c,c.fond||zebre)).join("")+'</table:table-row>');
     });
     const h=hEntete+hauteurs.reduce((a,b)=>a+b,0);
     const g=d.gr({});
@@ -6768,23 +6776,25 @@ function odpIdentite(pg,p,x,y,w){
   colonnes.forEach((col,k)=>{
     const cx=xb+k*(wc+gap);
     /* largeur de clé propre à la colonne : les valeurs s'y alignent */
-    const lc=Math.min(wc*0.52,
-      col.filter(b2=>b2[1]||b2[2]).reduce((m,b2)=>Math.max(m,b2[0].length*0.24+0.45),2.0));
+    const lc=Math.min(wc*0.56,
+      col.filter(b2=>b2[1]||b2[2]).reduce((m,b2)=>Math.max(m,b2[0].length*0.27+0.6),2.2));
     /* une colonne courte — le porteur seul — se centre sur la hauteur du bloc */
     let cy=y+(hMaxCol-hCol(col))/2;
     col.forEach(([cle,valeur,pastille])=>{
       if(!valeur && !pastille) return;
       const nb=pastille?1:odpLignes(valeur,wc-0.5-lc,ODP_T.badge,true);
       const h=nb*odpHautLigne(ODP_T.badge)+0.3;
-      pg.rect(cx,cy,wc,h,{fond:ODP_C.badge,rayon:0.12});
-      pg.texte(cx+0.2,cy,lc,h,cle,
+      /* Seule la clé reçoit un fond : la valeur se détache sur le blanc de la
+         diapositive, ce qui allège le bandeau et fait ressortir la pastille. */
+      pg.rect(cx,cy,lc-0.15,h,{fond:ODP_C.badge});
+      pg.texte(cx+0.2,cy,lc-0.35,h,cle,
         {taille:ODP_T.badge,couleur:ODP_C.attenue,valign:"middle",pad:0});
       if(pastille){
         const pc=pastillePleineCouleurs(pastille,av,inter);
         const hp=odpHautLigne(ODP_T.badge)+0.14;
-        pg.pastille(cx+0.2+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
+        pg.pastille(cx+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
       }else{
-        pg.texte(cx+0.2+lc,cy,wc-0.4-lc,h,valeur,
+        pg.texte(cx+lc,cy,wc-0.2-lc,h,valeur,
           {taille:ODP_T.badge,gras:true,couleur:ODP_C.encre,valign:"middle",pad:0});
       }
       cy+=h+0.13;
@@ -7069,7 +7079,7 @@ function odpActionsTaches(d,p){
             cel(""),
             cel(it?"Interrompu":"",{align:"center",couleur:"#595959"}),
             cel(av==null?"—":av+" %",
-              {align:"center",couleur:couleurLisible(b.txt)},b.pale),
+              {align:"center",gras:true,couleur:b.txt}),
             cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"",
               {couleur:TACHE})];
   };
@@ -7080,21 +7090,23 @@ function odpActionsTaches(d,p){
 
   actionsODP(p).forEach((a,i)=>{
     const av=pct(a[c.colAvancement]), it=interrompu(a), b=bandesImpr(av,it);
-    /* Quand les tâches sont détaillées, la ligne d'action se détache en gras
-       sur fond bleu très clair : c'est ce qui rend la hiérarchie lisible. Sans
-       les tâches, le tableau n'a qu'un niveau et cette mise en avant n'a plus
+    /* Quand les tâches sont détaillées, seuls le numéro et le libellé de
+       l'action passent en gras : mettre toute la ligne en gras alourdissait le
+       tableau alors que le libellé suffit à marquer la hiérarchie. Sans les
+       tâches, le tableau n'a qu'un niveau et cette mise en avant n'a plus
        d'objet. */
-    const o=g=>Object.assign({couleur:ACTION},g||{},avecT?{gras:true}:{});
+    const o=g=>Object.assign({couleur:ACTION},g||{});
+    const fort=g=>Object.assign({couleur:ACTION},g||{},avecT?{gras:true}:{});
     const fond=avecT?ODP_C.ligneAction:undefined;
     lg.push([
-      cel(i+1,{align:"center",gras:true,couleur:ACTION},fond),
-      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",o(),fond),
+      cel(i+1,fort({align:"center"}),fond),
+      cel(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",fort(),fond),
       cel(lire(c.tblMain,a,c.colPorteur),o(),fond),
       /* une ligne interrompue n'a plus d'échéance qui vaille : on le dit */
       cel(it?"Interrompu":dateVersFR(a[c.colEch]||a[c.colFin]),
         o({align:"center",couleur:it?"#595959":ACTION}),fond),
       cel(av==null?"—":av+" %",
-        o({align:"center",couleur:couleurLisible(b.txt)}),b.pale),
+        {align:"center",gras:true,couleur:b.txt},fond),
       cel(lire(c.tblMain,a,c.colCommentaire),o(),fond)]);
     if(avecT) tachesDe(a).forEach(t=>lg.push(tache(t)));
   });
@@ -7153,7 +7165,7 @@ function odpEnsemble(d,liste){
                  couleur:pc?couleurLisible(pc.fond):ODP_C.attenue}),
               cel(dateVersFR(p[c.colEch]||p[c.colFin]),{align:"center"}),
               cel(av==null?"—":av+" %",
-                {align:"center",gras:true,couleur:b.txt},b.pale)];
+                {align:"center",gras:true,couleur:b.txt})];
     }));
 }
 
@@ -7229,21 +7241,21 @@ function odpActionDiapo(d,a,numero){
   colonnes.forEach((col,k)=>{
     const cx=xb+k*(wc+gap);
     const lc=Math.min(wc*0.5,
-      col.filter(e=>e[1]||e[2]).reduce((m,e)=>Math.max(m,e[0].length*0.29+0.5),2.2));
+      col.filter(e=>e[1]||e[2]).reduce((m,e)=>Math.max(m,e[0].length*0.27+0.6),2.2));
     let cy=y+0.1;
     col.forEach(([cle,valeur,pastille])=>{
       if(!valeur && !pastille) return;
       const nb=pastille?1:odpLignes(valeur,wc-0.5-lc,ODP_T.badge,true);
       const h=nb*odpHautLigne(ODP_T.badge)+0.3;
-      pg.rect(cx,cy,wc,h,{fond:ODP_C.badge,rayon:0.12});
-      pg.texte(cx+0.2,cy,lc,h,cle,
+      pg.rect(cx,cy,lc-0.15,h,{fond:ODP_C.badge});
+      pg.texte(cx+0.2,cy,lc-0.35,h,cle,
         {taille:ODP_T.badge,couleur:ODP_C.attenue,valign:"middle",pad:0});
       if(pastille){
         const pc=pastillePleineCouleurs(pastille,av,inter);
         const hp=odpHautLigne(ODP_T.badge)+0.14;
-        pg.pastille(cx+0.2+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
+        pg.pastille(cx+lc,cy+(h-hp)/2,pastille,pc.fond,pc.coul,ODP_T.badge);
       }else{
-        pg.texte(cx+0.2+lc,cy,wc-0.4-lc,h,valeur,
+        pg.texte(cx+lc,cy,wc-0.2-lc,h,valeur,
           {taille:ODP_T.badge,gras:true,couleur:ODP_C.encre,valign:"middle",pad:0});
       }
       cy+=h+0.13;
@@ -7295,7 +7307,7 @@ function odpActionDiapo(d,a,numero){
       const bt2=bandesImpr(at,it);
       return [cel(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)"),
               cel(at==null?"—":at+" %",
-                {align:"center",couleur:couleurLisible(bt2.txt)},bt2.pale),
+                {align:"center",gras:true,couleur:bt2.txt}),
               cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"")];
     });
     const hs=odpHauteurs(cols,lg);
@@ -7976,7 +7988,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-08-q — palette du diaporama alignée sur la revue annuelle";
+const VERSION="2026-09-09-c — gras limité au libellé de l’action";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -7026,21 +7026,38 @@ function odpPlanningSuite(d,p,reste,titreCartouche,tous){
 /* Chaque ligne est mesurée : à 16 pt, une cellule longue occupe plusieurs
    lignes et la rangée doit grandir. La pagination cumule ces hauteurs plutôt
    que de compter un nombre fixe de rangées, sinon le bas déborde. */
+/* Hauteur de chaque rangée. Le plafond de six lignes de odpLignes convient à un
+   badge, pas à une cellule de commentaire : sous-estimée, la rangée était placée
+   sur une page où elle ne tenait pas et débordait de la diapositive. */
 function odpHauteurs(cols,lignes){
   return lignes.map(lg=>{
     let n=1;
     lg.forEach((c,i)=>{
       const t=(c.o&&c.o.taille)||ODP_T.corps;
-      n=Math.max(n,odpLignes(c.t,cols[i].w-0.3,t));
+      n=Math.max(n,odpLignes(c.t,cols[i].w-0.3,t,c.o&&c.o.gras,80));
     });
     return n*odpHautLigne(ODP_T.corps)+0.34;
   });
 }
+
+/* Aucune rangée ne peut dépasser la hauteur d'une diapositive : au-delà, on
+   tronque le texte de la cellule fautive. Un commentaire de quarante lignes ne
+   se découpe pas d'une page à l'autre, LibreOffice le laisse déborder. */
+function odpBornerRangees(cols,lignes,hDispo){
+  const hUne=odpHautLigne(ODP_T.corps);
+  const maxL=Math.max(3,Math.floor((hDispo-0.34)/hUne));
+  lignes.forEach(lg=>lg.forEach((c,i)=>{
+    const t=(c.o&&c.o.taille)||ODP_T.corps;
+    if(odpLignes(c.t,cols[i].w-0.3,t,c.o&&c.o.gras,200)>maxL)
+      c.t=odpCoupe(c.t,(cols[i].w-0.3)*maxL,t,c.o&&c.o.gras);
+  }));
+}
 function odpTableau(d,titre,surtitre,cols,lignes){
   if(!lignes.length) return null;
   const z=odpZone("pied");
-  const hs=odpHauteurs(cols,lignes);
   const hEnt=odpHautLigne(ODP_T.corps)*2+0.34;    // l'en-tête peut tenir sur deux lignes
+  odpBornerRangees(cols,lignes,z.h-0.7-hEnt-0.6);
+  const hs=odpHauteurs(cols,lignes);
   let i=0, premier=true;
   while(i<lignes.length){
     const pg=odpPage(d,"pied");
@@ -7994,7 +8011,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-d — porteur et échéance des tâches";
+const VERSION="2026-09-09-e — rangées bornées à la diapositive";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

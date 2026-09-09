@@ -1151,6 +1151,8 @@ const DEF = {
   tblNote:"", colNoteLien:"Projet", colNoteAction:"Action_MEO", colNoteAuteur:"Auteur",
   colNoteDate:"Date", colNoteTexte:"Texte", colNoteStatut:"Statut",
   colNoteDestination:"Destination", colNoteLigne:"Ligne_creee", colNoteTraitee:"Traite_le",
+  /* table des agents : sert à retrouver la fonction du porteur */
+  tblAgent:"", colAgentNom:"", colAgentFonction:"",
   colNotePJ:"Piece_jointe",
   btnLibelle:"", btnUrl:"", mdpHash:"", pdfVisible:false,
   /* trois boutons libres de la barre supérieure */
@@ -1202,13 +1204,17 @@ const CHAMPS_REGLAGES = [
     ["colNotePJ","Pièces jointes"],
     ["colNoteStatut","Statut"],["colNoteDestination","Destination retenue"],
     ["colNoteLigne","Ligne créée (texte)"],["colNoteTraitee","Date de traitement"]
+  ]},
+  {bloc:"Table des agents", tableKey:"tblAgent", champs:[
+    ["colAgentNom","Nom, tel qu'il figure dans la colonne Porteur"],
+    ["colAgentFonction","Fonction"]
   ]}
 ];
 
 const S = {
   cfg:Object.assign({},DEF),
   meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
-  data:{main:[],taches:[],journal:[],instances:[],notes:[]},
+  data:{main:[],taches:[],journal:[],instances:[],notes:[],agents:[]},
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
   onglet:"synthese",
@@ -1510,6 +1516,7 @@ async function charger(){
   S.data.journal  = await lireTable(c.tblJournal);
   S.data.instances= await lireTable(c.tblInstance);
   S.data.notes    = await lireTable(c.tblNote);
+  S.data.agents   = await lireTable(c.tblAgent);
   await chargerPJ();
 
   // libellés des colonnes de type Référence utilisées à l'écran
@@ -1519,7 +1526,8 @@ async function charger(){
     [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction","colJnlCollab","colJnlReponse"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
     [c.tblNote,["colNoteLien","colNoteAuteur","colNoteTexte","colNoteStatut",
-                "colNoteDestination","colNoteAction"]]
+                "colNoteDestination","colNoteAction"]],
+    [c.tblAgent,["colAgentNom","colAgentFonction"]]
   ];
   /* une référence illisible — table annexe protégée par les règles d'accès —
      ne doit pas faire échouer tout le rechargement : on l'ignore et on continue */
@@ -1532,6 +1540,31 @@ async function charger(){
     }
   }
   majBandeauAcces();
+}
+
+/* Fonction d'un agent, lue dans la table des agents. Le porteur peut y être
+   rattaché de deux façons : par une colonne Référence, auquel cas la valeur
+   brute est l'identifiant de la ligne, ou par son nom en clair. On traite les
+   deux, la seconde en repliant accents et ponctuation pour absorber les écarts
+   de saisie. */
+function fonctionAgent(tableId,ligne,colPorteur){
+  const c=S.cfg;
+  if(!c.tblAgent||!c.colAgentFonction||!ligne||!colPorteur) return "";
+  const agents=S.data.agents||[];
+  if(!agents.length) return "";
+  const info=infoCol(tableId,colPorteur);
+  const brut=ligne[colPorteur];
+  let agent=null;
+  if(info && /^Ref(List)?:/.test(info.type)){
+    const id=Number(estListe(brut)?brut[1]:brut);
+    if(id) agent=agents.find(a=>a.id===id);
+  }
+  if(!agent && c.colAgentNom){
+    const nom=pliColonne(lire(tableId,ligne,colPorteur));
+    if(!nom) return "";
+    agent=agents.find(a=>pliColonne(lire(c.tblAgent,a,c.colAgentNom))===nom);
+  }
+  return agent ? txt(lire(c.tblAgent,agent,c.colAgentFonction)).trim() : "";
 }
 
 /* --- accès aux valeurs, en résolvant les références --- */
@@ -2053,7 +2086,9 @@ function rendreProjet(){
     '<div class="txt"><h1>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</h1>'+
     '<div class="meta">'+
       (lire(c.tblMain,p,c.colGroupement)?'<span>'+esc(lire(c.tblMain,p,c.colGroupement))+'</span>':'')+
-      (lire(c.tblMain,p,c.colPorteur)?'<span>· Porteur : '+esc(lire(c.tblMain,p,c.colPorteur))+'</span>':'')+
+      (lire(c.tblMain,p,c.colPorteur)?'<span>· Porteur : '+esc(lire(c.tblMain,p,c.colPorteur))+
+        (fonctionAgent(c.tblMain,p,c.colPorteur)
+          ?', '+esc(fonctionAgent(c.tblMain,p,c.colPorteur)):'')+'</span>':'')+
       (i?'<span class="pastille p-Interrompu">Interrompu</span>':'')+
       pastillePriorite(lire(c.tblMain,p,c.colPriorite))+
     '</div></div>'+boutonPerso()+'</div>'+
@@ -8018,7 +8053,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-f — notes vers le commentaire d’une tâche du projet";
+const VERSION="2026-09-09-g — fonction du porteur sous le titre";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

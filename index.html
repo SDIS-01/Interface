@@ -3984,20 +3984,27 @@ function formulaireNote(p,n,dest,texte){
     if(c.colTacheCommentaire) h+=champTexte("Commentaire",texte);
   }
   else if(dest==="commentaire"){
+    const avecT=c.tblTache&&c.colTacheCommentaire;
+    const optT=t=>'<option value="T:'+t.id+'">&nbsp;&nbsp;Tâche — '+
+      esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+'</option>';
     const opts=['<option value="P"'+(act?"":" selected")+'>Le projet — '+
       esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</option>'];
+    /* les tâches portées par le projet lui-même n'étaient pas proposées :
+       elles ne relèvent d'aucune action et échappaient à la boucle */
+    if(avecT) tachesDe(p).forEach(t=>opts.push(optT(t)));
     actionsDe(p).forEach(a=>{
       opts.push('<option value="A:'+a.id+'"'+(act&&act.id===a.id?" selected":"")+
         '>Action — '+esc(lire(c.tblMain,a,c.colLibelle)||"(sans libellé)")+'</option>');
-      if(c.tblTache&&c.colTacheCommentaire) tachesDe(a).forEach(t=>
-        opts.push('<option value="T:'+t.id+'">&nbsp;&nbsp;Tâche — '+
-          esc(lire(c.tblTache,t,c.colTacheLibelle)||"(sans libellé)")+'</option>'));
+      if(avecT) tachesDe(a).forEach(t=>opts.push(optT(t)));
     });
     h+='<div class="champ pleine"><label>Ligne à commenter</label>'+
        '<select id="nf-cible">'+opts.join("")+'</select></div>'+
        champTexte("Texte ajouté",texte)+
-       '<div class="champ pleine"><p class="note-aide">Le texte sera ajouté à la suite '+
-       'du commentaire existant, précédé de la date et de l\'auteur. Rien n\'est effacé.</p></div>';
+       '<div class="champ pleine"><p class="note-aide">Projet, action ou tâche : '+
+       'le texte sera ajouté à la suite du commentaire existant, précédé de la '+
+       'date et de l\'auteur. Rien n\'est effacé.'+
+       (avecT?"":" La colonne de commentaire des tâches n\'est pas paramétrée, "+
+        "les tâches ne sont donc pas proposées.")+'</p></div>';
   }
 
   return h+'</div><div class="note-form-btns">'+
@@ -8011,7 +8018,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-e — rangées bornées à la diapositive";
+const VERSION="2026-09-09-f — notes vers le commentaire d’une tâche du projet";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

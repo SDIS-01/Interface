@@ -487,6 +487,9 @@ tbody tr.ligne-com:hover{background:transparent;}
 .sous-ligne{display:flex;gap:14px;align-items:flex-start;}
 .sl-com{flex:2;min-width:0;}
 .sl-pj{flex:1;min-width:190px;}
+.jnl.jnl-ouvert{flex-wrap:wrap;align-items:flex-start;gap:6px;}
+.jnl.jnl-ouvert .date{min-width:110px;}
+.jnl.jnl-ouvert .texte{flex:1 1 100%;}
 .cfg-version{margin:0 0 12px;color:var(--gris);font-size:11.5px;}
 .pj-bloc{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
 .pj-liste{display:flex;flex-wrap:wrap;gap:6px;}
@@ -2789,15 +2792,30 @@ async function motDePasseValide(invite){
   return false;
 }
 
+/* Barre « Modifier les champs », commune aux onglets qui protègent leurs
+   saisies derrière le mot de passe. */
+function barreVerrou(texteFerme){
+  const ouvert=S.deverrouille;
+  return '<div class="barre-actions">'+
+    '<button class="'+(ouvert?"btn":"btn-2")+'" id="verrou">'+
+      (ouvert?"Verrouiller les champs":"Modifier les champs")+'</button>'+
+    '<span style="color:var(--gris)">'+
+      (ouvert?"Les modifications sont enregistrées dans Grist à la sortie du champ."
+             :esc(texteFerme))+'</span>'+
+  '</div>';
+}
+
 async function confirmerSuppression(question){
   if(!confirm(question)) return false;
   return await motDePasseValide("Mot de passe pour confirmer la suppression :");
 }
 
+/* Le verrou couvre désormais la synthèse, les instances et le journal : on
+   redessine l'onglet courant plutôt que la seule synthèse. */
 async function basculerVerrou(p){
-  if(S.deverrouille){ S.deverrouille=false; vueSynthese(p); return; }
+  if(S.deverrouille){ S.deverrouille=false; VUES[S.onglet](p); return; }
   if(await motDePasseValide("Mot de passe pour modifier ces champs :")){
-    S.deverrouille=true; vueSynthese(p);
+    S.deverrouille=true; VUES[S.onglet](p);
   }
 }
 
@@ -2820,13 +2838,7 @@ function vueSynthese(p){
       esc(a==null?"—":a+" %")+'</div>';
 
   $("#corps").innerHTML=
-    '<div class="barre-actions">'+
-      '<button class="'+(ouvert?"btn":"btn-2")+'" id="verrou">'+
-        (ouvert?"Verrouiller les champs":"Modifier les champs")+'</button>'+
-      '<span style="color:var(--gris)">'+
-        (ouvert?"Les modifications sont enregistrées dans Grist à la sortie du champ."
-               :"Identité et calendrier sont en consultation.")+'</span>'+
-    '</div>'+
+    barreVerrou("Identité et calendrier sont en consultation.")+
     '<div class="carte'+(ouvert?" carte-ouverte":"")+'"><h2>Identité du projet</h2><div class="grille">'+
       ch("Nature",lect(c.colNature))+
       ch("Groupement",lect(c.colGroupement))+
@@ -3208,7 +3220,12 @@ function tableauInstances(instances){
   const avecType=!!c.colInsType, avecRap=!!c.colInsRapporteur, avecAction=!!c.colInsAction;
   const avecPJ=!!c.colInsPJ;
   const nbCol=2+(avecType?1:0)+(avecRap?1:0)+(avecAction?1:0)+(avecPJ?1:0)+1;
+  const ouvert=S.deverrouille;
   const cel=v=>v?esc(v):'<span class="cel-vide">—</span>';
+  /* déverrouillé, chaque cellule devient un éditeur sur sa colonne d'origine */
+  const ed=(j,col,opt)=>ouvert&&col
+    ? editeur(c.tblInstance,j.ligne,col,opt)
+    : null;
   const corps = !instances.length
     ? videHisto(configuree,"La première instance s'ajoute ci-dessus.")
     : '<table class="tab-histo"><thead><tr>'+
@@ -3220,19 +3237,22 @@ function tableauInstances(instances){
         '<th style="width:34px"></th></tr></thead><tbody>'+
         instances.map(j=>
           '<tr class="ligne-histo" data-act="'+esc(j.action||"")+'">'+
-          '<td class="col-date cel-date">'+esc(dateVersFR(j.date)||"—")+'</td>'+
-          '<td class="cel-texte">'+esc(j.libelle)+'</td>'+
-          (avecType?'<td>'+(j.type
+          '<td class="col-date cel-date">'+
+            (ed(j,c.colInsDate)||esc(dateVersFR(j.date)||"—"))+'</td>'+
+          '<td class="cel-texte">'+
+            (ed(j,c.colInsHisto||c.colInsLibelle,{auto:true})||esc(j.libelle))+'</td>'+
+          (avecType?'<td>'+(ed(j,c.colInsType)||(j.type
             ? '<span class="pastille p-nature">'+esc(j.type)+'</span>'
-            : '<span class="cel-vide">—</span>')+'</td>':'')+
-          (avecRap?'<td>'+cel(j.rapporteur)+'</td>':'')+
+            : '<span class="cel-vide">—</span>'))+'</td>':'')+
+          (avecRap?'<td>'+(ed(j,c.colInsRapporteur)||cel(j.rapporteur))+'</td>':'')+
           (avecAction?'<td>'+(j.action
             ? '<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>'
             : '<span class="cel-vide">—</span>')+'</td>':'')+
           (avecPJ?'<td>'+blocPJ(c.tblInstance,j.ligne,c.colInsPJ)+'</td>':'')+
           '<td>'+btnSupHisto(j)+'</td></tr>').join("")+
         ligneRienHisto(nbCol)+'</tbody></table>';
-  return '<div class="carte">'+teteHisto("Historique des instances",filtre)+
+  return barreVerrou("Les instances sont en consultation.")+
+    '<div class="carte">'+teteHisto("Historique des instances",filtre)+
     '<div class="histo-liste" id="'+id+'-liste">'+corps+'</div></div>';
 }
 
@@ -3263,6 +3283,8 @@ function vueInstances(p){
   brancherFiltresHisto();
   brancherSuppressionHisto();
   brancherPJ();
+  brancherEditeurs();
+  $("#verrou").onclick=()=>basculerVerrou(p);
 }
 
 /* --- Planning --- */
@@ -3630,21 +3652,29 @@ function vueJournal(p){
   const fils=filsJournal(p).filter(f=>!echeanceOuverte(f.j));
   const actJnl=j=>(c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):"");
 
-  /* une ligne du journal ; reponse=true la décale sous sa mère */
+  /* une ligne du journal ; reponse=true la décale sous sa mère.
+     Déverrouillée, chacune de ses valeurs devient modifiable sur place. */
+  const ouvert=S.deverrouille;
+  const edJ=(j,col,opt)=>ouvert&&col?editeur(c.tblJournal,j,col,opt):null;
   const ligneJnl=(j,reponse)=>
-    '<div class="jnl'+(reponse?" jnl-rep":"")+'">'+
-      '<span class="date">'+esc(dateVersFR(j[c.colJnlDate]))+'</span>'+
+    '<div class="jnl'+(reponse?" jnl-rep":"")+(ouvert?" jnl-ouvert":"")+'">'+
+      '<span class="date">'+
+        (edJ(j,c.colJnlDate)||esc(dateVersFR(j[c.colJnlDate])))+'</span>'+
       (!reponse&&actJnl(j)
         ? '<span class="pastille p-action" title="'+esc(actJnl(j))+'">'+
           esc(actJnl(j))+'</span>':'')+
-      (c.colJnlNature&&lire(c.tblJournal,j,c.colJnlNature)
-        ? '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>':'')+
-      (c.colJnlCollab&&lire(c.tblJournal,j,c.colJnlCollab)
-        ? '<span class="pastille p-collab">'+esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>':'')+
-      (c.colJnlDelai&&j[c.colJnlDelai]
-        ? '<span class="pastille p-delai" title="Délai d\'exécution">⏱ '+
-          esc(dateVersFR(j[c.colJnlDelai]))+'</span>':'')+
-      '<span class="texte">'+esc(lire(c.tblJournal,j,c.colJnlTexte))+
+      (c.colJnlNature&&(ouvert||lire(c.tblJournal,j,c.colJnlNature))
+        ? (edJ(j,c.colJnlNature)||
+           '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>'):'')+
+      (c.colJnlCollab&&(ouvert||lire(c.tblJournal,j,c.colJnlCollab))
+        ? (edJ(j,c.colJnlCollab)||
+           '<span class="pastille p-collab">'+esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>'):'')+
+      (c.colJnlDelai&&(ouvert||j[c.colJnlDelai])
+        ? (edJ(j,c.colJnlDelai)||
+           '<span class="pastille p-delai" title="Délai d\'exécution">⏱ '+
+           esc(dateVersFR(j[c.colJnlDelai]))+'</span>'):'')+
+      '<span class="texte">'+
+      (edJ(j,c.colJnlTexte,{multi:true})||esc(lire(c.tblJournal,j,c.colJnlTexte)))+
       (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
         esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
       (c.colJnlReponse
@@ -3657,6 +3687,7 @@ function vueJournal(p){
     actionsPresentes(js.map(j=>({action:actJnl(j)}))),
     js.some(j=>!actJnl(j)));
   $("#corps").innerHTML=
+    barreVerrou("Les entrées du journal sont en consultation.")+
     blocEcheances(p)+
     '<div class="duo"><div class="duo-ajout">'+
     '<div class="carte"><h2>'+(S.reponseA?"Répondre à une entrée":"Ajouter une entrée")+'</h2>'+
@@ -3693,6 +3724,8 @@ function vueJournal(p){
   brancherFiltresHisto();
   brancherEcheances(p);
   brancherPJ();
+  brancherEditeurs();
+  $("#verrou").onclick=()=>basculerVerrou(p);
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }
@@ -8174,7 +8207,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-n — reverrouillage automatique de la synthèse";
+const VERSION="2026-09-09-o — instances et journal modifiables sous mot de passe";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

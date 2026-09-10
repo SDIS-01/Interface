@@ -1181,7 +1181,7 @@ const CHAMPS_REGLAGES = [
     ["colTacheLien","Lien vers l'action"],["colTacheLibelle","Libellé de la tâche"],
     ["colTacheDebut","Date de début"],["colTacheFin","Date de fin"],
     ["colTacheAvancement","Avancement"],["colTachePorteur","Porteur"],["colTacheStatut","Statut"],
-    ["colTacheCommentaire","Commentaire"]
+    ["colTacheCommentaire","Commentaire"],["colTachePJ","Pièces jointes"]
   ]},
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
     ["colJnlLien","Lien vers le projet"],["colJnlAction","Lien vers l'action (facultatif)"],
@@ -8156,7 +8156,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-k — pièces jointes du journal et des instances";
+const VERSION="2026-09-09-l — réglage manquant des PJ de tâches";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -1807,6 +1807,15 @@ function majBarreBrouillon(){
   if(act) act.classList.toggle("attention",!!n);
 }
 
+/* Le déverrouillage de la Synthèse ne survit ni à un changement de page ni à un
+   enregistrement : c'est une autorisation ponctuelle, pas un mode de travail.
+   La laisser ouverte exposait l'identité et le calendrier à la fausse manœuvre
+   longtemps après que l'on eut oublié l'avoir demandée. */
+function reverrouiller(){
+  if(!S.deverrouille) return;
+  S.deverrouille=false;
+}
+
 async function enregistrerBrouillon(){
   const n=nbModifs();
   if(!n) return true;
@@ -1821,6 +1830,7 @@ async function enregistrerBrouillon(){
   try{
     await grist.docApi.applyUserActions(actions);
     S.brouillon={};
+    reverrouiller();
     majBarreBrouillon();
     toast(n+" modification"+(n>1?"s":"")+" enregistrée"+(n>1?"s":""));
     await tout();
@@ -2037,6 +2047,7 @@ function rendreListe(){
   }).join("");
   el.querySelectorAll(".ligne-projet").forEach(d=>d.onclick=()=>{
     S.projetSel=S.data.main.find(r=>r.id===Number(d.dataset.id));
+    reverrouiller();
     rendreListe(); rendreProjet();
   });
 }
@@ -2102,7 +2113,7 @@ function rendreProjet(){
       (nb[k]!==undefined?'<span class="n">'+nb[k]+'</span>':'')+'</button>').join("")+'</div>';
 
   $("#entete").querySelectorAll(".onglet").forEach(b=>b.onclick=()=>{
-    S.onglet=b.dataset.o; rendreProjet();
+    S.onglet=b.dataset.o; reverrouiller(); rendreProjet();
   });
 
   VUES[S.onglet](p);
@@ -7699,6 +7710,7 @@ function mbAccueil(){
   if(bc) bc.onclick=()=>{ m.clos=!m.clos; mbAccueil(); };
   document.querySelectorAll("[data-mbp]").forEach(b=>b.onclick=()=>{
     S.projetSel=S.data.main.find(r=>r.id===Number(b.dataset.mbp));
+    reverrouiller();
     m.ecran="fiche"; m.onglet="synthese";
     rendreMobile(); window.scrollTo(0,0);
   });
@@ -7723,9 +7735,10 @@ function mbFiche(){
     '<div class="mb-corps" id="mb-corps"></div>'+
     '<button type="button" class="mb-plus" id="mb-note" aria-label="Ajouter une note">+</button>';
 
-  $("#mb-retour").onclick=()=>{ m.ecran="accueil"; rendreMobile(); window.scrollTo(0,0); };
+  $("#mb-retour").onclick=()=>{ m.ecran="accueil"; reverrouiller();
+    rendreMobile(); window.scrollTo(0,0); };
   document.querySelectorAll("[data-mbo]").forEach(b=>b.onclick=()=>{
-    m.onglet=b.dataset.mbo; mbFiche(); window.scrollTo(0,0);
+    m.onglet=b.dataset.mbo; reverrouiller(); mbFiche(); window.scrollTo(0,0);
   });
   $("#mb-note").onclick=()=>mbFeuilleNote(p);
 
@@ -8161,7 +8174,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-m — version affichée dans les réglages";
+const VERSION="2026-09-09-n — reverrouillage automatique de la synthèse";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

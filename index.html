@@ -1142,7 +1142,7 @@ const DEF = {
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
-  colTachePJ:"",
+  colTachePJ:"", colJnlPJ:"", colInsPJ:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
   colJnlReponse:"Reponse_a", colJnlTraite:"Traité",
@@ -1189,14 +1189,15 @@ const CHAMPS_REGLAGES = [
     ["colJnlAuteur","Auteur de la saisie"],["colJnlNature","Nature / origine"],
     ["colJnlCollab","Collaborateur concerné"],["colJnlDelai","Délai d'exécution"],
     ["colJnlReponse","Réponse à (même table)"],
-    ["colJnlTraite","Échéance traitée (case à cocher)"]
+    ["colJnlTraite","Échéance traitée (case à cocher)"],["colJnlPJ","Pièces jointes"]
   ]},
   {bloc:"Table des instances", tableKey:"tblInstance", champs:[
     ["colInsLien","Lien vers le projet"],["colInsAction","Lien vers l'action (facultatif)"],
     ["colInsDate","Date"],
     ["colInsLibelle","Libellé saisi à l'ajout"],
     ["colInsHisto","Colonne affichée dans l'historique"],
-    ["colInsType","Type"],["colInsRapporteur","Rapporteur"]
+    ["colInsType","Type"],["colInsRapporteur","Rapporteur"],
+    ["colInsPJ","Pièces jointes"]
   ]},
   {bloc:"Table des notes de réunion", tableKey:"tblNote", champs:[
     ["colNoteLien","Lien vers le projet"],["colNoteAction","Lien vers l'action (facultatif)"],
@@ -1741,7 +1742,7 @@ function instancesDe(p){
     S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
       out.push({
-        id:j.id, table:c.tblInstance, genre:"Instance",
+        id:j.id, table:c.tblInstance, genre:"Instance", ligne:j,
         date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
         libelle:lib,
         action:actionUtile(c.tblInstance,j,c.colInsAction,p),
@@ -2866,6 +2867,11 @@ function ressourcesDe(p){
     tachesDe(a).forEach(t=>prendre(c.tblTache,t,c.colTachePJ,"Tâche",
       lire(c.tblTache,t,c.colTacheLibelle)));
   });
+  instancesDe(p).forEach(j=>prendre(c.tblInstance,j.ligne,c.colInsPJ,"Instance",
+    j.libelle||dateVersFR(j.date)));
+  journalDe(p).forEach(j=>prendre(c.tblJournal,j,c.colJnlPJ,"Journal",
+    txt(lire(c.tblJournal,j,c.colJnlTexte)).split("\n")[0].slice(0,80)
+      || dateVersFR(j[c.colJnlDate])));
   notesDe(p).forEach(n=>prendre(c.tblNote,n,c.colNotePJ,"Note",
     txt(lire(c.tblNote,n,c.colNoteTexte)).split("\n")[0].slice(0,80)));
   return out;
@@ -3188,7 +3194,8 @@ function tableauInstances(instances){
   const configuree=!!(c.tblInstance&&c.colInsLien);
   const filtre=filtreHisto(id,actionsPresentes(instances),instances.some(e=>!e.action));
   const avecType=!!c.colInsType, avecRap=!!c.colInsRapporteur, avecAction=!!c.colInsAction;
-  const nbCol=2+(avecType?1:0)+(avecRap?1:0)+(avecAction?1:0)+1;
+  const avecPJ=!!c.colInsPJ;
+  const nbCol=2+(avecType?1:0)+(avecRap?1:0)+(avecAction?1:0)+(avecPJ?1:0)+1;
   const cel=v=>v?esc(v):'<span class="cel-vide">—</span>';
   const corps = !instances.length
     ? videHisto(configuree,"La première instance s'ajoute ci-dessus.")
@@ -3197,6 +3204,7 @@ function tableauInstances(instances){
         (avecType?'<th class="col-etroite">Type</th>':'')+
         (avecRap?'<th class="col-etroite">Rapporteur</th>':'')+
         (avecAction?'<th class="col-etroite">Action</th>':'')+
+        (avecPJ?'<th>Pièces jointes</th>':'')+
         '<th style="width:34px"></th></tr></thead><tbody>'+
         instances.map(j=>
           '<tr class="ligne-histo" data-act="'+esc(j.action||"")+'">'+
@@ -3209,6 +3217,7 @@ function tableauInstances(instances){
           (avecAction?'<td>'+(j.action
             ? '<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>'
             : '<span class="cel-vide">—</span>')+'</td>':'')+
+          (avecPJ?'<td>'+blocPJ(c.tblInstance,j.ligne,c.colInsPJ)+'</td>':'')+
           '<td>'+btnSupHisto(j)+'</td></tr>').join("")+
         ligneRienHisto(nbCol)+'</tbody></table>';
   return '<div class="carte">'+teteHisto("Historique des instances",filtre)+
@@ -3241,6 +3250,7 @@ function vueInstances(p){
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
   brancherFiltresHisto();
   brancherSuppressionHisto();
+  brancherPJ();
 }
 
 /* --- Planning --- */
@@ -3629,6 +3639,7 @@ function vueJournal(p){
         ? '<button class="btn-rep" data-repj="'+j.id+'" title="Répondre à cette entrée">'+
           '<span>↩</span> Répondre</button>':'')+
       '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button>'+
+      (c.colJnlPJ?'<div class="sl-pj">'+blocPJ(c.tblJournal,j,c.colJnlPJ)+'</div>':'')+
     '</div>';
   const fJnl=filtreHisto("fh-journal",
     actionsPresentes(js.map(j=>({action:actJnl(j)}))),
@@ -3669,6 +3680,7 @@ function vueJournal(p){
   brancherAutoHauteur();
   brancherFiltresHisto();
   brancherEcheances(p);
+  brancherPJ();
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }
@@ -8144,7 +8156,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-j — pièces jointes sur les tâches";
+const VERSION="2026-09-09-k — pièces jointes du journal et des instances";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

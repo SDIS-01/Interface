@@ -3049,7 +3049,7 @@ function vueTaches(p){
         ts.map(r=>{
           const a=pct(r[c.colTacheAvancement]);
           const cle=c.tblTache+":"+r.id, ouvert=!!S.ouverts[cle];
-          const detail=!!c.colTacheCommentaire;
+          const detail=!!(c.colTacheCommentaire||c.colTachePJ);
           return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
             (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
             '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
@@ -3063,8 +3063,12 @@ function vueTaches(p){
             '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>'+
             (detail
               ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
-                '><td colspan="'+nbColT+'"><label>Commentaire</label>'+
-                editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true})+'</td></tr>'
+                '><td colspan="'+nbColT+'">'+
+                (c.colTacheCommentaire?'<label>Commentaire</label>'+
+                  editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true}):'')+
+                (c.colTachePJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
+                  blocPJ(c.tblTache,r,c.colTachePJ)+'</div>':'')+
+                '</td></tr>'
               : '');
         }).join("")+'</tbody></table>';
     }
@@ -3077,6 +3081,7 @@ function vueTaches(p){
       'Modifiez la recherche ou les filtres.</div></div>' : "");
   brancherEditeurs();
   brancherRepli();
+  brancherPJ();
   brancherFiltres("ft",S.fTaches,()=>vueTaches(p),"m-ft-action");
   document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
     const act=S.data.main.find(r=>r.id===Number(b.dataset.addt));
@@ -8139,7 +8144,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-i — onglet Ressources";
+const VERSION="2026-09-09-j — pièces jointes sur les tâches";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

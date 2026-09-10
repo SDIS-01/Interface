@@ -1142,6 +1142,7 @@ const DEF = {
   colJournalTexte:"Journal_bord",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
+  colTachePJ:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
   colJnlReponse:"Reponse_a", colJnlTraite:"Traité",
@@ -2044,7 +2045,8 @@ function rendreListe(){
 
 const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
                ["instances","Instances"],["planning","Planning"],
-               ["journal","Journal de bord"],["notes","Notes"]];
+               ["journal","Journal de bord"],["notes","Notes"],
+               ["ressources","Ressources"]];
 
 /* table des fonctions de rendu, partagée par l'affichage et l'impression */
 const VUES={};   // remplie plus bas, une fois les fonctions vueXxx déclarées
@@ -2079,7 +2081,8 @@ function rendreProjet(){
             taches:porteursDeTaches(p).reduce((n,x)=>n+tachesDe(x).length,0),
             instances:jx.length,
             journal:journalDe(p).length,
-            notes:notesDe(p).filter(estACaracteriser).length};
+            notes:notesDe(p).filter(estACaracteriser).length,
+            ressources:ressourcesDe(p).length};
 
   $("#entete").innerHTML=
     '<div class="entete-haut">'+donut(a,54,i)+
@@ -2839,6 +2842,87 @@ function vueSynthese(p){
   brancherEditeurs();
   brancherPJ();
   $("#verrou").onclick=()=>basculerVerrou(p);
+}
+
+/* =======================================================================
+   Ressources : toutes les pièces jointes du projet
+   =======================================================================
+   Elles sont dispersées entre le projet, ses actions, ses tâches, ses notes et
+   ses instances. On les rassemble ici, sans les déplacer : chaque entrée garde
+   la trace de sa ligne d'origine, où elle reste modifiable. */
+function ressourcesDe(p){
+  const c=S.cfg, out=[];
+  const prendre=(table,ligne,col,origine,libelle)=>{
+    if(!col) return;
+    valListe(ligne[col]).map(Number).filter(Boolean).forEach(id=>{
+      out.push({id,table,ligne,col,origine,libelle});
+    });
+  };
+  prendre(c.tblMain,p,c.colPJ,"Projet",lire(c.tblMain,p,c.colLibelle));
+  tachesDe(p).forEach(t=>prendre(c.tblTache,t,c.colTachePJ,"Tâche",
+    lire(c.tblTache,t,c.colTacheLibelle)));
+  actionsDe(p).forEach(a=>{
+    prendre(c.tblMain,a,c.colPJ,"Action",lire(c.tblMain,a,c.colLibelle));
+    tachesDe(a).forEach(t=>prendre(c.tblTache,t,c.colTachePJ,"Tâche",
+      lire(c.tblTache,t,c.colTacheLibelle)));
+  });
+  notesDe(p).forEach(n=>prendre(c.tblNote,n,c.colNotePJ,"Note",
+    txt(lire(c.tblNote,n,c.colNoteTexte)).split("\n")[0].slice(0,80)));
+  return out;
+}
+
+function vueRessources(p){
+  const c=S.cfg;
+  const tout=ressourcesDe(p);
+  const f=S.fRessources=S.fRessources||{origine:"",q:""};
+  const origines=[...new Set(tout.map(r=>r.origine))];
+  const vus=tout.filter(r=>{
+    if(f.origine && r.origine!==f.origine) return false;
+    if(f.q){
+      const q=pliColonne(f.q);
+      const nom=pliColonne((S.pj[r.id]&&S.pj[r.id].nom)||"");
+      if(!nom.includes(q) && !pliColonne(r.libelle).includes(q)) return false;
+    }
+    return true;
+  });
+
+  let html='<div class="carte"><div class="barre-filtres">'+
+    '<select id="fr-origine"><option value="">Toutes les origines</option>'+
+    origines.map(o=>'<option value="'+esc(o)+'"'+(f.origine===o?" selected":"")+
+      '>'+esc(o)+'</option>').join("")+'</select>'+
+    '<input type="search" id="fr-q" placeholder="Rechercher un fichier…" value="'+
+      esc(f.q)+'">'+
+    ((f.origine||f.q)
+      ? '<button class="btn-raz" id="fr-raz">Réinitialiser</button>'+
+        '<span class="decompte">'+vus.length+' sur '+tout.length+'</span>'
+      : '<span class="decompte">'+tout.length+' au total</span>')+
+    '</div></div>';
+
+  if(!tout.length){
+    html+='<div class="carte"><div class="vide"><b>Aucune pièce jointe</b>'+
+      'Ajoutez des fichiers depuis la synthèse, une action, une tâche ou une note.'+
+      '</div></div>';
+  }else if(!vus.length){
+    html+='<div class="carte"><div class="vide"><b>Aucun fichier ne correspond</b>'+
+      'Modifiez la recherche ou le filtre.</div></div>';
+  }else{
+    html+='<div class="carte"><table class="tbl"><thead><tr>'+
+      '<th>Fichier</th><th>Origine</th><th>Ligne</th></tr></thead><tbody>'+
+      vus.map(r=>'<tr><td><button type="button" class="pj-chip" data-pj="'+r.id+
+        '">'+esc((S.pj[r.id]&&S.pj[r.id].nom)||("pièce "+r.id))+'</button></td>'+
+        '<td>'+esc(r.origine)+'</td>'+
+        '<td>'+esc(r.libelle||"(sans libellé)")+'</td></tr>').join("")+
+      '</tbody></table></div>';
+  }
+  $("#corps").innerHTML=html;
+  $("#fr-origine").onchange=e=>{ f.origine=e.target.value; vueRessources(p); };
+  const raz=$("#fr-raz");
+  if(raz) raz.onclick=()=>{ f.origine=""; f.q=""; vueRessources(p); };
+  const q=$("#fr-q");
+  q.oninput=()=>{ f.q=q.value; };
+  q.onsearch=q.onchange=()=>{ f.q=q.value; vueRessources(p); };
+  q.onkeydown=e=>{ if(e.key==="Enter"){ f.q=q.value; vueRessources(p); } };
+  brancherPJ();
 }
 
 /* --- Actions --- */
@@ -3657,7 +3741,8 @@ function vueJournal(p){
 /* on renseigne la table des vues une fois toutes les fonctions déclarées */
 Object.assign(VUES,{
   synthese:vueSynthese, actions:vueActions, taches:vueTaches,
-  instances:vueInstances, planning:vuePlanning, journal:vueJournal, notes:vueNotes
+  instances:vueInstances, planning:vuePlanning, journal:vueJournal, notes:vueNotes,
+  ressources:vueRessources
 });
 
 /* =======================================================================
@@ -3887,10 +3972,13 @@ async function classerNote(p,note,dest,extra){
     if(c.colTachePorteur && extra.porteur) champs[c.colTachePorteur]=extra.porteur;
     if(c.colTacheFin && extra.ech!==null && extra.ech!==undefined) champs[c.colTacheFin]=extra.ech;
     if(c.colTacheCommentaire && extra.texte) champs[c.colTacheCommentaire]=extra.texte;
+    /* sans action choisie, la tâche se rattache au projet lui-même, comme le
+       permet désormais l'onglet Tâches */
+    const porteurT=act||p;
     const info=infoCol(c.tblTache,c.colTacheLien);
-    if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
-    else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
-    else champs[c.colTacheLien]=txt(act[c.colActKey])||cleProjet(act);
+    if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=porteurT.id;
+    else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",porteurT.id];
+    else champs[c.colTacheLien]=txt(porteurT[c.colActKey])||cleProjet(porteurT);
     table=c.tblTache; id=await ajouter(table,champs);
   }
   else if(dest==="commentaire"){
@@ -4012,7 +4100,7 @@ function formulaireNote(p,n,dest,texte){
   }
   else if(dest==="tache"){
     h+=champLib("Libellé de la tâche");
-    h+=champActions("Action de rattachement",true);
+    h+=champActions("Action de rattachement (facultatif)",false);
     h+=champCol(c.tblTache,c.colTachePorteur,"nf-porteur","Porteur","");
     if(c.colTacheFin) h+='<div class="champ"><label>Échéance</label>'+
       champDateFR('id="nf-ech"','','')+'</div>';
@@ -4196,9 +4284,7 @@ function lireFormulaireNote(dest){
   if($("#nf-action")){
     extra.action=val("nf-action");
     extra.actionVidee=!extra.action;                     // choix explicite d'aucune action
-    if(dest==="tache" && !extra.action){
-      toast("Choisissez l'action de rattachement.",true); return null;
-    }
+    /* plus d'action obligatoire : une tâche sans action revient au projet */
   }
 
   if(dest==="instance"||dest==="action"||dest==="tache"){
@@ -8053,7 +8139,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-g — fonction du porteur sous le titre";
+const VERSION="2026-09-09-i — onglet Ressources";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

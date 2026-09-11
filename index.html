@@ -127,6 +127,10 @@ body.panneau-replie .panneau>*{display:none;}
   font-size:11px;color:var(--gris);white-space:nowrap;}
 .filtre-date input{flex:1;min-width:0;padding:5px 6px;border:1px solid var(--trait);
   border-radius:var(--rayon);background:#fff;font-size:11.5px;}
+.filtre-archives{grid-column:1/-1;display:flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--gris);white-space:nowrap;cursor:pointer;}
+.filtre-archives input{margin:0;flex:0 0 auto;cursor:pointer;}
+.filtre-archives[hidden]{display:none;}
 .liste{flex:1;overflow-y:auto;}
 .ligne-projet{
   display:flex;align-items:flex-start;gap:9px;padding:9px 11px;
@@ -160,6 +164,7 @@ body.panneau-replie .panneau>*{display:none;}
 .p-P3{background:#fdf4d6;color:#8a6d00;}
 .p-Termine{background:#eaf2dc;color:#5f7a2a;}
 .p-Interrompu{background:#e9eaec;color:#595959;}
+.p-Archive{background:#e3e6ea;color:#4b5462;border:1px dashed #9aa3ad;padding:1px 7px;}
 .p-Poursuite{background:#EDE3F7;color:#6B3FA0;}
 .p-neutre{background:#eef1f5;color:#4b5462;}
 .p-instance{background:#fdeadb;color:#b4611f;}
@@ -889,6 +894,12 @@ tbody tr.ligne-com:hover{background:transparent;}
           <input id="f-ech-au" type="text" class="date-fr" inputmode="numeric" maxlength="10"
                  placeholder="jj/mm/aaaa" autocomplete="off" aria-label="Échéance jusqu'au">
         </div>
+        <!-- Visible seulement si la colonne d'archivage est renseignée dans les
+             réglages et qu'au moins un projet est archivé. -->
+        <label class="filtre-archives" id="lbl-archives" hidden>
+          <input type="checkbox" id="f-archives">
+          <span id="txt-archives">Afficher les projets archivés</span>
+        </label>
       </div>
     </div>
     <div class="compteur">
@@ -1139,6 +1150,7 @@ const DEF = {
   tblMain:"", colProjKey:"ID_Projet_Action_AV", colActKey:"ID_Action_MEO",
   colNature:"Nature", colLibelle:"", colGroupement:"Groupement", colPorteur:"Porteur",
   colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
+  colArchive:"Archive_Projet",
   colCommentaire:"Commentaire", colDescriptif:"Descriptif_initiative", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
   colPJ:"Pièce_Jointe",
@@ -1173,7 +1185,8 @@ const CHAMPS_REGLAGES = [
     ["colProjKey","Identifiant du projet parent"],
     ["colActKey","Identifiant de l'action"],
     ["colGroupement","Groupement"],["colPorteur","Porteur"],["colPriorite","Priorité"],
-    ["colAvancement","Avancement"],["colStatut","Statut"],["colCommentaire","Commentaire"],
+    ["colAvancement","Avancement"],["colStatut","Statut"],
+    ["colArchive","Archivage (case à cocher)"],["colCommentaire","Commentaire"],
     ["colDescriptif","Descriptif du projet"],
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
@@ -1234,6 +1247,7 @@ const S = {
   brouillon:{},               // saisies en attente : "table|ligne|colonne" -> {t,r,c,v}
   deverrouille:false,
   panneauReplie:false,        // panneau latéral gauche replié ?
+  voirArchives:false,         // les projets archivés dans Grist sont-ils affichés ?
   bloquees:new Set(),         // tables interdites en lecture par les règles d'accès
   acccesMasque:false,         // bandeau d'accès masqué par l'utilisateur ?
   noteOuverte:null,           // note en cours de classement : {id, dest}
@@ -1611,8 +1625,25 @@ function interrompu(r){
          statutInterrompu(c.tblMain,r,c.colStatut);
 }
 
+/* Archivage : case à cocher posée dans Grist sur la ligne du projet. La colonne
+   peut remonter comme booléen, comme nombre ou comme texte selon son type ;
+   colonne non configurée ou absente du document = rien n'est masqué. */
+function estArchive(r){
+  const c=S.cfg;
+  if(!c.colArchive || !r || !(c.colArchive in r)) return false;
+  const v=r[c.colArchive];
+  if(v===true) return true;
+  if(v===false || v===null || v===undefined || v==="") return false;
+  return /^(true|1|oui|vrai|x)$/i.test(txt(v).trim());
+}
+
+/* nombre de projets archivés, indépendamment des autres filtres */
+function nbArchives(){
+  return S.data.main.filter(r=>estProjet(r) && estArchive(r)).length;
+}
+
 function projets(){
-  return S.data.main.filter(estProjet).sort((a,b)=>
+  return S.data.main.filter(r=>estProjet(r) && (S.voirArchives || !estArchive(r))).sort((a,b)=>
     lire(S.cfg.tblMain,a,S.cfg.colLibelle).localeCompare(lire(S.cfg.tblMain,b,S.cfg.colLibelle),"fr"));
 }
 function actionsDe(p){
@@ -2020,12 +2051,14 @@ function projetsFiltres(){
 
 function filtresActifs(){
   return !!$("#q").value.trim() || DATES_FILTRE.some(s=>$(s).value)
-    || Object.keys(MENUS).some(id=>MENUS[id].sel.length);
+    || S.voirArchives || Object.keys(MENUS).some(id=>MENUS[id].sel.length);
 }
 
 function reinitialiserFiltres(){
   $("#q").value="";
   DATES_FILTRE.forEach(s=>$(s).value="");
+  S.voirArchives=false;
+  const cba=$("#f-archives"); if(cba) cba.checked=false;
   Object.keys(MENUS).forEach(id=>{ MENUS[id].sel=[]; rendreMenu(id); });
   rendreListe();
   $("#q").focus();
@@ -2033,7 +2066,16 @@ function reinitialiserFiltres(){
 
 function rendreListe(){
   const c=S.cfg, liste=projetsFiltres(), el=$("#liste");
-  $("#compteur-texte").textContent = liste.length+" projet"+(liste.length>1?"s":"")+" sur "+projets().length;
+  const nArch=nbArchives();
+  $("#compteur-texte").textContent = liste.length+" projet"+(liste.length>1?"s":"")+" sur "+projets().length
+    + (nArch ? " · "+nArch+" archivé"+(nArch>1?"s":"") : "");
+  /* la case ne s'affiche que s'il y a effectivement quelque chose à retrouver */
+  const lbl=$("#lbl-archives");
+  if(lbl){
+    lbl.hidden = !nArch && !S.voirArchives;
+    const t=$("#txt-archives");
+    if(t) t.textContent = "Afficher les projets archivés"+(nArch?" ("+nArch+")":"");
+  }
   $("#btn-raz").hidden = !filtresActifs();
   if(!liste.length){
     el.innerHTML='<div class="vide"><b>Aucun projet</b>Modifiez la recherche ou les filtres.</div>';
@@ -2046,6 +2088,7 @@ function rendreListe(){
       donut(a,30,i)+
       '<div class="titre"><b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
       '<span>'+esc(lire(c.tblMain,p,c.colGroupement))+(nbA?' · '+nbA+' action'+(nbA>1?'s':''):'')+'</span></div>'+
+      (estArchive(p)?'<span class="pastille p-Archive">Archivé</span>':'')+
       pastillePriorite(lire(c.tblMain,p,c.colPriorite))+'</div>';
   }).join("");
   el.querySelectorAll(".ligne-projet").forEach(d=>d.onclick=()=>{
@@ -2109,6 +2152,7 @@ function rendreProjet(){
         (fonctionAgent(c.tblMain,p,c.colPorteur)
           ?', '+esc(fonctionAgent(c.tblMain,p,c.colPorteur)):'')+'</span>':'')+
       (i?'<span class="pastille p-Interrompu">Interrompu</span>':'')+
+      (estArchive(p)?'<span class="pastille p-Archive">Archivé</span>':'')+
       pastillePriorite(lire(c.tblMain,p,c.colPriorite))+
     '</div></div>'+boutonPerso()+'</div>'+
     '<div class="onglets">'+ONGLETS.map(([k,l])=>
@@ -8253,6 +8297,12 @@ async function demarrer(){
 
 $("#q").oninput=rendreListe;
 DATES_FILTRE.forEach(s=>$(s).onchange=rendreListe);
+$("#f-archives").onchange=e=>{
+  S.voirArchives=e.target.checked;
+  /* si le projet ouvert vient d'être masqué, on referme sa fiche */
+  if(!S.voirArchives && S.projetSel && estArchive(S.projetSel)){ S.projetSel=null; rendreProjet(); }
+  rendreListe();
+};
 document.querySelectorAll(".mdp-oeil").forEach(majOeil);
 $("#btn-panneau").onclick=()=>basculerPanneau();
 $("#btn-imprimer").onclick=ouvrirApercu;

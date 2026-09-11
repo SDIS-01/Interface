@@ -128,8 +128,13 @@ body.panneau-replie .panneau>*{display:none;}
 .filtre-date input{flex:1;min-width:0;padding:5px 6px;border:1px solid var(--trait);
   border-radius:var(--rayon);background:#fff;font-size:11.5px;}
 .filtre-archives{grid-column:1/-1;display:flex;align-items:center;gap:6px;
-  font-size:11px;color:var(--gris);white-space:nowrap;cursor:pointer;}
-.filtre-archives input{margin:0;flex:0 0 auto;cursor:pointer;}
+  font-size:11px;color:var(--gris);cursor:pointer;line-height:1.3;}
+/* .recherche input impose width:100% à tous les champs : à neutraliser ici,
+   sinon la case s'étire et rejette le libellé hors du panneau. */
+.filtre-archives input[type=checkbox]{
+  width:auto;flex:0 0 auto;margin:0;padding:0;border:none;background:none;
+  border-radius:0;cursor:pointer;
+}
 .filtre-archives[hidden]{display:none;}
 .liste{flex:1;overflow-y:auto;}
 .ligne-projet{
@@ -503,6 +508,14 @@ tbody tr.ligne-com:hover{background:transparent;}
   white-space:nowrap;}
 .pj-chip:hover{background:#d7e0f5;text-decoration:underline;}
 .pj-vide{color:var(--gris);font-size:11.5px;}
+/* trace d'une pièce jointe déplacée : même gabarit que les vignettes réelles,
+   mais grisée et non cliquable, pour qu'on ne la confonde pas avec un fichier
+   encore rattaché à la note */
+.pj-traces{margin-top:4px;}
+.pj-trace{display:inline-block;background:#f2f4f7;color:var(--gris);
+  border:1px dashed #c3cad3;border-radius:4px;padding:2px 8px;margin:0 4px 4px 0;
+  font-size:11.5px;cursor:default;}
+.pj-trace::before{content:"📎 ";}
 .pj-ajout{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--bleu);
   font-weight:bold;cursor:pointer;text-transform:none;letter-spacing:normal;}
 .pj-ajout input{font-weight:normal;color:var(--gris);max-width:210px;}
@@ -2577,6 +2590,11 @@ function idsPJUtilises(){
   };
   ajouter(S.data.main, c.colPJ);
   ajouter(S.data.notes,c.colNotePJ);
+  /* les pièces reportées depuis une note vivent désormais sur ces tables : sans
+     elles, le repli par identifiant afficherait « pièce 40 » au lieu du nom */
+  ajouter(S.data.taches,   c.colTachePJ);
+  ajouter(S.data.journal,  c.colJnlPJ);
+  ajouter(S.data.instances,c.colInsPJ);
   return Array.from(vus);
 }
 
@@ -2644,6 +2662,33 @@ function ligneDe(tableId,rowId){
     : tableId===c.tblInstance ? S.data.instances
     : tableId===c.tblNote ? S.data.notes : [];
   return source.find(r=>r.id===Number(rowId))||null;
+}
+
+/* intitulé d'une pièce jointe, ou repli sur son identifiant */
+function nomPJ(id){ return (S.pj[id]&&S.pj[id].nom)||("pièce "+id); }
+
+/* Trace laissée dans le texte d'une note quand sa pièce jointe part vers la
+   ligne créée : la pièce n'est plus rattachée à la note, mais son nom reste
+   lisible, dans Grist comme dans le widget. */
+const MARQUE_PJ=/^\s*\[PJ\]\s*(.+)$/;
+function decouperNote(v){
+  const traces=[], corps=[];
+  txt(v).split("\n").forEach(l=>{
+    const m=MARQUE_PJ.exec(l);
+    if(m) traces.push(m[1].trim()); else corps.push(l);
+  });
+  return {corps:corps.join("\n").trim(), traces};
+}
+
+/* colonne « pièces jointes » d'une table, telle que déclarée dans les réglages */
+function colPJDe(tableId){
+  const c=S.cfg;
+  if(tableId===c.tblJournal)  return c.colJnlPJ;
+  if(tableId===c.tblInstance) return c.colInsPJ;
+  if(tableId===c.tblTache)    return c.colTachePJ;
+  if(tableId===c.tblMain)     return c.colPJ;
+  if(tableId===c.tblNote)     return c.colNotePJ;
+  return "";
 }
 
 function blocPJ(tableId,ligne,colId){
@@ -3999,6 +4044,43 @@ function poserLien(champs,tableId,colLien,projet,cle){
   else champs[colLien]=cle;
 }
 
+/* Déplace les pièces jointes de la note vers la ligne créée. Le fichier n'est
+   pas dupliqué : Grist partage les pièces entre les lignes, seuls leurs
+   identifiants changent de colonne. La note les perd donc réellement — elle
+   n'apparaîtra plus qu'une fois dans l'onglet Ressources — mais conserve le
+   nom du fichier en clair, préfixé [PJ], pour garder trace de son origine. */
+async function transfererPJNote(note,tableCible,idCible,libDest){
+  const c=S.cfg;
+  if(!c.colNotePJ || !tableCible || !idCible) return;
+  const ids=valListe(note[c.colNotePJ]).map(Number).filter(Boolean);
+  if(!ids.length) return;
+  const colCible=colPJDe(tableCible);
+  if(!colCible){
+    toast("Pièce jointe conservée sur la note : aucune colonne de pièces jointes "+
+          "n'est déclarée pour la destination choisie.",true);
+    return;
+  }
+  /* pour un commentaire, la ligne existe déjà et peut porter des pièces */
+  const ligne=ligneDe(tableCible,idCible);
+  const actuels=ligne?valListe(ligne[colCible]).map(Number).filter(Boolean):[];
+  const fusion=actuels.concat(ids.filter(x=>!actuels.includes(x)));
+
+  const champsNote={[c.colNotePJ]:["L"]};
+  if(c.colNoteTexte){
+    const ancien=txt(lire(c.tblNote,note,c.colNoteTexte)).replace(/\s+$/,"");
+    const traces=ids.map(x=>"[PJ] "+nomPJ(x)+(libDest?" → "+libDest:"")).join("\n");
+    champsNote[c.colNoteTexte]=(ancien?ancien+"\n":"")+traces;
+  }
+  try{
+    await grist.docApi.applyUserActions([
+      ["UpdateRecord",tableCible,idCible,{[colCible]:["L"].concat(fusion)}],
+      ["UpdateRecord",c.tblNote,note.id,champsNote]
+    ]);
+  }catch(e){
+    toast("Pièce jointe non reportée : "+e.message,true);
+  }
+}
+
 /* marque la note comme traitée et retient ce qu'elle a produit */
 async function marquerNote(note,statut,destination,tableCible,idCree){
   const c=S.cfg, champs={};
@@ -4015,9 +4097,11 @@ async function marquerNote(note,statut,destination,tableCible,idCree){
 async function classerNote(p,note,dest,extra){
   const c=S.cfg;
   extra=extra||{};
-  /* les valeurs saisies l'emportent ; la note ne sert que de proposition */
+  /* les valeurs saisies l'emportent ; la note ne sert que de proposition.
+     Les lignes [PJ] sont une trace d'archivage : elles ne repartent pas dans
+     le texte de la ligne créée. */
   const texte=(extra.texte!==undefined&&extra.texte!==null)
-    ? extra.texte : txt(lire(c.tblNote,note,c.colNoteTexte)).trim();
+    ? extra.texte : decouperNote(lire(c.tblNote,note,c.colNoteTexte)).corps;
   const auteur=(extra.auteur!==undefined&&extra.auteur!==null&&extra.auteur!=="")
     ? extra.auteur : (c.colNoteAuteur?txt(lire(c.tblNote,note,c.colNoteAuteur)).trim():"");
   const date=(extra.date!==undefined) ? extra.date : (Number(note[c.colNoteDate])||null);
@@ -4110,6 +4194,7 @@ async function classerNote(p,note,dest,extra){
 
   if(dest!=="commentaire" && !id) return;           // l'ajout a échoué, la note reste en attente
   const libDest=(NOTE_DESTINATIONS.find(d=>d[0]===dest)||[,dest])[1];
+  await transfererPJNote(note,table,id,libDest);
   await marquerNote(note,NOTE_STATUTS.traitee,libDest,table,id);
   S.noteOuverte=null;
   await charger(); rendreListe(); rendreProjet();
@@ -4121,7 +4206,9 @@ function ligneNoteHtml(p,n,enAttente){
   const c=S.cfg;
   const date=c.colNoteDate?dateVersFR(n[c.colNoteDate]):"";
   const auteur=c.colNoteAuteur?lire(c.tblNote,n,c.colNoteAuteur):"";
-  const texte=txt(lire(c.tblNote,n,c.colNoteTexte));
+  const decoupe=decouperNote(lire(c.tblNote,n,c.colNoteTexte));
+  const texte=decoupe.corps;
+  const tracesPJ=decoupe.traces;
   const dest=c.colNoteDestination?lire(c.tblNote,n,c.colNoteDestination):"";
   const act=actionDeNote(n);
   const libAct=act?(lire(c.tblMain,act,c.colLibelle)||"(sans libellé)"):"";
@@ -4136,7 +4223,12 @@ function ligneNoteHtml(p,n,enAttente){
         esc(estSansSuite(n)?"Sans suite":("Classée : "+(dest||"?")))+'</span>':'')+
     '</div>'+
     '<div class="note-texte">'+esc(texte)+'</div>'+
-    (c.colNotePJ?'<div class="note-pj">'+blocPJ(c.tblNote,n,c.colNotePJ)+'</div>':'');
+    ((c.colNotePJ||tracesPJ.length)?'<div class="note-pj">'+
+      (c.colNotePJ?blocPJ(c.tblNote,n,c.colNotePJ):"")+
+      (tracesPJ.length?'<div class="pj-liste pj-traces">'+
+        tracesPJ.map(t=>'<span class="pj-trace" title="Pièce jointe déplacée vers la '+
+          'ligne créée lors du classement">'+esc(t)+'</span>').join("")+'</div>':"")+
+      '</div>':"");
 
   if(enAttente){
     h+='<div class="note-choix">'+

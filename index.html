@@ -146,9 +146,6 @@ body.panneau-replie .panneau>*{display:none;}
 .ligne-projet>svg{flex:0 0 auto;margin-top:1px;}
 .ligne-projet .pastille{flex:0 0 auto;margin-top:3px;}
 .ligne-projet .titre{flex:1;min-width:0;}
-.ligne-projet .titre i.q-trouve{display:block;font-style:normal;font-size:10.5px;color:var(--bleu);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ligne-projet .titre i.q-trouve::before{content:"↳ ";}
 .ligne-projet .titre b{display:block;font-weight:bold;font-size:12.5px;
   line-height:1.35;white-space:normal;overflow-wrap:anywhere;}
 .ligne-projet .titre span{display:block;color:var(--gris);font-size:11px;
@@ -2381,7 +2378,6 @@ function correspondances(p,q){
 function projetsFiltres(){
   const c=S.cfg;
   const q=plierTexte($("#q").value.trim());
-  S.qCorresp={};
   const g=MENUS["m-groupement"].sel, po=MENUS["m-porteur"].sel;
   const pr=MENUS["m-priorite"].sel, et=MENUS["m-etat"].sel, av=MENUS["m-avct"].sel;
   const ecDu=dateFiltre($("#f-ech-du").value), ecAu=dateFiltre($("#f-ech-au").value);
@@ -2401,9 +2397,7 @@ function projetsFiltres(){
     if(q){
       const foin=plierTexte([c.colLibelle,c.colPorteur,c.colGroupement,c.colCommentaire,c.colProjKey]
         .map(k=>lire(c.tblMain,p,k)).join(" "));
-      const sous=correspondances(p,q);
-      if(!foin.includes(q) && !sous.length) return false;
-      if(sous.length) S.qCorresp[p.id]=sous;
+      if(!foin.includes(q) && !correspondances(p,q).length) return false;
     }
     return true;
   });
@@ -2422,14 +2416,6 @@ function reinitialiserFiltres(){
   Object.keys(MENUS).forEach(id=>{ MENUS[id].sel=[]; rendreMenu(id); });
   rendreListe();
   $("#q").focus();
-}
-
-/* intitulés d'actions / tâches qui ont fait remonter le projet */
-function trouvesHtml(l){
-  if(!l||!l.length) return "";
-  const vus=l.slice(0,3).map(x=>'<i class="q-trouve">'+esc(x.type)+' : '+esc(x.lib||"(sans libellé)")+'</i>');
-  if(l.length>3) vus.push('<i class="q-trouve">+ '+(l.length-3)+' autre'+(l.length>4?'s':'')+'</i>');
-  return vus.join("");
 }
 
 function rendreListe(){
@@ -2455,8 +2441,7 @@ function rendreListe(){
     return '<div class="ligne-projet'+(S.projetSel&&S.projetSel.id===p.id?" actif":"")+'" data-id="'+p.id+'">'+
       donut(a,30,i)+
       '<div class="titre"><b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
-      '<span>'+esc(lire(c.tblMain,p,c.colGroupement))+(nbA?' · '+nbA+' action'+(nbA>1?'s':''):'')+'</span>'+
-      trouvesHtml(S.qCorresp&&S.qCorresp[p.id])+'</div>'+
+      '<span>'+esc(lire(c.tblMain,p,c.colGroupement))+(nbA?' · '+nbA+' action'+(nbA>1?'s':''):'')+'</span></div>'+
       (estArchive(p)?'<span class="pastille p-Archive">Archivé</span>':'')+
       pastillePriorite(lire(c.tblMain,p,c.colPriorite))+'</div>';
   }).join("");
@@ -8854,7 +8839,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-15-i — recherche dans les actions et les tâches";
+const VERSION="2026-09-15-j — recherche étendue, liste inchangée";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

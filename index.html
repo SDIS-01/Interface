@@ -172,8 +172,16 @@ body.panneau-replie .panneau>*{display:none;}
 .tab-trace details{display:inline;}
 .tab-trace summary{cursor:pointer;}
 .tab-trace details[open]{display:block;white-space:pre-wrap;}
+.tab-trace .avant-bloc{display:block;margin-top:3px;color:var(--gris);font-size:11px;}
 .trace-plus{margin-top:10px;text-align:center;}
 .p-op-modif{background:var(--bleu-clair);color:var(--bleu);}
+.tab-trace b{font-weight:bold;color:var(--encre);}
+.p-cat-projet{background:var(--bleu-clair);color:var(--bleu);}
+.p-cat-action{background:#EDE3F7;color:#6B3FA0;}
+.p-cat-tache{background:#eaf2dc;color:#5f7a2a;}
+.p-cat-instance{background:#fdeadb;color:#b4611f;}
+.p-cat-journaldebord{background:#fdf4d6;color:#8a6d00;}
+.p-cat-note,.p-cat-autre{background:#eef1f5;color:#4b5462;}
 .p-op-ajout{background:#eaf2dc;color:#5f7a2a;}
 .p-op-pj{background:#fdf4d6;color:#8a6d00;}
 
@@ -1849,7 +1857,39 @@ function instancesDe(p){
    dans l'historique, si bien qu'une ligne supprimée dans Grist en disparaît.
    Les saisies faites directement dans Grist ne sont pas tracées. */
 
-const HM_OPS=["Modification","Ajout","Pièce jointe"];
+const HM_NOTE="Note classée";   // note versée dans le commentaire d'une action ou d'une tâche
+const HM_CATEGORIES=["Action","Tâche","Journal de bord"];
+
+/* catégorie lue dans la désignation : « Action « X » » -> Action */
+function categorieHm(element){
+  const e=String(element||"");
+  if(e==="Projet") return "Projet";
+  if(/^Journal\b/.test(e)) return "Journal de bord";
+  const m=e.match(/^(Action|Tâche|Instance|Note)\b/);
+  return m?m[1]:"Autre";
+}
+/* libellé entre guillemets, sans la catégorie */
+function nomHm(element){
+  const m=String(element||"").match(/«\s*(.*?)\s*»\s*$/);
+  return m?m[1]:"";
+}
+
+/* tables jamais tracées : l'historique lui-même, et les instances (consigne) */
+function hmIgnore(tableId){
+  const c=S.cfg;
+  return !tableId || tableId===c.tblHm || tableId===c.tblInstance;
+}
+
+/* Seules sont tracées les saisies de commentaires :
+   commentaire d'une action, commentaire d'une tâche, texte du journal de bord. */
+function hmColonneSuivie(tableId,colId,ligne,projet){
+  const c=S.cfg;
+  if(tableId===c.tblMain)    return !!colId && colId===c.colCommentaire
+                                    && !!ligne && !(projet && ligne.id===projet.id);
+  if(tableId===c.tblTache)   return !!colId && colId===c.colTacheCommentaire;
+  if(tableId===c.tblJournal) return !!colId && colId===c.colJnlTexte;
+  return false;
+}
 
 function hmPret(){
   const c=S.cfg;
@@ -1924,11 +1964,13 @@ function projetDeLigne(tableId,id){
 
 /* --- fabrication des traces --- */
 function traceModif(tableId,rowId,colId,nouveau,ancien){
+  if(hmIgnore(tableId)) return null;
   const ligne=ligneDe(tableId,rowId);
   if(!ligne) return null;
   if(arguments.length<5) ancien=ligne[colId];
   if(memeValeur(ancien,nouveau)) return null;
   const projet=projetDeLigne(tableId,rowId);
+  if(!hmColonneSuivie(tableId,colId,ligne,projet)) return null;
   return {projet, element:libelleElement(tableId,ligne,projet), op:"Modification",
           champ:libelleColonneBrut(tableId,colId),
           ancien:valeurLisible(tableId,colId,ancien),
@@ -1936,6 +1978,8 @@ function traceModif(tableId,rowId,colId,nouveau,ancien){
 }
 
 function tracePJ(tableId,rowId,colId,noms,precision){
+  return null;                                  // pièces jointes : non tracées (consigne)
+  if(hmIgnore(tableId)) return null;
   const ligne=ligneDe(tableId,rowId);
   if(!ligne) return null;
   const projet=projetDeLigne(tableId,rowId);
@@ -1944,10 +1988,25 @@ function tracePJ(tableId,rowId,colId,noms,precision){
           nouveau:(noms||[]).join(", ")};
 }
 
+function traceCreation(tableId,champs,projet){
+  const c=S.cfg;
+  if(!projet) return [];
+  const element=libelleElement(tableId,champs,projet);
+  if(tableId===c.tblJournal)
+    return [{projet,element,op:"Ajout",champ:libelleColonneBrut(tableId,c.colJnlTexte),
+             nouveau:txt(champs[c.colJnlTexte])}];
+  const col = tableId===c.tblMain ? c.colCommentaire
+            : tableId===c.tblTache ? c.colTacheCommentaire : "";
+  if(col && txt(champs[col]).trim())
+    return [{projet,element,op:"Modification",champ:libelleColonneBrut(tableId,col),
+             ancien:"",nouveau:txt(champs[col])}];
+  return [];
+}
+
 function tracesBrouillon(){
   const c=S.cfg, out=[];
   Object.values(S.brouillon).forEach(m=>{
-    if(m.t===c.tblHm) return;
+    if(hmIgnore(m.t)) return;
     if(!("a" in m)) return;                       // saisie antérieure à cette version
     out.push(traceModif(m.t,m.r,m.c,m.v,m.a));
   });
@@ -2026,7 +2085,20 @@ function hmDe(p){
     vise=h=>valListe(h[c.colHmLien]).some(x=>Number(x)===cible);
   }else vise=h=>lieA(c.tblHm,h,c.colHmLien,p.id,cleProjet(p));
   const quand=h=>{ const v=h[c.colHmDate]; return typeof v==="number"?v:0; };
-  return S.data.hm.filter(vise).sort((a,b)=>(quand(b)-quand(a))||(b.id-a.id));
+  return S.data.hm.filter(h=>vise(h)&&hmRetenu(h)).sort((a,b)=>(quand(b)-quand(a))||(b.id-a.id));
+}
+
+function hmRetenu(h){
+  const c=S.cfg;
+  const lec=k=>c[k]?lire(c.tblHm,h,c[k]):"";
+  const cat=categorieHm(lec("colHmElement")), op=lec("colHmOperation"), champ=lec("colHmChamp");
+  if(cat==="Journal de bord")
+    return op==="Ajout" || champ===libelleColonneBrut(c.tblJournal,c.colJnlTexte);
+  if(cat==="Action")
+    return champ===libelleColonneBrut(c.tblMain,c.colCommentaire) && op!=="Pièce jointe";
+  if(cat==="Tâche")
+    return champ===libelleColonneBrut(c.tblTache,c.colTacheCommentaire) && op!=="Pièce jointe";
+  return false;
 }
 
 function dateHm(h){
@@ -2044,7 +2116,7 @@ async function ajouter(tableId,champs){
   try{
     const projet=S.projetSel||null;
     const r=await appliquer([["AddRecord",tableId,null,champs]],
-      [{projet,element:libelleElement(tableId,champs,projet),op:"Ajout"}]);
+      traceCreation(tableId,champs,projet));
     toast("Ligne ajoutée");
     return r.retValues?r.retValues[0]:null;
   }catch(e){ toast("Échec de l'ajout : "+e.message,true); return null; }
@@ -3160,7 +3232,7 @@ function recapHtml(p){
   lot.slice().reverse().forEach(h=>{            // ordre d'écriture
     const e=lec(h,"colHmElement")||"(élément inconnu)", op=lec(h,"colHmOperation");
     if(!lignes.has(e)) lignes.set(e,[]);
-    const part = op==="Ajout" ? "création"
+    const part = op==="Ajout" ? "nouvelle entrée"
       : op==="Pièce jointe" ? "pièce jointe"+(lec(h,"colHmNouveau")?" « "+lec(h,"colHmNouveau")+" »":"")
       : (lec(h,"colHmChamp")||op);
     const l=lignes.get(e);
@@ -3262,11 +3334,26 @@ function historiqueHtml(p){
       'Choisissez-la dans les réglages, bloc « Table de l\'historique des modifications ».</div></div>';
   const tout=hmDe(p), f=S.fTrace;
   const lec=(h,k)=>c[k]?lire(c.tblHm,h,c[k]):"";
-  const elements=[...new Set(tout.map(h=>lec(h,"colHmElement")).filter(Boolean))]
-    .sort((a,b)=>a.localeCompare(b,"fr"));
+  const cat=h=>categorieHm(lec(h,"colHmElement"));
+  const presentes=HM_CATEGORIES.filter(k=>tout.some(h=>cat(h)===k));
+  const long=(v,cls)=>{
+    if(!v) return "";
+    return v.length>140
+      ? '<details class="'+cls+'"><summary>'+esc(v.slice(0,137))+'…</summary>'+esc(v)+'</details>'
+      : '<span class="'+cls+'">'+esc(v)+'</span>';
+  };
+  /* une phrase par ligne : ce qui a changé, sans jargon de colonnes */
+  const phrase=h=>{
+    const op=lec(h,"colHmOperation"), nom=nomHm(lec(h,"colHmElement"));
+    const champ=lec(h,"colHmChamp"), av=lec(h,"colHmAncien"), ap=lec(h,"colHmNouveau");
+    const qui=nom?'<b>'+esc(nom)+'</b> · ':'';
+    if(op==="Ajout") return 'Nouvelle entrée : '+(ap?long(ap,"apres"):'<i>(sans texte)</i>');
+    /* commentaire : on montre le texte saisi ; l'ancienne version reste consultable */
+    return qui+(ap?long(ap,"apres"):'<i>(commentaire vidé)</i>')+
+      (av?'<details class="avant-bloc"><summary>version précédente</summary>'+esc(av)+'</details>':'');
+  };
   const vus=tout.filter(h=>{
-    if(f.element && lec(h,"colHmElement")!==f.element) return false;
-    if(f.op && lec(h,"colHmOperation")!==f.op) return false;
+    if(f.element && cat(h)!==f.element) return false;
     if(f.q){
       const q=pliColonne(f.q);
       const foin=["colHmElement","colHmChamp","colHmAncien","colHmNouveau","colHmAuteur"]
@@ -3275,22 +3362,12 @@ function historiqueHtml(p){
     }
     return true;
   });
-  const filtre=!!(f.element||f.op||f.q);
-  const valeur=(v,cls)=>{
-    if(!v) return "";
-    return v.length>120
-      ? '<details class="'+cls+'"><summary>'+esc(v.slice(0,117))+'…</summary>'+esc(v)+'</details>'
-      : '<span class="'+cls+'">'+esc(v)+'</span>';
-  };
-  const classeOp=o=>o==="Ajout"?"p-op-ajout":o==="Pièce jointe"?"p-op-pj":"p-op-modif";
+  const filtre=!!(f.element||f.q);
 
   let h='<div class="carte"><div class="carte-tete"><h2>Historique des modifications</h2></div>'+
     '<div class="barre-filtres">'+
-    '<select id="fh-element"><option value="">Tous les éléments</option>'+
-      elements.map(e=>'<option value="'+esc(e)+'"'+(f.element===e?" selected":"")+'>'+esc(e)+'</option>').join("")+
-    '</select>'+
-    '<select id="fh-op"><option value="">Toutes les opérations</option>'+
-      HM_OPS.map(o=>'<option'+(f.op===o?" selected":"")+'>'+esc(o)+'</option>').join("")+
+    '<select id="fh-element"><option value="">Toutes les catégories</option>'+
+      presentes.map(e=>'<option'+(f.element===e?" selected":"")+'>'+esc(e)+'</option>').join("")+
     '</select>'+
     '<input type="search" id="fh-q" placeholder="Rechercher dans l\'historique…" value="'+esc(f.q)+'">'+
     (filtre?'<button class="btn-raz" id="fh-raz">Réinitialiser</button>'+
@@ -3302,18 +3379,17 @@ function historiqueHtml(p){
     h+='<div class="vide"><b>Aucune modification enregistrée</b>'+
        'Les modifications faites depuis le widget apparaîtront ici.</div>';
   }else if(!vus.length){
-    h+='<div class="vide"><b>Aucune modification ne correspond</b>Modifiez la recherche ou les filtres.</div>';
+    h+='<div class="vide"><b>Aucune modification ne correspond</b>Modifiez la recherche ou le filtre.</div>';
   }else{
-    h+='<table class="tab-trace"><thead><tr><th style="width:118px">Date</th><th>Auteur</th>'+
-       '<th>Élément</th><th>Opération</th><th>Champ</th><th>Avant → après</th></tr></thead><tbody>'+
+    h+='<table class="tab-trace"><thead><tr><th style="width:118px">Date</th>'+
+       '<th style="width:130px">Auteur</th><th style="width:120px">Catégorie</th>'+
+       '<th>Commentaire</th></tr></thead><tbody>'+
       vus.slice(0,f.n).map(x=>{
-        const op=lec(x,"colHmOperation"), av=lec(x,"colHmAncien"), ap=lec(x,"colHmNouveau");
+        const k=cat(x);
         return '<tr><td class="trace-date">'+esc(dateHm(x))+'</td>'+
           '<td>'+esc(lec(x,"colHmAuteur"))+'</td>'+
-          '<td>'+esc(lec(x,"colHmElement"))+'</td>'+
-          '<td><span class="pastille '+classeOp(op)+'">'+esc(op||"—")+'</span></td>'+
-          '<td>'+esc(lec(x,"colHmChamp"))+'</td>'+
-          '<td>'+valeur(av,"avant")+((av&&ap)?' <span class="fleche">→</span> ':'')+valeur(ap,"apres")+'</td></tr>';
+          '<td><span class="pastille p-cat-'+esc(pliColonne(k))+'">'+esc(k)+'</span></td>'+
+          '<td>'+phrase(x)+'</td></tr>';
       }).join("")+'</tbody></table>'+
       (vus.length>f.n?'<div class="trace-plus"><button class="btn btn-2" id="fh-plus">Afficher '+
         Math.min(50,vus.length-f.n)+' de plus ('+(vus.length-f.n)+' restantes)</button></div>':'');
@@ -3330,9 +3406,8 @@ function brancherHistorique(p){
   const f=S.fTrace, re=()=>vueHistorique(p);
   const el=$("#fh-element"); if(!el) return;
   el.onchange=e=>{ f.element=e.target.value; f.n=50; re(); };
-  $("#fh-op").onchange=e=>{ f.op=e.target.value; f.n=50; re(); };
   const raz=$("#fh-raz");
-  if(raz) raz.onclick=()=>{ f.element=""; f.op=""; f.q=""; f.n=50; re(); };
+  if(raz) raz.onclick=()=>{ f.element=""; f.q=""; f.n=50; re(); };
   const plus=$("#fh-plus");
   if(plus) plus.onclick=()=>{ f.n+=50; re(); };
   const q=$("#fh-q");
@@ -4336,11 +4411,13 @@ function estSansSuite(n){
 
 /* --- écriture ------------------------------------------------------------ */
 
-async function majLigne(tableId,rowId,champs){
+/* traces : omis = une trace par champ modifié ; [] = rien à tracer */
+async function majLigne(tableId,rowId,champs,traces){
   await enregistrerBrouillon();
   try{
     await appliquer([["UpdateRecord",tableId,rowId,champs]],
-      Object.keys(champs).map(k=>traceModif(tableId,rowId,k,champs[k])));
+      traces!==undefined ? traces
+        : Object.keys(champs).map(k=>traceModif(tableId,rowId,k,champs[k])));
     return true;
   }catch(e){ toast("Échec de l'enregistrement : "+e.message,true); return false; }
 }
@@ -4427,7 +4504,11 @@ async function transfererPJNote(note,tableCible,idCible,libDest){
     await appliquer([
       ["UpdateRecord",tableCible,idCible,{[colCible]:["L"].concat(fusion)}],
       ["UpdateRecord",c.tblNote,note.id,champsNote]
-    ],[tracePJ(tableCible,idCible,colCible,ids.map(nomPJ),"depuis une note")]);
+    ],[(()=>{
+      const t=tracePJ(tableCible,idCible,colCible,ids.map(nomPJ),"depuis une note");
+      if(t && libDest==="Commentaire"){ t.op=HM_NOTE; t.nouveau="Pièce jointe : "+t.nouveau; }
+      return t;
+    })()]);
   }catch(e){
     toast("Pièce jointe non reportée : "+e.message,true);
   }
@@ -4441,7 +4522,7 @@ async function marquerNote(note,statut,destination,tableCible,idCree){
   if(c.colNoteLigne)       champs[c.colNoteLigne]=(tableCible&&idCree)?(tableCible+":"+idCree):"";
   if(c.colNoteTraitee)     champs[c.colNoteTraitee]=aujourdHuiUTC();
   if(!Object.keys(champs).length) return true;
-  return await majLigne(c.tblNote,note.id,champs);
+  return await majLigne(c.tblNote,note.id,champs,[]);   // tambouille interne : pas d'historique
 }
 
 /* --- classement ---------------------------------------------------------- */
@@ -4538,7 +4619,12 @@ async function classerNote(p,note,dest,extra){
     const ancien=txt(ligne[colC]);
     const entete=(date?dateVersFR(date):"")+(auteur?(date?" — ":"")+auteur:"");
     const ajout=(entete?entete+" : ":"")+texte;
-    const ok=await majLigne(tableC,ligne.id,{[colC]:ancien?ancien+"\n"+ajout:ajout});
+    const projetC=projetDeLigne(tableC,ligne.id);
+    const trace={projet:projetC, element:libelleElement(tableC,ligne,projetC),
+                 op:HM_NOTE, champ:libelleColonneBrut(tableC,colC), nouveau:ajout};
+    const surProjet = tableC===c.tblMain && projetC && ligne.id===projetC.id;
+    const ok=await majLigne(tableC,ligne.id,{[colC]:ancien?ancien+"\n"+ajout:ajout},
+                            surProjet?[]:[trace]);
     if(!ok) return;
     toast("Commentaire complété");
     table=tableC; id=ligne.id;
@@ -8717,7 +8803,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-15-c — onglets Historique et Ressources séparés";
+const VERSION="2026-09-15-g — commentaire issu d'une note affiché comme une saisie";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

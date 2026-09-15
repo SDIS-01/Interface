@@ -165,6 +165,11 @@ body.panneau-replie .panneau>*{display:none;}
   cursor:default;}
 .recap-modifs .recap-tete{font-weight:bold;color:var(--bleu);}
 .recap-vide{color:var(--gris);font-style:italic;}
+.recap-entree{margin-top:6px;}
+.recap-entree+.recap-entree{padding-top:6px;border-top:1px dashed var(--trait);}
+.recap-el{font-weight:bold;color:var(--encre);white-space:normal;}
+.recap-txt{white-space:pre-wrap;}
+.recap-modifs summary{cursor:pointer;}
 .tab-trace td{vertical-align:top;font-size:12px;}
 .tab-trace .trace-date{white-space:nowrap;color:var(--gris);}
 .tab-trace .avant{color:var(--gris);text-decoration:line-through;}
@@ -3228,20 +3233,23 @@ function recapHtml(p){
   const d=tout[0][c.colHmDate];
   const lot=tout.filter(h=>h[c.colHmDate]===d);
   const lec=(h,k)=>c[k]?lire(c.tblHm,h,c[k]):"";
-  const lignes=new Map();
-  lot.slice().reverse().forEach(h=>{            // ordre d'écriture
-    const e=lec(h,"colHmElement")||"(élément inconnu)", op=lec(h,"colHmOperation");
-    if(!lignes.has(e)) lignes.set(e,[]);
-    const part = op==="Ajout" ? "nouvelle entrée"
-      : op==="Pièce jointe" ? "pièce jointe"+(lec(h,"colHmNouveau")?" « "+lec(h,"colHmNouveau")+" »":"")
-      : (lec(h,"colHmChamp")||op);
-    const l=lignes.get(e);
-    if(part && !l.includes(part)) l.push(part);
+  /* une entrée par saisie : l'élément concerné, puis le texte du commentaire */
+  const entrees=lot.slice().reverse().map(h=>{    // ordre d'écriture
+    const el=lec(h,"colHmElement");
+    const cat=categorieHm(el);
+    const titre = cat==="Journal de bord" ? "Journal de bord" : (el||"(élément inconnu)");
+    const texte=lec(h,"colHmNouveau");
+    const corps = !texte ? '<i>(commentaire vidé)</i>'
+      : texte.length>400
+        ? '<details><summary>'+esc(texte.slice(0,397))+'…</summary>'+esc(texte)+'</details>'
+        : esc(texte);
+    return '<div class="recap-entree"><div class="recap-el">'+esc(titre)+'</div>'+
+           '<div class="recap-txt">'+corps+'</div></div>';
   });
   const auteur=lec(lot[0],"colHmAuteur");
   return '<div class="recap-modifs" title="Détail dans l\'onglet Historique">'+
     '<div class="recap-tete">Le '+esc(dateHm(lot[0]).replace(" "," à "))+(auteur?' — '+esc(auteur):'')+'</div>'+
-    esc([...lignes].map(([e,l])=>e+" : "+l.join(", ")).join("\n"))+'</div>';
+    entrees.join("")+'</div>';
 }
 
 function libelleColonne(tableId,colId){
@@ -8803,7 +8811,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-15-g — commentaire issu d'une note affiché comme une saisie";
+const VERSION="2026-09-15-h — récap avec le texte des commentaires";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

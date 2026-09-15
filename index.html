@@ -1187,7 +1187,6 @@ const DEF = {
   colPJ:"Pièce_Jointe",
   colSup:"MEC_2023",
   colJournalTexte:"Journal_bord",
-  colDernModifs:"Dernieres_modifications",
   /* historique des modifications faites depuis le widget */
   tblHm:"", colHmLien:"ID_Projet_Action_AV", colHmDate:"Date", colHmAuteur:"Auteur",
   colHmElement:"Element", colHmOperation:"Operation", colHmChamp:"Champ",
@@ -1228,8 +1227,7 @@ const CHAMPS_REGLAGES = [
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colPJ","Pièces jointes"],
     ["colSup","Champ complémentaire de l'identité"],
-    ["colJournalTexte","Journal de bord (colonne texte)"],
-    ["colDernModifs","Dernières modifications (récap)"]
+    ["colJournalTexte","Journal de bord (colonne texte)"]
   ]},
   {bloc:"Table des tâches", tableKey:"tblTache", champs:[
     ["colTacheLien","Lien vers l'action"],["colTacheLibelle","Libellé de la tâche"],
@@ -1845,9 +1843,10 @@ function instancesDe(p){
    Historique des modifications
    =======================================================================
    Chaque écriture faite depuis le widget décrit ce qu'elle change sous forme
-   de « traces ». Les traces deviennent des lignes de la table d'historique et
-   le récap « Dernières modifications » du projet concerné. Tout part dans la
-   même action Grist que la modification : l'un ne va pas sans l'autre.
+   de « traces ». Les traces deviennent des lignes de la table d'historique,
+   écrites dans la même action Grist que la modification. Le récap
+   « Dernières modifications » de la synthèse n'est pas stocké : il est relu
+   dans l'historique, si bien qu'une ligne supprimée dans Grist en disparaît.
    Les saisies faites directement dans Grist ne sont pas tracées. */
 
 const HM_OPS=["Modification","Ajout","Pièce jointe"];
@@ -1948,7 +1947,7 @@ function tracePJ(tableId,rowId,colId,noms,precision){
 function tracesBrouillon(){
   const c=S.cfg, out=[];
   Object.values(S.brouillon).forEach(m=>{
-    if(m.t===c.tblHm || (m.t===c.tblMain && m.c===c.colDernModifs)) return;
+    if(m.t===c.tblHm) return;
     if(!("a" in m)) return;                       // saisie antérieure à cette version
     out.push(traceModif(m.t,m.r,m.c,m.v,m.a));
   });
@@ -1977,22 +1976,6 @@ function valeurDateHm(){
   return dateHeureFR(Math.floor(Date.now()/1000));
 }
 
-function texteRecap(traces){
-  const d=new Date();
-  const lignes=new Map();
-  traces.forEach(t=>{
-    if(!lignes.has(t.element)) lignes.set(t.element,[]);
-    const l=lignes.get(t.element);
-    const part = t.op==="Modification" ? t.champ
-      : t.op==="Ajout" ? "création"
-      : "pièce jointe"+(t.nouveau?" « "+t.nouveau+" »":"");
-    if(part && !l.includes(part)) l.push(part);
-  });
-  return "Le "+d.toLocaleDateString("fr-FR")+" à "+
-    d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+"\n"+
-    [...lignes].map(([e,l])=>e+" : "+l.join(", ")).join("\n");
-}
-
 function actionsTrace(traces){
   const c=S.cfg, out=[];
   traces=(traces||[]).filter(t=>t && t.projet);
@@ -2012,15 +1995,6 @@ function actionsTrace(traces){
       mettre(ch,"colHmNouveau",t.nouveau||"");
       out.push(["AddRecord",c.tblHm,null,ch]);
     });
-  }
-  if(c.colDernModifs && infoCol(c.tblMain,c.colDernModifs)){
-    const parProjet=new Map();
-    traces.forEach(t=>{
-      if(!parProjet.has(t.projet.id)) parProjet.set(t.projet.id,[]);
-      parProjet.get(t.projet.id).push(t);
-    });
-    parProjet.forEach((ts,id)=>out.push(["UpdateRecord",c.tblMain,id,
-      {[c.colDernModifs]:texteRecap(ts)}]));
   }
   return out;
 }
@@ -2380,7 +2354,7 @@ function rendreListe(){
 const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
                ["instances","Instances"],["planning","Planning"],
                ["journal","Journal de bord"],["notes","Notes"],
-               ["ressources","Historique et Ressources"]];
+               ["historique","Historique"],["ressources","Ressources"]];
 
 /* table des fonctions de rendu, partagée par l'affichage et l'impression */
 const VUES={};   // remplie plus bas, une fois les fonctions vueXxx déclarées
@@ -2416,7 +2390,8 @@ function rendreProjet(){
             instances:jx.length,
             journal:journalDe(p).length,
             notes:notesDe(p).filter(estACaracteriser).length,
-            ressources:ressourcesDe(p).length+hmDe(p).length};
+            historique:hmDe(p).length,
+            ressources:ressourcesDe(p).length};
 
   $("#entete").innerHTML=
     '<div class="entete-haut">'+donut(a,54,i)+
@@ -3171,17 +3146,30 @@ async function basculerVerrou(p){
 }
 
 /* --- Synthèse --- */
-/* récap en lecture seule : il n'est écrit que par le widget */
+/* Récap en lecture seule, reconstruit à partir du dernier lot de l'historique :
+   les lignes d'un même enregistrement portent toutes la même date. */
 function recapHtml(p){
   const c=S.cfg;
-  const texte=txt(p[c.colDernModifs]).trim();
-  if(!texte) return '<div class="recap-modifs recap-vide">Aucune modification enregistrée depuis le widget.</div>';
-  const der=hmDe(p)[0];
-  const auteur=der && S.cfg.colHmAuteur ? lire(c.tblHm,der,c.colHmAuteur) : "";
-  const [tete,...reste]=texte.split("\n");
-  return '<div class="recap-modifs" title="Mis à jour automatiquement — détail dans l\'onglet Historique et Ressources">'+
-    '<div class="recap-tete">'+esc(tete)+(auteur?' — '+esc(auteur):'')+'</div>'+
-    esc(reste.join("\n"))+'</div>';
+  const tout=hmDe(p);
+  if(!tout.length)
+    return '<div class="recap-modifs recap-vide">Aucune modification enregistrée depuis le widget.</div>';
+  const d=tout[0][c.colHmDate];
+  const lot=tout.filter(h=>h[c.colHmDate]===d);
+  const lec=(h,k)=>c[k]?lire(c.tblHm,h,c[k]):"";
+  const lignes=new Map();
+  lot.slice().reverse().forEach(h=>{            // ordre d'écriture
+    const e=lec(h,"colHmElement")||"(élément inconnu)", op=lec(h,"colHmOperation");
+    if(!lignes.has(e)) lignes.set(e,[]);
+    const part = op==="Ajout" ? "création"
+      : op==="Pièce jointe" ? "pièce jointe"+(lec(h,"colHmNouveau")?" « "+lec(h,"colHmNouveau")+" »":"")
+      : (lec(h,"colHmChamp")||op);
+    const l=lignes.get(e);
+    if(part && !l.includes(part)) l.push(part);
+  });
+  const auteur=lec(lot[0],"colHmAuteur");
+  return '<div class="recap-modifs" title="Détail dans l\'onglet Historique">'+
+    '<div class="recap-tete">Le '+esc(dateHm(lot[0]).replace(" "," à "))+(auteur?' — '+esc(auteur):'')+'</div>'+
+    esc([...lignes].map(([e,l])=>e+" : "+l.join(", ")).join("\n"))+'</div>';
 }
 
 function libelleColonne(tableId,colId){
@@ -3225,7 +3213,7 @@ function vueSynthese(p){
         '</div></div>'
       : '')+
     '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
-      (c.colDernModifs && infoCol(t,c.colDernModifs) ? ch("Dernières modifications",recapHtml(p),true) : "")+
+      (hmPret() ? ch("Dernières modifications",recapHtml(p),true) : "")+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
     '</div></div>'+
     (c.colPJ?'<div class="carte"><h2>Pièces jointes</h2>'+blocPJ(t,p,c.colPJ)+'</div>':"");
@@ -3333,8 +3321,13 @@ function historiqueHtml(p){
   return h+'</div>';
 }
 
+function vueHistorique(p){
+  $("#corps").innerHTML=historiqueHtml(p);
+  brancherHistorique(p);
+}
+
 function brancherHistorique(p){
-  const f=S.fTrace, re=()=>vueRessources(p);
+  const f=S.fTrace, re=()=>vueHistorique(p);
   const el=$("#fh-element"); if(!el) return;
   el.onchange=e=>{ f.element=e.target.value; f.n=50; re(); };
   $("#fh-op").onchange=e=>{ f.op=e.target.value; f.n=50; re(); };
@@ -3363,8 +3356,7 @@ function vueRessources(p){
     return true;
   });
 
-  let html=historiqueHtml(p)+
-    '<div class="carte"><div class="carte-tete"><h2>Pièces jointes</h2></div><div class="barre-filtres">'+
+  let html='<div class="carte"><div class="barre-filtres">'+
     '<select id="fr-origine"><option value="">Toutes les origines</option>'+
     origines.map(o=>'<option value="'+esc(o)+'"'+(f.origine===o?" selected":"")+
       '>'+esc(o)+'</option>').join("")+'</select>'+
@@ -3400,7 +3392,6 @@ function vueRessources(p){
   q.oninput=()=>{ f.q=q.value; };
   q.onsearch=q.onchange=()=>{ f.q=q.value; vueRessources(p); };
   q.onkeydown=e=>{ if(e.key==="Enter"){ f.q=q.value; vueRessources(p); } };
-  brancherHistorique(p);
   brancherPJ();
 }
 
@@ -4253,7 +4244,7 @@ function vueJournal(p){
 Object.assign(VUES,{
   synthese:vueSynthese, actions:vueActions, taches:vueTaches,
   instances:vueInstances, planning:vuePlanning, journal:vueJournal, notes:vueNotes,
-  ressources:vueRessources
+  historique:vueHistorique, ressources:vueRessources
 });
 
 /* =======================================================================
@@ -8707,12 +8698,26 @@ function majBandeauAcces(){
 }
 
 let minuteur=null;
+async function verifierHistorique(){
+  const c=S.cfg;
+  if(!S.pret || nbModifs() || !hmPret()) return;
+  try{
+    const t=await grist.docApi.fetchTable(c.tblHm);
+    const avant=S.data.hm.map(h=>h.id).join(",");
+    if(t.id.join(",")===avant) return;
+    S.data.hm=enLignes(t);
+    const actif=document.activeElement;
+    if(actif && /^(INPUT|TEXTAREA|SELECT)$/.test(actif.tagName)) return;  // on redessinera plus tard
+    rendreProjet();
+  }catch(e){ console.warn("Relecture de l'historique : "+e.message); }
+}
+
 function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,600); }
 
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-15-b — historique sans les suppressions";
+const VERSION="2026-09-15-c — onglets Historique et Ressources séparés";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -8751,6 +8756,10 @@ async function demarrer(){
   /* posé avant le premier chargement : même si celui-ci échoue, la console
      continue de se rafraîchir toute seule */
   try{ grist.onRecords(()=>{ if(S.pret && !nbModifs()) rechargerBientot(); }); }catch(e){}
+  /* la table d'historique n'est pas la table liée au widget : Grist ne signale
+     pas ses changements. On la relit quand on revient dans le widget, et l'on
+     ne redessine que si elle a changé, pour ne pas voler le focus d'un champ. */
+  window.addEventListener("focus",verifierHistorique);
   try{ await tout(); }
   finally{ S.pret=true; }              // le suivi reprend même après un échec
   if(!S.cfg.tblMain){ rendreReglages(); $("#voile").classList.add("ouvert"); }

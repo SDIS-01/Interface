@@ -159,6 +159,24 @@ body.panneau-replie .panneau>*{display:none;}
 .btn-raz:hover{background:var(--bleu-clair);}
 .btn-raz[hidden]{display:none;}
 
+/* ---------- Historique des modifications ---------- */
+.recap-modifs{background:var(--fond);border:1px solid var(--trait);border-radius:4px;
+  padding:8px 10px;font-size:12px;line-height:1.55;white-space:pre-wrap;color:var(--encre);
+  cursor:default;}
+.recap-modifs .recap-tete{font-weight:bold;color:var(--bleu);}
+.recap-vide{color:var(--gris);font-style:italic;}
+.tab-trace td{vertical-align:top;font-size:12px;}
+.tab-trace .trace-date{white-space:nowrap;color:var(--gris);}
+.tab-trace .avant{color:var(--gris);text-decoration:line-through;}
+.tab-trace .fleche{color:var(--gris);}
+.tab-trace details{display:inline;}
+.tab-trace summary{cursor:pointer;}
+.tab-trace details[open]{display:block;white-space:pre-wrap;}
+.trace-plus{margin-top:10px;text-align:center;}
+.p-op-modif{background:var(--bleu-clair);color:var(--bleu);}
+.p-op-ajout{background:#eaf2dc;color:#5f7a2a;}
+.p-op-pj{background:#fdf4d6;color:#8a6d00;}
+
 /* ---------- Pastilles ---------- */
 .pastille{
   display:inline-block;padding:2px 8px;border-radius:11px;
@@ -1169,6 +1187,11 @@ const DEF = {
   colPJ:"Pièce_Jointe",
   colSup:"MEC_2023",
   colJournalTexte:"Journal_bord",
+  colDernModifs:"Dernieres_modifications",
+  /* historique des modifications faites depuis le widget */
+  tblHm:"", colHmLien:"ID_Projet_Action_AV", colHmDate:"Date", colHmAuteur:"Auteur",
+  colHmElement:"Element", colHmOperation:"Operation", colHmChamp:"Champ",
+  colHmAncien:"Ancienne_valeur", colHmNouveau:"Nouvelle_valeur",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
   colTachePJ:"", colJnlPJ:"", colInsPJ:"",
@@ -1205,7 +1228,8 @@ const CHAMPS_REGLAGES = [
     ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colPJ","Pièces jointes"],
     ["colSup","Champ complémentaire de l'identité"],
-    ["colJournalTexte","Journal de bord (colonne texte)"]
+    ["colJournalTexte","Journal de bord (colonne texte)"],
+    ["colDernModifs","Dernières modifications (récap)"]
   ]},
   {bloc:"Table des tâches", tableKey:"tblTache", champs:[
     ["colTacheLien","Lien vers l'action"],["colTacheLibelle","Libellé de la tâche"],
@@ -1237,6 +1261,12 @@ const CHAMPS_REGLAGES = [
     ["colNoteStatut","Statut"],["colNoteDestination","Destination retenue"],
     ["colNoteLigne","Ligne créée (texte)"],["colNoteTraitee","Date de traitement"]
   ]},
+  {bloc:"Table de l'historique des modifications", tableKey:"tblHm", champs:[
+    ["colHmLien","Lien vers le projet"],["colHmDate","Date"],
+    ["colHmAuteur","Auteur (formule déclenchée)"],["colHmElement","Élément"],
+    ["colHmOperation","Opération"],["colHmChamp","Champ"],
+    ["colHmAncien","Ancienne valeur"],["colHmNouveau","Nouvelle valeur"]
+  ]},
   {bloc:"Table des agents", tableKey:"tblAgent", champs:[
     ["colAgentNom","Nom, tel qu'il figure dans la colonne Porteur"],
     ["colAgentFonction","Fonction"]
@@ -1246,7 +1276,8 @@ const CHAMPS_REGLAGES = [
 const S = {
   cfg:Object.assign({},DEF),
   meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
-  data:{main:[],taches:[],journal:[],instances:[],notes:[],agents:[]},
+  data:{main:[],taches:[],journal:[],instances:[],notes:[],agents:[],hm:[]},
+  fTrace:{element:"",op:"",q:"",n:50},   // filtres de l'historique des modifications
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
   onglet:"synthese",
@@ -1550,6 +1581,7 @@ async function charger(){
   S.data.instances= await lireTable(c.tblInstance);
   S.data.notes    = await lireTable(c.tblNote);
   S.data.agents   = await lireTable(c.tblAgent);
+  S.data.hm       = await lireTable(c.tblHm);
   await chargerPJ();
 
   // libellés des colonnes de type Référence utilisées à l'écran
@@ -1560,7 +1592,8 @@ async function charger(){
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
     [c.tblNote,["colNoteLien","colNoteAuteur","colNoteTexte","colNoteStatut",
                 "colNoteDestination","colNoteAction"]],
-    [c.tblAgent,["colAgentNom","colAgentFonction"]]
+    [c.tblAgent,["colAgentNom","colAgentFonction"]],
+    [c.tblHm,["colHmLien","colHmAuteur"]]
   ];
   /* une référence illisible — table annexe protégée par les règles d'accès —
      ne doit pas faire échouer tout le rechargement : on l'ignore et on continue */
@@ -1807,6 +1840,227 @@ function instancesDe(p){
   });
 }
 
+
+/* =======================================================================
+   Historique des modifications
+   =======================================================================
+   Chaque écriture faite depuis le widget décrit ce qu'elle change sous forme
+   de « traces ». Les traces deviennent des lignes de la table d'historique et
+   le récap « Dernières modifications » du projet concerné. Tout part dans la
+   même action Grist que la modification : l'un ne va pas sans l'autre.
+   Les saisies faites directement dans Grist ne sont pas tracées. */
+
+const HM_OPS=["Modification","Ajout","Pièce jointe"];
+
+function hmPret(){
+  const c=S.cfg;
+  return !!(c.tblHm && colonnesDe(c.tblHm).length);
+}
+
+function court(v,n){
+  const s=txt(v).split("\n")[0].trim();
+  return s.length>(n||60) ? s.slice(0,(n||60)-1)+"…" : s;
+}
+
+function dateHeureFR(v){
+  if(typeof v!=="number") return txt(v);
+  return new Date(v*1000).toLocaleString("fr-FR",
+    {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+
+/* désignation lisible d'une ligne, quelle que soit sa table */
+function libelleElement(tableId,ligne,projet){
+  const c=S.cfg;
+  if(!ligne) return tableId;
+  const g=(s,l)=>s+" « "+(l||"sans libellé")+" »";
+  if(tableId===c.tblMain)
+    return (projet && ligne.id===projet.id) ? "Projet"
+      : g("Action",court(lire(c.tblMain,ligne,c.colLibelle)));
+  if(tableId===c.tblTache)    return g("Tâche",court(lire(c.tblTache,ligne,c.colTacheLibelle)));
+  if(tableId===c.tblJournal)  return g("Journal",court(lire(c.tblJournal,ligne,c.colJnlTexte),50)
+                                  || dateVersFR(ligne[c.colJnlDate]));
+  if(tableId===c.tblInstance) return g("Instance",court(lire(c.tblInstance,ligne,
+                                  c.colInsHisto||c.colInsLibelle),50) || dateVersFR(ligne[c.colInsDate]));
+  if(tableId===c.tblNote)     return g("Note",court(lire(c.tblNote,ligne,c.colNoteTexte),50));
+  return tableId;
+}
+
+/* valeur telle qu'on la lit à l'écran */
+function valeurLisible(tableId,colId,v){
+  const c=S.cfg;
+  if(v==null || v==="" || (estListe(v) && v.length<2)) return "";
+  const type=(infoCol(tableId,colId)||{}).type||"";
+  if(type==="Bool") return v===true?"Oui":v===false?"Non":txt(v);
+  if(type==="Date") return typeof v==="number"?dateVersFR(v):txt(v);
+  if(type.startsWith("DateTime")) return dateHeureFR(v);
+  if(type==="Attachments") return valListe(v).map(x=>nomPJ(Number(x))).join(", ");
+  if((tableId===c.tblMain && colId===c.colAvancement) ||
+     (tableId===c.tblTache && colId===c.colTacheAvancement)){
+    const n=pct(v); return n==null?txt(v):n+" %";
+  }
+  return lire(tableId,{[colId]:v},colId);
+}
+
+function memeValeur(a,b){
+  const n=x=>(x==null||(estListe(x)&&x.length<2))?"":x;
+  return JSON.stringify(n(a))===JSON.stringify(n(b));
+}
+
+/* --- rattachement d'une ligne à son projet --- */
+function contientLigne(p,tableId,id){
+  const c=S.cfg;
+  if(tableId===c.tblMain)     return p.id===id || actionsDe(p).some(a=>a.id===id);
+  if(tableId===c.tblTache)    return [p].concat(actionsDe(p)).some(x=>tachesDe(x).some(t=>t.id===id));
+  if(tableId===c.tblJournal)  return journalDe(p).some(j=>j.id===id);
+  if(tableId===c.tblInstance) return instancesDe(p).some(j=>j.table===c.tblInstance && j.id===id);
+  if(tableId===c.tblNote)     return notesDe(p).some(n=>n.id===id);
+  return false;
+}
+function projetDeLigne(tableId,id){
+  id=Number(id);
+  const sel=S.projetSel;
+  if(sel && contientLigne(sel,tableId,id)) return sel;
+  return S.data.main.filter(estProjet).find(p=>contientLigne(p,tableId,id))||null;
+}
+
+/* --- fabrication des traces --- */
+function traceModif(tableId,rowId,colId,nouveau,ancien){
+  const ligne=ligneDe(tableId,rowId);
+  if(!ligne) return null;
+  if(arguments.length<5) ancien=ligne[colId];
+  if(memeValeur(ancien,nouveau)) return null;
+  const projet=projetDeLigne(tableId,rowId);
+  return {projet, element:libelleElement(tableId,ligne,projet), op:"Modification",
+          champ:libelleColonneBrut(tableId,colId),
+          ancien:valeurLisible(tableId,colId,ancien),
+          nouveau:valeurLisible(tableId,colId,nouveau)};
+}
+
+function tracePJ(tableId,rowId,colId,noms,precision){
+  const ligne=ligneDe(tableId,rowId);
+  if(!ligne) return null;
+  const projet=projetDeLigne(tableId,rowId);
+  return {projet, element:libelleElement(tableId,ligne,projet), op:"Pièce jointe",
+          champ:libelleColonneBrut(tableId,colId)+(precision?" ("+precision+")":""),
+          nouveau:(noms||[]).join(", ")};
+}
+
+function tracesBrouillon(){
+  const c=S.cfg, out=[];
+  Object.values(S.brouillon).forEach(m=>{
+    if(m.t===c.tblHm || (m.t===c.tblMain && m.c===c.colDernModifs)) return;
+    if(!("a" in m)) return;                       // saisie antérieure à cette version
+    out.push(traceModif(m.t,m.r,m.c,m.v,m.a));
+  });
+  return out.filter(Boolean);
+}
+
+/* --- traces -> actions Grist --- */
+function champLienHm(champs,projet){
+  const c=S.cfg, col=c.colHmLien, info=infoCol(c.tblHm,col);
+  if(!info) return;
+  if(info.refTable && info.refTable!==c.tblMain){
+    /* référence vers une table annexe des projets : on reprend la cible du projet */
+    const infoP=infoCol(c.tblMain,c.colProjKey), v=projet[c.colProjKey];
+    const id=Number(estListe(v)?v[1]:v);
+    if(infoP && infoP.refTable===info.refTable && id)
+      champs[col]=info.type.startsWith("RefList:")?["L",id]:id;
+    return;
+  }
+  poserLien(champs,c.tblHm,col,projet,cleProjet(projet));
+}
+
+function valeurDateHm(){
+  const type=(infoCol(S.cfg.tblHm,S.cfg.colHmDate)||{}).type||"";
+  if(type==="Date") return aujourdHuiUTC();
+  if(type.startsWith("DateTime") || type==="Numeric" || type==="Int") return Math.floor(Date.now()/1000);
+  return dateHeureFR(Math.floor(Date.now()/1000));
+}
+
+function texteRecap(traces){
+  const d=new Date();
+  const lignes=new Map();
+  traces.forEach(t=>{
+    if(!lignes.has(t.element)) lignes.set(t.element,[]);
+    const l=lignes.get(t.element);
+    const part = t.op==="Modification" ? t.champ
+      : t.op==="Ajout" ? "création"
+      : "pièce jointe"+(t.nouveau?" « "+t.nouveau+" »":"");
+    if(part && !l.includes(part)) l.push(part);
+  });
+  return "Le "+d.toLocaleDateString("fr-FR")+" à "+
+    d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+"\n"+
+    [...lignes].map(([e,l])=>e+" : "+l.join(", ")).join("\n");
+}
+
+function actionsTrace(traces){
+  const c=S.cfg, out=[];
+  traces=(traces||[]).filter(t=>t && t.projet);
+  if(!traces.length) return out;
+  if(hmPret()){
+    const ids=colonnesDe(c.tblHm).map(x=>x.colId);
+    const date=valeurDateHm();
+    const mettre=(ch,k,v)=>{ if(c[k] && ids.includes(c[k])) ch[c[k]]=v; };
+    traces.forEach(t=>{
+      const ch={};
+      if(c.colHmLien && ids.includes(c.colHmLien)) champLienHm(ch,t.projet);
+      mettre(ch,"colHmDate",date);
+      mettre(ch,"colHmElement",t.element);
+      mettre(ch,"colHmOperation",t.op);
+      mettre(ch,"colHmChamp",t.champ||"");
+      mettre(ch,"colHmAncien",t.ancien||"");
+      mettre(ch,"colHmNouveau",t.nouveau||"");
+      out.push(["AddRecord",c.tblHm,null,ch]);
+    });
+  }
+  if(c.colDernModifs && infoCol(c.tblMain,c.colDernModifs)){
+    const parProjet=new Map();
+    traces.forEach(t=>{
+      if(!parProjet.has(t.projet.id)) parProjet.set(t.projet.id,[]);
+      parProjet.get(t.projet.id).push(t);
+    });
+    parProjet.forEach((ts,id)=>out.push(["UpdateRecord",c.tblMain,id,
+      {[c.colDernModifs]:texteRecap(ts)}]));
+  }
+  return out;
+}
+
+/* Écrit les actions et leur historique d'un seul tenant. Si l'historique
+   échoue (table mal paramétrée, colonne absente), la modification elle-même
+   est rejouée seule : Grist ayant tout annulé, rien n'est écrit deux fois. */
+async function appliquer(actions,traces){
+  const sup=actionsTrace(traces);
+  if(!sup.length) return await grist.docApi.applyUserActions(actions);
+  try{
+    return await grist.docApi.applyUserActions(actions.concat(sup));
+  }catch(e){
+    console.warn("Historique non enregistré : "+e.message);
+    const r=await grist.docApi.applyUserActions(actions);
+    setTimeout(()=>toast("Modification enregistrée, mais pas l'historique : "+e.message,true),2400);
+    return r;
+  }
+}
+
+/* --- lecture --- */
+function hmDe(p){
+  const c=S.cfg;
+  if(!p || !hmPret() || !c.colHmLien) return [];
+  const info=infoCol(c.tblHm,c.colHmLien);
+  let vise;
+  if(info && info.refTable && info.refTable!==c.tblMain){
+    const v=p[c.colProjKey], cible=Number(estListe(v)?v[1]:v);
+    vise=h=>valListe(h[c.colHmLien]).some(x=>Number(x)===cible);
+  }else vise=h=>lieA(c.tblHm,h,c.colHmLien,p.id,cleProjet(p));
+  const quand=h=>{ const v=h[c.colHmDate]; return typeof v==="number"?v:0; };
+  return S.data.hm.filter(vise).sort((a,b)=>(quand(b)-quand(a))||(b.id-a.id));
+}
+
+function dateHm(h){
+  const c=S.cfg, v=h[c.colHmDate];
+  const type=(infoCol(c.tblHm,c.colHmDate)||{}).type||"";
+  return type==="Date" ? dateVersFR(v) : dateHeureFR(v);
+}
+
 /* =======================================================================
    5. Écriture
    ======================================================================= */
@@ -1814,7 +2068,9 @@ function instancesDe(p){
 async function ajouter(tableId,champs){
   await enregistrerBrouillon();      // l'ajout recharge tout : on n'écrase pas les saisies en attente
   try{
-    const r=await grist.docApi.applyUserActions([["AddRecord",tableId,null,champs]]);
+    const projet=S.projetSel||null;
+    const r=await appliquer([["AddRecord",tableId,null,champs]],
+      [{projet,element:libelleElement(tableId,champs,projet),op:"Ajout"}]);
     toast("Ligne ajoutée");
     return r.retValues?r.retValues[0]:null;
   }catch(e){ toast("Échec de l'ajout : "+e.message,true); return null; }
@@ -1822,6 +2078,7 @@ async function ajouter(tableId,champs){
 async function supprimer(tableId,rowId){
   await enregistrerBrouillon();
   try{
+    /* les suppressions ne sont volontairement pas tracées dans l'historique */
     await grist.docApi.applyUserActions([["RemoveRecord",tableId,rowId]]);
     toast("Ligne supprimée");
   }catch(e){ toast("Échec de la suppression : "+e.message,true); }
@@ -1837,8 +2094,12 @@ function estModifie(t,r,c){ return Object.prototype.hasOwnProperty.call(S.brouil
 function nbModifs(){ return Object.keys(S.brouillon).length; }
 
 function noterModif(tableId,rowId,colId,valeur){
-  S.brouillon[cleBrouillon(tableId,rowId,colId)]={t:tableId,r:Number(rowId),c:colId,v:valeur};
+  const cle=cleBrouillon(tableId,rowId,colId);
   const ligne=ligneDe(tableId,Number(rowId));   // valeur appliquée en mémoire : l'écran reste cohérent
+  /* la valeur d'origine est prise au premier changement, avant que la saisie
+     ne l'écrase en mémoire : c'est elle que l'historique retient */
+  const ancien=S.brouillon[cle] ? S.brouillon[cle].a : (ligne ? ligne[colId] : null);
+  S.brouillon[cle]={t:tableId,r:Number(rowId),c:colId,v:valeur,a:ancien};
   if(ligne) ligne[colId]=valeur;
   majBarreBrouillon();
 }
@@ -1874,8 +2135,9 @@ async function enregistrerBrouillon(){
   });
   const actions=Object.keys(parLigne).map(k=>
     ["UpdateRecord",parLigne[k].t,parLigne[k].r,parLigne[k].champs]);
+  const traces=tracesBrouillon();
   try{
-    await grist.docApi.applyUserActions(actions);
+    await appliquer(actions,traces);
     S.brouillon={};
     reverrouiller();
     majBarreBrouillon();
@@ -2118,7 +2380,7 @@ function rendreListe(){
 const ONGLETS=[["synthese","Synthèse"],["actions","Actions"],["taches","Tâches"],
                ["instances","Instances"],["planning","Planning"],
                ["journal","Journal de bord"],["notes","Notes"],
-               ["ressources","Ressources"]];
+               ["ressources","Historique et Ressources"]];
 
 /* table des fonctions de rendu, partagée par l'affichage et l'impression */
 const VUES={};   // remplie plus bas, une fois les fonctions vueXxx déclarées
@@ -2154,7 +2416,7 @@ function rendreProjet(){
             instances:jx.length,
             journal:journalDe(p).length,
             notes:notesDe(p).filter(estACaracteriser).length,
-            ressources:ressourcesDe(p).length};
+            ressources:ressourcesDe(p).length+hmDe(p).length};
 
   $("#entete").innerHTML=
     '<div class="entete-haut">'+donut(a,54,i)+
@@ -2756,8 +3018,8 @@ function brancherPJ(){
       const ligne=ligneDe(tableId,rowId);
       const actuels=ligne?valListe(ligne[colId]).map(Number).filter(Boolean):[];
       const total=["L"].concat(actuels,nouveaux);
-      await grist.docApi.applyUserActions([["UpdateRecord",tableId,rowId,
-        {[colId]:total}]]);
+      await appliquer([["UpdateRecord",tableId,rowId,{[colId]:total}]],
+        [tracePJ(tableId,rowId,colId,[...inp.files].map(f=>f.name))]);
       toast(nouveaux.length>1?"Pièces jointes ajoutées":"Pièce jointe ajoutée");
 
       /* Affichage immédiat. On ne se repose plus sur le seul rechargement :
@@ -2909,6 +3171,19 @@ async function basculerVerrou(p){
 }
 
 /* --- Synthèse --- */
+/* récap en lecture seule : il n'est écrit que par le widget */
+function recapHtml(p){
+  const c=S.cfg;
+  const texte=txt(p[c.colDernModifs]).trim();
+  if(!texte) return '<div class="recap-modifs recap-vide">Aucune modification enregistrée depuis le widget.</div>';
+  const der=hmDe(p)[0];
+  const auteur=der && S.cfg.colHmAuteur ? lire(c.tblHm,der,c.colHmAuteur) : "";
+  const [tete,...reste]=texte.split("\n");
+  return '<div class="recap-modifs" title="Mis à jour automatiquement — détail dans l\'onglet Historique et Ressources">'+
+    '<div class="recap-tete">'+esc(tete)+(auteur?' — '+esc(auteur):'')+'</div>'+
+    esc(reste.join("\n"))+'</div>';
+}
+
 function libelleColonne(tableId,colId){
   const info=infoCol(tableId,colId);
   return esc(info?(info.label||colId):colId);
@@ -2950,6 +3225,7 @@ function vueSynthese(p){
         '</div></div>'
       : '')+
     '<div class="carte"><h2>Commentaire</h2><div class="grille">'+
+      (c.colDernModifs && infoCol(t,c.colDernModifs) ? ch("Dernières modifications",recapHtml(p),true) : "")+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
     '</div></div>'+
     (c.colPJ?'<div class="carte"><h2>Pièces jointes</h2>'+blocPJ(t,p,c.colPJ)+'</div>':"");
@@ -2990,6 +3266,88 @@ function ressourcesDe(p){
   return out;
 }
 
+function historiqueHtml(p){
+  const c=S.cfg;
+  if(!hmPret())
+    return '<div class="carte"><h2>Historique des modifications</h2><div class="vide">'+
+      '<b>Table de l\'historique non paramétrée</b>'+
+      'Choisissez-la dans les réglages, bloc « Table de l\'historique des modifications ».</div></div>';
+  const tout=hmDe(p), f=S.fTrace;
+  const lec=(h,k)=>c[k]?lire(c.tblHm,h,c[k]):"";
+  const elements=[...new Set(tout.map(h=>lec(h,"colHmElement")).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"fr"));
+  const vus=tout.filter(h=>{
+    if(f.element && lec(h,"colHmElement")!==f.element) return false;
+    if(f.op && lec(h,"colHmOperation")!==f.op) return false;
+    if(f.q){
+      const q=pliColonne(f.q);
+      const foin=["colHmElement","colHmChamp","colHmAncien","colHmNouveau","colHmAuteur"]
+        .map(k=>pliColonne(lec(h,k))).join("|");
+      if(!foin.includes(q)) return false;
+    }
+    return true;
+  });
+  const filtre=!!(f.element||f.op||f.q);
+  const valeur=(v,cls)=>{
+    if(!v) return "";
+    return v.length>120
+      ? '<details class="'+cls+'"><summary>'+esc(v.slice(0,117))+'…</summary>'+esc(v)+'</details>'
+      : '<span class="'+cls+'">'+esc(v)+'</span>';
+  };
+  const classeOp=o=>o==="Ajout"?"p-op-ajout":o==="Pièce jointe"?"p-op-pj":"p-op-modif";
+
+  let h='<div class="carte"><div class="carte-tete"><h2>Historique des modifications</h2></div>'+
+    '<div class="barre-filtres">'+
+    '<select id="fh-element"><option value="">Tous les éléments</option>'+
+      elements.map(e=>'<option value="'+esc(e)+'"'+(f.element===e?" selected":"")+'>'+esc(e)+'</option>').join("")+
+    '</select>'+
+    '<select id="fh-op"><option value="">Toutes les opérations</option>'+
+      HM_OPS.map(o=>'<option'+(f.op===o?" selected":"")+'>'+esc(o)+'</option>').join("")+
+    '</select>'+
+    '<input type="search" id="fh-q" placeholder="Rechercher dans l\'historique…" value="'+esc(f.q)+'">'+
+    (filtre?'<button class="btn-raz" id="fh-raz">Réinitialiser</button>'+
+            '<span class="decompte">'+vus.length+' sur '+tout.length+'</span>'
+           :'<span class="decompte">'+tout.length+' au total</span>')+
+    '</div>';
+
+  if(!tout.length){
+    h+='<div class="vide"><b>Aucune modification enregistrée</b>'+
+       'Les modifications faites depuis le widget apparaîtront ici.</div>';
+  }else if(!vus.length){
+    h+='<div class="vide"><b>Aucune modification ne correspond</b>Modifiez la recherche ou les filtres.</div>';
+  }else{
+    h+='<table class="tab-trace"><thead><tr><th style="width:118px">Date</th><th>Auteur</th>'+
+       '<th>Élément</th><th>Opération</th><th>Champ</th><th>Avant → après</th></tr></thead><tbody>'+
+      vus.slice(0,f.n).map(x=>{
+        const op=lec(x,"colHmOperation"), av=lec(x,"colHmAncien"), ap=lec(x,"colHmNouveau");
+        return '<tr><td class="trace-date">'+esc(dateHm(x))+'</td>'+
+          '<td>'+esc(lec(x,"colHmAuteur"))+'</td>'+
+          '<td>'+esc(lec(x,"colHmElement"))+'</td>'+
+          '<td><span class="pastille '+classeOp(op)+'">'+esc(op||"—")+'</span></td>'+
+          '<td>'+esc(lec(x,"colHmChamp"))+'</td>'+
+          '<td>'+valeur(av,"avant")+((av&&ap)?' <span class="fleche">→</span> ':'')+valeur(ap,"apres")+'</td></tr>';
+      }).join("")+'</tbody></table>'+
+      (vus.length>f.n?'<div class="trace-plus"><button class="btn btn-2" id="fh-plus">Afficher '+
+        Math.min(50,vus.length-f.n)+' de plus ('+(vus.length-f.n)+' restantes)</button></div>':'');
+  }
+  return h+'</div>';
+}
+
+function brancherHistorique(p){
+  const f=S.fTrace, re=()=>vueRessources(p);
+  const el=$("#fh-element"); if(!el) return;
+  el.onchange=e=>{ f.element=e.target.value; f.n=50; re(); };
+  $("#fh-op").onchange=e=>{ f.op=e.target.value; f.n=50; re(); };
+  const raz=$("#fh-raz");
+  if(raz) raz.onclick=()=>{ f.element=""; f.op=""; f.q=""; f.n=50; re(); };
+  const plus=$("#fh-plus");
+  if(plus) plus.onclick=()=>{ f.n+=50; re(); };
+  const q=$("#fh-q");
+  q.oninput=()=>{ f.q=q.value; };
+  q.onsearch=q.onchange=()=>{ f.q=q.value; f.n=50; re(); };
+  q.onkeydown=e=>{ if(e.key==="Enter"){ f.q=q.value; f.n=50; re(); } };
+}
+
 function vueRessources(p){
   const c=S.cfg;
   const tout=ressourcesDe(p);
@@ -3005,7 +3363,8 @@ function vueRessources(p){
     return true;
   });
 
-  let html='<div class="carte"><div class="barre-filtres">'+
+  let html=historiqueHtml(p)+
+    '<div class="carte"><div class="carte-tete"><h2>Pièces jointes</h2></div><div class="barre-filtres">'+
     '<select id="fr-origine"><option value="">Toutes les origines</option>'+
     origines.map(o=>'<option value="'+esc(o)+'"'+(f.origine===o?" selected":"")+
       '>'+esc(o)+'</option>').join("")+'</select>'+
@@ -3041,6 +3400,7 @@ function vueRessources(p){
   q.oninput=()=>{ f.q=q.value; };
   q.onsearch=q.onchange=()=>{ f.q=q.value; vueRessources(p); };
   q.onkeydown=e=>{ if(e.key==="Enter"){ f.q=q.value; vueRessources(p); } };
+  brancherHistorique(p);
   brancherPJ();
 }
 
@@ -3697,8 +4057,8 @@ function brancherEcheances(p){
         toast("Colonne « Échéance traitée » non paramétrée.",true); return;
       }
       try{
-        await grist.docApi.applyUserActions([["UpdateRecord",c.tblJournal,id,
-          {[c.colJnlTraite]:true}]]);
+        await appliquer([["UpdateRecord",c.tblJournal,id,{[c.colJnlTraite]:true}]],
+          [traceModif(c.tblJournal,id,c.colJnlTraite,true)]);
       }catch(err){
         /* le cas courant : la colonne n'existe pas encore dans la table Grist */
         toast("Impossible de clore l'échéance : "+err.message,true);
@@ -3988,7 +4348,8 @@ function estSansSuite(n){
 async function majLigne(tableId,rowId,champs){
   await enregistrerBrouillon();
   try{
-    await grist.docApi.applyUserActions([["UpdateRecord",tableId,rowId,champs]]);
+    await appliquer([["UpdateRecord",tableId,rowId,champs]],
+      Object.keys(champs).map(k=>traceModif(tableId,rowId,k,champs[k])));
     return true;
   }catch(e){ toast("Échec de l'enregistrement : "+e.message,true); return false; }
 }
@@ -4072,10 +4433,10 @@ async function transfererPJNote(note,tableCible,idCible,libDest){
     champsNote[c.colNoteTexte]=(ancien?ancien+"\n":"")+traces;
   }
   try{
-    await grist.docApi.applyUserActions([
+    await appliquer([
       ["UpdateRecord",tableCible,idCible,{[colCible]:["L"].concat(fusion)}],
       ["UpdateRecord",c.tblNote,note.id,champsNote]
-    ]);
+    ],[tracePJ(tableCible,idCible,colCible,ids.map(nomPJ),"depuis une note")]);
   }catch(e){
     toast("Pièce jointe non reportée : "+e.message,true);
   }
@@ -5748,8 +6109,8 @@ async function deposerPDF(p,blob,nom){
     const ligne=ligneDe(c.tblMain,p.id)||p;
     const actuels=valListe(ligne[c.colPJ]).map(Number).filter(Boolean);
     const total=["L"].concat(actuels,nouveaux);
-    await grist.docApi.applyUserActions([["UpdateRecord",c.tblMain,p.id,
-      {[c.colPJ]:total}]]);
+    await appliquer([["UpdateRecord",c.tblMain,p.id,{[c.colPJ]:total}]],
+      [tracePJ(c.tblMain,p.id,c.colPJ,[nom])]);
     toast("PDF ajouté aux pièces jointes du projet");
     ligne[c.colPJ]=total;
     await nommerPJ(nouveaux,tk);
@@ -6569,6 +6930,14 @@ function devineDefauts(){
     };
     c.tblNote = S.meta.tables.find(signature)
              || S.meta.tables.find(x=>/^notes?$/i.test(x)) || "";
+  }
+  /* table de l'historique : repérée à son nom, sinon à sa signature */
+  if(!c.tblHm){
+    c.tblHm = S.meta.tables.find(t=>/^historique_?modif/i.test(t))
+           || S.meta.tables.find(t=>{
+                const ids=colonnesDe(t).map(x=>x.colId);
+                return ids.includes("Ancienne_valeur") && ids.includes("Nouvelle_valeur");
+              }) || "";
   }
   /* chaque bloc complète ses colonnes depuis SA table */
   CHAMPS_REGLAGES.forEach(bloc=>{
@@ -8203,8 +8572,8 @@ function mbJournal(p){
   document.querySelectorAll("[data-mbclore]").forEach(b=>b.onclick=async()=>{
     const id=Number(b.dataset.mbclore);
     try{
-      await grist.docApi.applyUserActions([["UpdateRecord",c.tblJournal,id,
-        {[c.colJnlTraite]:true}]]);
+      await appliquer([["UpdateRecord",c.tblJournal,id,{[c.colJnlTraite]:true}]],
+        [traceModif(c.tblJournal,id,c.colJnlTraite,true)]);
     }catch(err){
       toast("Impossible de clore l'échéance : "+err.message,true);
       console.error(err); return;
@@ -8343,7 +8712,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-09-o — instances et journal modifiables sous mot de passe";
+const VERSION="2026-09-15-b — historique sans les suppressions";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

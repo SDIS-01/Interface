@@ -3298,6 +3298,18 @@ function journalSource(p,h){
   return l.length ? l.reduce((a,b)=>b.id>a.id?b:a) : null;
 }
 
+/* Auteur affiché : pour une entrée de journal, celui qui l'a saisie (champ
+   « Auteur de la saisie ») ; sinon, ou à défaut, l'auteur de l'historique. */
+function auteurHm(p,h){
+  const c=S.cfg;
+  if(c.colJnlAuteur && categorieHm(lire(c.tblHm,h,c.colHmElement))==="Journal de bord"){
+    const j=journalSource(p,h);
+    const a=j ? txt(lire(c.tblJournal,j,c.colJnlAuteur)).trim() : "";
+    if(a) return a;
+  }
+  return c.colHmAuteur ? lire(c.tblHm,h,c.colHmAuteur) : "";
+}
+
 /* compléments affichés sous le titre « Journal de bord » */
 function complementsJournal(j){
   const c=S.cfg;
@@ -3351,7 +3363,7 @@ function recapHtml(p){
            '<div class="recap-txt">'+corps+'</div>'+
            (delai?'<div class="recap-delai">Délai d\'exécution : '+esc(delai)+'</div>':'')+'</div>';
   });
-  const auteur=lec(lot[0],"colHmAuteur");
+  const auteur=[...new Set(lot.map(h=>auteurHm(p,h)).filter(Boolean))].join(", ");
   return '<div class="recap-modifs" title="Détail dans l\'onglet Historique">'+
     '<div class="recap-tete">Le '+esc(dateHm(lot[0]).replace(" "," à "))+(auteur?' — '+esc(auteur):'')+'</div>'+
     entrees.join("")+'</div>';
@@ -3500,7 +3512,7 @@ function historiqueHtml(p){
       vus.slice(0,f.n).map(x=>{
         const k=cat(x);
         return '<tr><td class="trace-date">'+esc(dateHm(x))+'</td>'+
-          '<td>'+esc(lec(x,"colHmAuteur"))+'</td>'+
+          '<td>'+esc(auteurHm(p,x))+'</td>'+
           '<td><span class="pastille p-cat-'+esc(pliColonne(k))+'">'+esc(k)+'</span></td>'+
           '<td>'+phrase(x)+'</td></tr>';
       }).join("")+'</tbody></table>'+
@@ -8971,7 +8983,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-16-e — relecture automatique de l'historique";
+const VERSION="2026-09-16-f — auteur du journal dans le récap";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -160,6 +160,14 @@ body.panneau-replie .panneau>*{display:none;}
 .btn-raz[hidden]{display:none;}
 
 /* ---------- Historique des modifications ---------- */
+details.repliable>summary{list-style:none;cursor:pointer;}
+details.repliable>summary::-webkit-details-marker{display:none;}
+details.repliable u{color:var(--bleu);text-decoration:none;font-weight:bold;white-space:nowrap;}
+details.repliable .rp-replier{display:none;}
+details.repliable[open]>summary .rp-court{display:none;}
+details.repliable[open]>summary .rp-replier{display:inline;}
+details.repliable[open]>summary{order:2;}
+details.repliable.repliable[open]{display:flex;flex-direction:column;white-space:pre-wrap;}   /* double classe : passe devant .tab-trace details[open] */
 .recap-modifs{background:var(--fond);border:1px solid var(--trait);border-radius:4px;
   padding:8px 10px;font-size:12px;line-height:1.55;white-space:pre-wrap;color:var(--encre);
   cursor:default;}
@@ -3357,7 +3365,7 @@ function recapHtml(p){
       ? editeur(c.tblHm,h,c.colHmNouveau,{multi:true})
       : !texte ? '<i>(commentaire vidé)</i>'
       : texte.length>400
-        ? '<details><summary>'+esc(texte.slice(0,397))+'…</summary>'+esc(texte)+'</details>'
+        ? texteRepliable(texte,397,"")
         : esc(texte);
     return '<div class="recap-entree"><div class="recap-el">'+esc(titre)+'</div>'+
            '<div class="recap-txt">'+corps+'</div>'+
@@ -3451,6 +3459,15 @@ function ressourcesDe(p){
   return out;
 }
 
+/* Texte long : replié, on lit le début ; déplié, le texte complet remplace
+   l'extrait (il ne s'y ajoute pas) et un lien permet de le replier. */
+function texteRepliable(v,n,cls){
+  return '<details class="repliable '+(cls||"")+'"><summary>'+
+    '<span class="rp-court">'+esc(v.slice(0,n))+'… <u>lire la suite</u></span>'+
+    '<span class="rp-replier"><u>réduire</u></span></summary>'+
+    '<span class="rp-long">'+esc(v)+'</span></details>';
+}
+
 function historiqueHtml(p){
   const c=S.cfg;
   if(!hmPret())
@@ -3464,7 +3481,7 @@ function historiqueHtml(p){
   const long=(v,cls)=>{
     if(!v) return "";
     return v.length>140
-      ? '<details class="'+cls+'"><summary>'+esc(v.slice(0,137))+'…</summary>'+esc(v)+'</details>'
+      ? texteRepliable(v,137,cls)
       : '<span class="'+cls+'">'+esc(v)+'</span>';
   };
   /* une phrase par ligne : ce qui a changé, sans jargon de colonnes */
@@ -8983,7 +9000,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-16-f — auteur du journal dans le récap";
+const VERSION="2026-09-16-g — texte long affiché une seule fois";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

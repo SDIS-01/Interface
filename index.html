@@ -2098,6 +2098,7 @@ function hmRetenu(h){
   const c=S.cfg;
   const lec=k=>c[k]?lire(c.tblHm,h,c[k]):"";
   const cat=categorieHm(lec("colHmElement")), op=lec("colHmOperation"), champ=lec("colHmChamp");
+  if(!lec("colHmNouveau").trim()) return false;   // texte vide : ligne masquée partout
   if(cat==="Journal de bord")
     return op==="Ajout" || champ===libelleColonneBrut(c.tblJournal,c.colJnlTexte);
   if(cat==="Action")
@@ -8874,7 +8875,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-16-a — dernières modifications modifiables sous mot de passe";
+const VERSION="2026-09-16-b — saisies vides masquées";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

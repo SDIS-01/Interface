@@ -169,6 +169,7 @@ body.panneau-replie .panneau>*{display:none;}
 .recap-entree+.recap-entree{padding-top:6px;border-top:1px dashed var(--trait);}
 .recap-el{font-weight:bold;color:var(--encre);white-space:normal;}
 .recap-txt{white-space:pre-wrap;}
+.recap-delai{margin-top:2px;font-size:11.5px;color:var(--orange);font-weight:bold;}
 .recap-txt textarea{width:100%;min-height:60px;margin-top:2px;}
 .recap-modifs summary{cursor:pointer;}
 .tab-trace td{vertical-align:top;font-size:12px;}
@@ -3285,6 +3286,39 @@ async function basculerVerrou(p){
 /* --- Synthèse --- */
 /* Récap en lecture seule, reconstruit à partir du dernier lot de l'historique :
    les lignes d'un même enregistrement portent toutes la même date. */
+/* Entrée du journal à l'origine d'une ligne d'historique : l'historique ne
+   garde pas son identifiant, on la retrouve par son texte (la plus récente
+   en cas d'homonymie). Les valeurs lues sont donc toujours à jour. */
+function journalSource(p,h){
+  const c=S.cfg;
+  if(!c.tblJournal || !c.colJnlTexte) return null;
+  const texte=txt(lire(c.tblHm,h,c.colHmNouveau)).trim();
+  if(!texte) return null;
+  const l=journalDe(p).filter(j=>txt(lire(c.tblJournal,j,c.colJnlTexte)).trim()===texte);
+  return l.length ? l.reduce((a,b)=>b.id>a.id?b:a) : null;
+}
+
+/* compléments affichés sous le titre « Journal de bord » */
+function complementsJournal(j){
+  const c=S.cfg;
+  if(!j) return {action:"",delai:""};
+  let action="";
+  const infoA = c.colJnlAction && infoCol(c.tblJournal,c.colJnlAction);
+  if(infoA){
+    const v=j[c.colJnlAction], id=Number(estListe(v)?v[1]:v);
+    const cible = infoA.refTable===c.tblMain && id ? ligneDe(c.tblMain,id) : null;
+    action = cible ? lire(c.tblMain,cible,c.colLibelle) : lire(c.tblJournal,j,c.colJnlAction);
+  }
+  let delai="";
+  if(c.colJnlDelai && infoCol(c.tblJournal,c.colJnlDelai)){
+    const type=infoCol(c.tblJournal,c.colJnlDelai).type||"";
+    const v=j[c.colJnlDelai];
+    delai = type.startsWith("Date") ? (typeof v==="number"?dateVersFR(v):"")
+                                    : lire(c.tblJournal,j,c.colJnlDelai);
+  }
+  return {action,delai};
+}
+
 function recapHtml(p){
   const c=S.cfg;
   const tout=hmDe(p);
@@ -3297,7 +3331,13 @@ function recapHtml(p){
   const entrees=lot.slice().reverse().map(h=>{    // ordre d'écriture
     const el=lec(h,"colHmElement");
     const cat=categorieHm(el);
-    const titre = cat==="Journal de bord" ? "Journal de bord" : (el||"(élément inconnu)");
+    let titre = cat==="Journal de bord" ? "Journal de bord" : (el||"(élément inconnu)");
+    let delai="";
+    if(cat==="Journal de bord"){
+      const cj=complementsJournal(journalSource(p,h));
+      if(cj.action) titre+=" · Action « "+cj.action+" »";
+      delai=cj.delai;
+    }
     const texte=lec(h,"colHmNouveau");
     /* déverrouillé (mot de passe), le texte se corrige sur place : c'est la ligne
        d'historique qui est modifiée, pas le commentaire d'origine */
@@ -3308,7 +3348,8 @@ function recapHtml(p){
         ? '<details><summary>'+esc(texte.slice(0,397))+'…</summary>'+esc(texte)+'</details>'
         : esc(texte);
     return '<div class="recap-entree"><div class="recap-el">'+esc(titre)+'</div>'+
-           '<div class="recap-txt">'+corps+'</div></div>';
+           '<div class="recap-txt">'+corps+'</div>'+
+           (delai?'<div class="recap-delai">Délai d\'exécution : '+esc(delai)+'</div>':'')+'</div>';
   });
   const auteur=lec(lot[0],"colHmAuteur");
   return '<div class="recap-modifs" title="Détail dans l\'onglet Historique">'+
@@ -8875,7 +8916,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-16-b — saisies vides masquées";
+const VERSION="2026-09-16-c — récap journal avec action et délai";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -268,6 +268,9 @@ body.mob .topbar,body.mob .layout{display:none!important;}
 body.mob .barre-enr{left:0;right:0;bottom:0;transform:none;border-radius:0;
   border-left-width:1px;border-top:3px solid var(--orange);
   padding:10px 13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+/* sans cette ligne, la règle ci-dessus l'emporte sur .barre-enr[hidden] et la
+   barre reste affichée en permanence sur téléphone */
+body.mob .barre-enr[hidden]{display:none!important;}
 body.mob .barre-enr .cpt{flex:1 1 100%;font-size:12px;}
 body.mob .barre-enr .info{display:none;}
 body.mob .barre-enr .btn,body.mob .barre-enr .btn-2{flex:1;padding:10px;font-size:13px;}

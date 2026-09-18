@@ -8601,7 +8601,9 @@ function projetsMobile(){
   const c=S.cfg, m=S.mob;
   const q=normMob(m.q);
   let liste=projets().filter(p=>{
-    if(!m.clos && projetClos(p)) return false;
+    /* Un projet clos est archivé : une seule puce commande les deux, sinon
+       elles feraient doublon. */
+    if(!S.voirArchives && (projetClos(p) || estArchive(p))) return false;
     for(const [k,col] of MB_FILTRES)
       if(m[k] && c[col] && !valsMob(p,c[col]).includes(m[k])) return false;
     if(!q) return true;
@@ -8640,8 +8642,8 @@ function basculerArchivesMob(v){
 function mbAccueil(){
   const c=S.cfg, m=S.mob;
   const tous=projets();
-  const nbClos=tous.filter(projetClos).length;
-  const nbArch=c.colArchive?nbArchives():0;
+  /* ce que la puce fait réapparaître : les projets clos ou archivés */
+  const nbArch=S.data.main.filter(r=>estProjet(r) && (projetClos(r)||estArchive(r))).length;
   const nbF=nbFiltresMob();
   const selects=MB_FILTRES.filter(([,col])=>c[col]).map(([k,col,lib])=>{
     const vals=[...new Set(tous.flatMap(p=>valsMob(p,c[col])))]
@@ -8657,11 +8659,9 @@ function mbAccueil(){
     (selects
       ? '<button type="button" class="mb-chip'+(nbF?" on":"")+'" id="mb-filtres">Filtres'+
         (nbF?' ('+nbF+')':'')+' '+(m.filtresOuverts?'▴':'▾')+'</button>' : '')+
-    (nbClos
-      ? '<button type="button" class="mb-chip'+(m.clos?" on":"")+'" id="mb-clos">Projets clos ('+nbClos+')</button>' : '')+
     (nbArch
       ? '<button type="button" class="mb-chip'+(S.voirArchives?" on":"")+'" id="mb-arch">Projets archivés ('+nbArch+')</button>' : '')+
-    (nbF||m.clos||S.voirArchives
+    (nbF||S.voirArchives
       ? '<button type="button" class="mb-chip" id="mb-raz">Réinitialiser</button>' : '');
 
   $("#mobile").innerHTML=
@@ -8681,12 +8681,10 @@ function mbAccueil(){
   q.onkeydown=e=>{ if(e.key==="Enter") q.blur(); };
   const bf=$("#mb-filtres");
   if(bf) bf.onclick=()=>{ m.filtresOuverts=!m.filtresOuverts; mbAccueil(); };
-  const bc=$("#mb-clos");
-  if(bc) bc.onclick=()=>{ m.clos=!m.clos; mbAccueil(); };
   const ba=$("#mb-arch");
   if(ba) ba.onclick=()=>{ basculerArchivesMob(!S.voirArchives); mbAccueil(); };
   const br=$("#mb-raz");
-  if(br) br.onclick=()=>{ MB_FILTRES.forEach(([k])=>m[k]=""); m.clos=false;
+  if(br) br.onclick=()=>{ MB_FILTRES.forEach(([k])=>m[k]="");
     basculerArchivesMob(false); mbAccueil(); };
   document.querySelectorAll("[data-mbf]").forEach(sel=>sel.onchange=()=>{
     m[sel.dataset.mbf]=sel.value; mbAccueil();

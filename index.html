@@ -7283,7 +7283,11 @@ function odpLignes(t,largeurCm,taille,gras,plafond){
   /* le gras occupe environ 10 % de plus que le romain : sans cette correction,
      un badge estimé sur une ligne en réclamait deux et débordait */
   const parCm=3.0*16/(taille||ODP_T.corps)/(gras?1.10:1);
-  const n=Math.max(1,Math.ceil(String(t==null?"":t).length/Math.max(4,largeurCm*parCm)));
+  const parLigne=Math.max(4,largeurCm*parCm);
+  /* chaque paragraphe compte à part : un commentaire de vingt lignes courtes
+     était estimé à trois lignes et débordait de son cadre */
+  const n=Math.max(1,String(t==null?"":t).split(/\r?\n/)
+    .reduce((s,l)=>s+Math.max(1,Math.ceil(l.length/parLigne)),0));
   /* six lignes suffisent pour un badge ou une cellule ; un bloc de texte
      entier doit pouvoir lever ce plafond */
   return Math.min(n,plafond||6);
@@ -7295,6 +7299,48 @@ function odpCoupe(t,largeurCm,taille,gras){
   const s=String(t==null?"":t);
   const max=Math.max(6,Math.floor(largeurCm*3.0*16/(taille||ODP_T.corps)/(gras?1.10:1)));
   return s.length<=max ? s : s.slice(0,max-1).trimEnd()+"…";
+}
+/* Coupe un texte multiligne à maxL lignes estimées : les paragraphes sont
+   gardés entiers tant qu'ils tiennent, le dernier est raccourci avec « … ». */
+function odpCoupeLignes(t,largeurCm,taille,gras,maxL){
+  const pars=String(t==null?"":t).split(/\r?\n/);
+  const out=[]; let reste=maxL;
+  for(const l of pars){
+    const n=odpLignes(l,largeurCm,taille,gras,999);
+    if(n<=reste){ out.push(l); reste-=n; continue; }
+    if(reste>0) out.push(odpCoupe(l,largeurCm*reste,taille,gras));
+    else if(out.length) out[out.length-1]=out[out.length-1].replace(/…?$/,"…");
+    return {texte:out.join("\n"),coupe:true};
+  }
+  return {texte:out.join("\n"),coupe:false};
+}
+/* Découpe un commentaire en entrées : une entrée commence par une date
+   (17-08-2026, 14/09/2026…) et court jusqu'à la suivante. */
+function odpEntrees(t){
+  const pars=String(t==null?"":t).split(/\r?\n/);
+  const ent=[];
+  pars.forEach(l=>{
+    if(!ent.length || /^\s*\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/.test(l)) ent.push([l]);
+    else ent[ent.length-1].push(l);
+  });
+  return ent.map(e=>e.join("\n"));
+}
+/* Extrait pour l'en-tête d'une action : les entrées les plus récentes (en fin
+   de texte) qui tiennent dans maxL lignes. Si même la dernière est trop
+   longue, on en garde le début. */
+function odpExtraitRecent(t,largeurCm,taille,maxL){
+  const ent=odpEntrees(t);
+  const garde=[]; let reste=maxL;
+  for(let i=ent.length-1;i>=0;i--){
+    const n=odpLignes(ent[i],largeurCm,taille,false,999);
+    if(n>reste) break;
+    garde.unshift(ent[i]); reste-=n;
+  }
+  if(garde.length===ent.length) return {texte:String(t),coupe:false};
+  if(garde.length) return {texte:"…\n"+garde.join("\n"),coupe:true,
+                           lignes:maxL-reste+1};
+  const c=odpCoupeLignes(ent[ent.length-1],largeurCm,taille,false,maxL);
+  return {texte:c.texte,coupe:true};
 }
 const ODP_BANDEAU={x:0.2,y:0.049,w:27.738,h:3.051};
 /* Bande de pied de page : le visuel du modèle recadré sur sa partie basse,
@@ -7342,6 +7388,9 @@ function odpNouveau(){
     p.push(o.trait?'draw:stroke="solid" svg:stroke-width="'+cm(o.epaisseur||0.02)+
                    '" svg:stroke-color="'+coul(o.trait)+'"':'draw:stroke="none"');
     p.push('draw:auto-grow-width="false" draw:auto-grow-height="false"');
+    /* un texte plus long que prévu rétrécit dans son cadre au lieu d'en
+       sortir et de recouvrir ses voisins */
+    if(o.ajuster) p.push('draw:fit-to-size="shrink-to-fit" style:shrink-to-fit="true"');
     p.push('draw:textarea-vertical-align="'+(o.valign||"top")+'"');
     p.push('draw:textarea-horizontal-align="'+(o.halign||"left")+'"');
     p.push('fo:padding-top="'+cm(o.pad==null?0.04:o.pad)+'" fo:padding-bottom="'+
@@ -7429,7 +7478,7 @@ function odpPage(d,avecBandeau){
     o=o||{};
     const g=d.gr({ fond:o.fond, trait:o.trait, valign:o.valign||"top",
                    halign:o.align==="end"?"right":(o.align==="center"?"center":"left"),
-                   pad:o.pad, padX:o.padX, rayon:o.rayon });
+                   pad:o.pad, padX:o.padX, rayon:o.rayon, ajuster:true });
     const p=d.par(o);
     const lignes=String(t==null?"":t).split(/\r?\n/);
     return pg.push('<draw:frame draw:style-name="'+g+'" draw:layer="layout" '+
@@ -7503,7 +7552,8 @@ function odpPage(d,avecBandeau){
     return y+h;
   };
 
-  pg.xml=()=>'<draw:page draw:name="page'+(d.pages.length+1)+'" '+
+  const rang=d.pages.length+1;       // figé maintenant, pas à l'écriture du fichier
+  pg.xml=()=>'<draw:page draw:name="'+xmlEsc(pg.nom||("Diapo "+rang))+'" '+
     'draw:master-page-name="Standard" '+
     'draw:style-name="'+d.style("drawing-page",'<style:drawing-page-properties '+
       'presentation:background-visible="true" presentation:background-objects-visible="true" '+
@@ -8015,8 +8065,8 @@ function odpBornerRangees(cols,lignes,hDispo){
   const maxL=Math.max(3,Math.floor((hDispo-0.34)/hUne));
   lignes.forEach(lg=>lg.forEach((c,i)=>{
     const t=(c.o&&c.o.taille)||ODP_T.corps;
-    if(odpLignes(c.t,cols[i].w-0.3,t,c.o&&c.o.gras,200)>maxL)
-      c.t=odpCoupe(c.t,(cols[i].w-0.3)*maxL,t,c.o&&c.o.gras);
+    if(odpLignes(c.t,cols[i].w-0.3,t,c.o&&c.o.gras,999)>maxL)
+      c.t=odpCoupeLignes(c.t,cols[i].w-0.3,t,c.o&&c.o.gras,maxL).texte;
   }));
 }
 function odpTableau(d,titre,surtitre,cols,lignes){
@@ -8256,11 +8306,20 @@ function odpActionDiapo(d,a,numero){
   /* commentaire de l'action, à droite des badges s'il y a la place */
   const com=lire(c.tblMain,a,c.colCommentaire);
   const xc=xb+2*(wc+gap), wcom=x+w-xc;
+  let comSuite=false;
   if(com && wcom>4){
-    const nb=Math.min(5,odpLignes(com,wcom-0.5,ODP_T.corps));
+    const MAXL=6;
+    let texte=com;
+    if(odpLignes(com,wcom-0.5,ODP_T.corps,false,999)>MAXL){
+      /* place réservée à « … » en tête et au renvoi en pied */
+      const ex=odpExtraitRecent(com,wcom-0.5,ODP_T.corps,MAXL-2);
+      texte=ex.texte+"\n→ suite diapo suivante";
+      comSuite=true;
+    }
+    const nb=Math.min(MAXL,odpLignes(texte,wcom-0.5,ODP_T.corps,false,99));
     const h=nb*odpHautLigne(ODP_T.corps)+0.3;
     pg.rect(xc,y+0.1,0.08,h,{fond:ODP_C.titre});
-    pg.texte(xc+0.28,y+0.1,wcom-0.28,h,com,{taille:ODP_T.corps,couleur:ODP_C.encre});
+    pg.texte(xc+0.28,y+0.1,wcom-0.28,h,texte,{taille:ODP_T.corps,couleur:ODP_C.encre});
     basB=Math.max(basB,y+0.1+h+0.13);
   }
   y=Math.max(basB,y+0.1+r*2)+0.45;
@@ -8300,8 +8359,11 @@ function odpActionDiapo(d,a,numero){
                 {align:"center",gras:true,couleur:bt2.txt}),
               cel(c.colTacheCommentaire?lire(c.tblTache,t,c.colTacheCommentaire):"")];
     });
-    const hs=odpHauteurs(cols,lg);
     const hEnt=odpHautLigne(ODP_T.corps)*2+0.34;
+    /* une cellule plus haute qu'une page ne se découpe pas : on la raccourcit */
+    const zp=odpZone("pied");
+    odpBornerRangees(cols,lg,zp.h-0.7-hEnt-0.6);
+    const hs=odpHauteurs(cols,lg);
     let i=0, dispo=bas-y-hEnt-0.4, cumul=0, n=0;
     while(n<lg.length && cumul+hs[n]<=dispo){ cumul+=hs[n]; n++; }
     if(!n) n=1;
@@ -8319,7 +8381,41 @@ function odpActionDiapo(d,a,numero){
       i+=n2;
     }
   }
+  if(comSuite) odpCommentaireAction(d,lib,com);
   return pg;
+}
+
+/* Commentaire complet d'une action, quand il ne tient pas dans son en-tête.
+   Bandeau et titre de l'action, pour qu'on sache à quoi il se rapporte ;
+   au besoin sur plusieurs diapositives. */
+function odpCommentaireAction(d,lib,com){
+  const pars=String(com).split(/\r?\n/);
+  let premier=true;
+  while(pars.length){
+    const pg=odpPage(d,"entete");
+    const z=odpZone("entete");
+    const y=odpTitre(pg,premier?"Commentaire de l'action":"Commentaire de l'action (suite)",lib,z.x);
+    const wt=z.w-0.65;
+    const maxL=Math.max(3,Math.floor((z.y+z.h-y-0.75)/odpHautLigne(ODP_T.corps)));
+    const page=[]; let reste=maxL;
+    while(pars.length){
+      const n=odpLignes(pars[0],wt,ODP_T.corps,false,999);
+      if(n>reste){
+        if(!page.length){                       // paragraphe plus long qu'une page
+          page.push(odpCoupe(pars[0],wt*reste,ODP_T.corps));
+          pars.shift();
+        }
+        break;
+      }
+      page.push(pars.shift()); reste-=n;
+    }
+    const nb=maxL-reste;
+    const h=Math.max(1.2,nb*odpHautLigne(ODP_T.corps)+0.45);
+    pg.rect(z.x,y,z.w,h,{fond:ODP_C.blocPale,rayon:0.12});
+    pg.rect(z.x,y,0.09,h,{fond:ODP_C.titre});
+    pg.texte(z.x+0.35,y,wt,h,page.join("\n"),{taille:ODP_T.corps,couleur:ODP_C.encre});
+    premier=false;
+  }
 }
 
 /* Commentaire global du projet, sur sa propre diapositive. */

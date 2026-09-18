@@ -8966,7 +8966,9 @@ function mbInstances(p){
       ? '<details class="mb-carte mb-pj mb-jform" id="mbi-form"'+(S.mob.insForm?' open':'')+'>'+
           '<summary><span>Ajouter une instance</span></summary><div class="dedans mb-form">'+
           '<label>Date</label>'+champDateFR('id="mbi-date"','',dateDuJourFR())+
-          '<label>Libellé</label><input id="mbi-lib" type="text">'+
+          /* même champ que sur poste : liste déroulante si la colonne est un
+             choix ou une référence, saisie libre sinon */
+          '<label>Libellé</label>'+champVierge(c.tblInstance,c.colInsLibelle,"mbi-lib")+
           (c.colInsType?'<label>Type</label>'+champVierge(c.tblInstance,c.colInsType,"mbi-type"):'')+
           '<button class="btn" id="mbi-ok">Ajouter l\'instance</button></div></details>'
       : '')+
@@ -8983,12 +8985,14 @@ function mbInstances(p){
   if(fi) fi.ontoggle=()=>{ S.mob.insForm=fi.open; };
   const ok=$("#mbi-ok");
   if(ok) ok.onclick=async()=>{
-    const lib=$("#mbi-lib").value.trim();
-    if(!lib){ toast("Saisissez un libellé.",true); return; }
+    const lib=valeurChamp("mbi-lib",c.tblInstance,c.colInsLibelle);
+    if(lib===null || lib==="" || (typeof lib==="string" && !lib.trim())){
+      toast("Renseignez le libellé.",true); return;
+    }
     const d=frVersDate($("#mbi-date").value);
     if(d===undefined){ toast("Date invalide : jj/mm/aaaa.",true); return; }
     const champs={};
-    if(c.colInsLibelle) champs[c.colInsLibelle]=lib;
+    if(c.colInsLibelle) champs[c.colInsLibelle]=(typeof lib==="string")?lib.trim():lib;
     if(c.colInsDate && d!==null) champs[c.colInsDate]=d;
     if(c.colInsType && $("#mbi-type"))
       champs[c.colInsType]=valeurChamp("mbi-type",c.tblInstance,c.colInsType);

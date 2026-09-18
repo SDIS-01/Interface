@@ -289,9 +289,6 @@ body.mob .mb-tache{padding:11px 0;}
 body.mob .mb-tache .lib.cliquable{padding:4px 0;}
 body.mob .msel-pan input[type=checkbox]{width:20px;height:20px;}
 body.mob .msel-pan label{padding:9px 6px;}
-.mb-vue{flex:0 0 auto;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);
-  color:#fff;border-radius:16px;padding:7px 12px;font-size:12px;cursor:pointer;min-height:36px;}
-.mb-vue.ic{padding:0;width:38px;height:38px;border-radius:50%;font-size:16px;}
 .mb-outils{flex-wrap:wrap;}
 .mb-filtres{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:4px 13px 12px;
   background:#fff;border-bottom:1px solid var(--trait);}
@@ -301,6 +298,7 @@ body.mob .msel-pan label{padding:9px 6px;}
   border-radius:var(--rayon);background:#fff;color:var(--encre);}
 .mb-filtres select.actif{border-color:var(--bleu);background:var(--bleu-clair);color:var(--bleu);}
 .mb-compte{padding:8px 13px;font-size:12px;color:var(--gris);}
+.mb-item p.qui{margin-top:3px;font-size:11.5px;color:var(--gris);}
 .mb-jform>summary{padding:14px 13px;}
 .mb-jform>summary::before{content:"+";font-size:16px;line-height:1;}
 .mb-jform .dedans label:first-child{margin-top:11px;}
@@ -1853,6 +1851,20 @@ function journalDe(p){
   if(!c.tblJournal||!c.colJnlLien) return [];
   const cle=cleProjet(p);
   return S.data.journal.filter(j=>lieA(c.tblJournal,j,c.colJnlLien,p.id,cle)).sort((a,b)=>(Number(b[c.colJnlDate])||0)-(Number(a[c.colJnlDate])||0));
+}
+/* Les n entrées de journal les plus récentes d'un projet et de ses actions.
+   Chaque entrée garde le libellé de l'action dont elle provient. */
+function derniersJournaux(p,n){
+  const c=S.cfg;
+  if(!c.tblJournal||!c.colJnlLien) return [];
+  const lot=journalDe(p).map(j=>({j,src:null}));
+  actionsDe(p).forEach(a=>{
+    const lib=lire(c.tblMain,a,c.colLibelle);
+    journalDe(a).forEach(j=>lot.push({j,src:lib}));
+  });
+  return lot
+    .sort((x,y)=>(Number(y.j[c.colJnlDate])||0)-(Number(x.j[c.colJnlDate])||0))
+    .slice(0,n||3);
 }
 function lieA(tableId,ligne,colLien,cibleId,cleTexte){
   const info=infoCol(tableId,colLien);
@@ -8305,23 +8317,10 @@ function odpActionDiapo(d,a,numero){
 
   /* commentaire de l'action, à droite des badges s'il y a la place */
   const com=lire(c.tblMain,a,c.colCommentaire);
-  const xc=xb+2*(wc+gap), wcom=x+w-xc;
-  let comSuite=false;
-  if(com && wcom>4){
-    const MAXL=6;
-    let texte=com;
-    if(odpLignes(com,wcom-0.5,ODP_T.corps,false,999)>MAXL){
-      /* place réservée à « … » en tête et au renvoi en pied */
-      const ex=odpExtraitRecent(com,wcom-0.5,ODP_T.corps,MAXL-2);
-      texte=ex.texte+"\n→ suite diapo suivante";
-      comSuite=true;
-    }
-    const nb=Math.min(MAXL,odpLignes(texte,wcom-0.5,ODP_T.corps,false,99));
-    const h=nb*odpHautLigne(ODP_T.corps)+0.3;
-    pg.rect(xc,y+0.1,0.08,h,{fond:ODP_C.titre});
-    pg.texte(xc+0.28,y+0.1,wcom-0.28,h,texte,{taille:ODP_T.corps,couleur:ODP_C.encre});
-    basB=Math.max(basB,y+0.1+h+0.13);
-  }
+  /* Le commentaire n'est plus repris en en-tête : il occupait la place du
+     planning et débordait. Il a sa propre diapositive, juste après. */
+  const comSuite=!!com;
+
   y=Math.max(basB,y+0.1+r*2)+0.45;
 
   /* planning de l'action et de ses tâches, tant qu'elles restent peu nombreuses */
@@ -8628,6 +8627,13 @@ function valsMob(p,col){
   return col ? String(lire(S.cfg.tblMain,p,col)||"").split(/\s*,\s*/).filter(Boolean) : [];
 }
 function nbFiltresMob(){ return MB_FILTRES.filter(([k])=>S.mob[k]).length; }
+/* Les archives sont un réglage commun aux deux vues : on garde la case à
+   cocher du poste en accord avec la puce du téléphone. */
+function basculerArchivesMob(v){
+  S.voirArchives=v;
+  const ca=$("#f-archives");
+  if(ca) ca.checked=v;
+}
 
 /* L'en-tête (recherche, filtres) n'est dessiné qu'une fois : la saisie dans la
    recherche ne redessine que la liste, le clavier et le focus restent en place. */
@@ -8635,6 +8641,7 @@ function mbAccueil(){
   const c=S.cfg, m=S.mob;
   const tous=projets();
   const nbClos=tous.filter(projetClos).length;
+  const nbArch=c.colArchive?nbArchives():0;
   const nbF=nbFiltresMob();
   const selects=MB_FILTRES.filter(([,col])=>c[col]).map(([k,col,lib])=>{
     const vals=[...new Set(tous.flatMap(p=>valsMob(p,c[col])))]
@@ -8652,13 +8659,14 @@ function mbAccueil(){
         (nbF?' ('+nbF+')':'')+' '+(m.filtresOuverts?'▴':'▾')+'</button>' : '')+
     (nbClos
       ? '<button type="button" class="mb-chip'+(m.clos?" on":"")+'" id="mb-clos">Projets clos ('+nbClos+')</button>' : '')+
-    (nbF||m.clos
+    (nbArch
+      ? '<button type="button" class="mb-chip'+(S.voirArchives?" on":"")+'" id="mb-arch">Projets archivés ('+nbArch+')</button>' : '')+
+    (nbF||m.clos||S.voirArchives
       ? '<button type="button" class="mb-chip" id="mb-raz">Réinitialiser</button>' : '');
 
   $("#mobile").innerHTML=
     '<div class="mb-haut">'+
-      '<div class="mb-tete"><b>Vos projets</b>'+
-        '<button type="button" class="mb-vue" id="mb-vue" title="Afficher la console complète (exports, planning…)">🖥 Vue complète</button></div>'+
+      '<div class="mb-tete"><b>Vos projets</b></div>'+
       '<div class="mb-rech"><input id="mb-q" type="search" placeholder="Projet, action, tâche, porteur…" '+
         'value="'+esc(m.q||"")+'" autocomplete="off" enterkeyhint="search"></div>'+
       (puces?'<div class="mb-outils">'+puces+'</div>':'')+
@@ -8671,13 +8679,15 @@ function mbAccueil(){
   const q=$("#mb-q");
   q.oninput=()=>{ m.q=q.value; mbListe(); };
   q.onkeydown=e=>{ if(e.key==="Enter") q.blur(); };
-  $("#mb-vue").onclick=()=>choisirVue("poste");
   const bf=$("#mb-filtres");
   if(bf) bf.onclick=()=>{ m.filtresOuverts=!m.filtresOuverts; mbAccueil(); };
   const bc=$("#mb-clos");
   if(bc) bc.onclick=()=>{ m.clos=!m.clos; mbAccueil(); };
+  const ba=$("#mb-arch");
+  if(ba) ba.onclick=()=>{ basculerArchivesMob(!S.voirArchives); mbAccueil(); };
   const br=$("#mb-raz");
-  if(br) br.onclick=()=>{ MB_FILTRES.forEach(([k])=>m[k]=""); m.clos=false; mbAccueil(); };
+  if(br) br.onclick=()=>{ MB_FILTRES.forEach(([k])=>m[k]=""); m.clos=false;
+    basculerArchivesMob(false); mbAccueil(); };
   document.querySelectorAll("[data-mbf]").forEach(sel=>sel.onchange=()=>{
     m[sel.dataset.mbf]=sel.value; mbAccueil();
   });
@@ -8725,8 +8735,6 @@ function mbFiche(){
       '<div class="mb-tete">'+
         '<button type="button" class="mb-retour" id="mb-retour" aria-label="Retour">‹</button>'+
         '<b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
-        '<button type="button" class="mb-vue ic" id="mb-vue" aria-label="Vue complète" '+
-          'title="Vue complète (exports PDF et diaporama)">🖥</button>'+
       '</div>'+
       '<div class="mb-onglets">'+MB_ONGLETS.map(([k,l])=>
         '<button type="button" data-mbo="'+k+'"'+(m.onglet===k?' class="on"':'')+'>'+l+'</button>').join("")+
@@ -8741,7 +8749,6 @@ function mbFiche(){
     m.onglet=b.dataset.mbo; reverrouiller(); mbFiche(); window.scrollTo(0,0);
   });
   $("#mb-note").onclick=()=>mbFeuilleNote(p);
-  $("#mb-vue").onclick=()=>choisirVue("poste");
 
   ({synthese:mbSynthese,travaux:mbTravaux,instances:mbInstances,journal:mbJournal}
     [m.onglet]||mbSynthese)(p);
@@ -8757,6 +8764,9 @@ function mbSynthese(p){
   const ins=instancesDe(p).filter(j=>Number(j.date)>=auj).sort((x,y)=>x.date-y.date);
   const champ=(lib,val)=>val?'<div class="mb-champ"><span>'+lib+'</span><b>'+esc(val)+'</b></div>':'';
   const nbPJ=c.colPJ?valListe(p[c.colPJ]).map(Number).filter(Boolean).length:0;
+  /* Dernières entrées du journal, celles du projet et celles de ses actions
+     réunies : c'est ce qui a bougé en dernier sur le dossier. */
+  const derns=derniersJournaux(p,3);
 
   $("#mb-corps").innerHTML=
     '<div class="mb-carte"><div class="mb-ident">'+donut(a,58,i)+
@@ -8781,6 +8791,18 @@ function mbSynthese(p){
               (e.jours<0?"en retard de "+(-e.jours)+" j":(e.jours===0?"aujourd\'hui":"dans "+e.jours+" j"))+
             '</i></div><p>'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</p></div>').join("")
         : '<div class="mb-rien">Aucune échéance en cours.</div>')+
+    '</div>'+
+
+    '<div class="mb-carte"><h3>Dernières entrées</h3>'+
+      (derns.length
+        ? derns.map(e=>'<div class="mb-item">'+
+            '<div class="h"><b>'+esc(dateVersFR(e.j[c.colJnlDate]))+'</b>'+
+            (e.src?'<i>'+esc(e.src)+'</i>':'')+'</div>'+
+            '<p>'+esc(lire(c.tblJournal,e.j,c.colJnlTexte)||"(sans commentaire)")+'</p>'+
+            (c.colJnlAuteur && lire(c.tblJournal,e.j,c.colJnlAuteur)
+              ? '<p class="qui">'+esc(lire(c.tblJournal,e.j,c.colJnlAuteur))+'</p>' : '')+
+          '</div>').join("")
+        : '<div class="mb-rien">Aucune entrée au journal.</div>')+
     '</div>'+
 
     '<div class="mb-carte"><h3>Prochaines instances</h3>'+

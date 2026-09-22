@@ -605,6 +605,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 .btn-sup:hover{background:#fdecec;color:#c62828;}
 
 /* ---------- Saisies en attente d'enregistrement ---------- */
+.champ input.libre,input.libre{border-style:dashed;border-color:var(--orange);background:var(--orange-pastel);}
 .edit.modifie{box-shadow:inset 3px 0 0 var(--orange);background:#FFF7F0;
   border-color:var(--orange);}
 .edit.modifie:hover,.edit.modifie:focus{border-color:var(--orange);background:#FFF7F0;}
@@ -2841,15 +2842,17 @@ function champOuvert(tableId,colId,id){
   }else return champVierge(tableId,colId,id);
   vals=vals.filter(Boolean).sort((a,b)=>a.localeCompare(b,"fr"));
   return '<input id="'+id+'" type="text" list="dl-'+id+'" autocomplete="off" '+
+    'data-ouvert="1" data-t="'+esc(tableId)+'" data-c="'+esc(colId)+'" '+
     'placeholder="Choisir ou saisir un nom">'+
     '<datalist id="dl-'+id+'">'+
       vals.map(v=>'<option value="'+esc(v)+'"></option>').join("")+
     '</datalist>';
 }
 
-/* Résout la saisie d'un champ ouvert. La frappe ne sert qu'à retrouver vite une
-   valeur de la liste : rien n'est créé. Un nom qui ne correspond à rien renvoie
-   undefined, à charge de l'appelant de prévenir et d'interrompre. */
+/* Résout la saisie d'un champ ouvert. Un nom retrouvé dans la liste renvoie sa
+   valeur (identifiant pour une Référence). Un nom absent est renvoyé tel quel
+   (texte) : Grist le conserve dans la colonne, en référence ou choix invalide
+   (affiché en rouge), sans rien créer dans la table liée. */
 function valeurOuverte(id,tableId,colId){
   const el=$("#"+id);
   if(!el) return null;
@@ -2860,7 +2863,7 @@ function valeurOuverte(id,tableId,colId){
   if(info.type==="Choice"){
     if(!brut) return "";
     const t=info.choices.find(o=>pliColonne(o)===pliColonne(brut));
-    return t===undefined ? undefined : t;
+    return t===undefined ? brut : t;
   }
   if(!info.type.startsWith("Ref:")) return brut;
   if(!brut) return 0;
@@ -2872,17 +2875,45 @@ function valeurOuverte(id,tableId,colId){
   const exact=Object.keys(map).find(i=>pliColonne(map[i])===pli);
   if(exact) return Number(exact);
   const partiels=Object.keys(map).filter(i=>pliColonne(map[i]).includes(pli));
-  return partiels.length===1 ? Number(partiels[0]) : undefined;
+  return partiels.length===1 ? Number(partiels[0]) : brut.replace(/\s+/g," ");
 }
 
-/* Lit un champ ouvert et signale une saisie qui ne correspond à aucune valeur. */
-function lireOuvert(id,tableId,colId,libelle){
-  const v=valeurOuverte(id,tableId,colId);
-  if(v===undefined){
-    toast("« "+$("#"+id).value.trim()+" » ne correspond à aucune valeur de la liste "+
-          "pour « "+libelle+" ».",true);
+/* Vrai si la saisie d'un champ ouvert ne correspond à aucune valeur de la liste. */
+function estSaisieLibre(el){
+  const brut=String(el.value||"").trim();
+  if(!brut) return false;
+  const v=valeurOuverte(el.id,el.dataset.t,el.dataset.c);
+  const info=infoCol(el.dataset.t,el.dataset.c);
+  if(!info) return false;
+  if(info.type==="Choice") return !info.choices.includes(v);
+  return info.type.startsWith("Ref:") && typeof v!=="number";
+}
+
+/* Style « libre » mis à jour pendant la frappe ; à la sortie du champ, un nom
+   retrouvé est réécrit tel qu'il figure dans la table. */
+function marquerChampOuvert(el,normaliser){
+  const libre=estSaisieLibre(el);
+  el.classList.toggle("libre",libre);
+  el.title=libre?"Nom saisi manuellement : absent de la table Collaborateur":"";
+  if(normaliser && !libre && el.value.trim()){
+    const v=valeurOuverte(el.id,el.dataset.t,el.dataset.c);
+    const info=infoCol(el.dataset.t,el.dataset.c);
+    if(typeof v==="number" && info){
+      const map=S.refLabels[info.refTable+"."+info.refDisplay]||{};
+      if(map[v]) el.value=map[v];
+    }else if(typeof v==="string") el.value=v;
   }
-  return v;
+}
+document.addEventListener("input",e=>{
+  const el=e.target; if(el && el.dataset && el.dataset.ouvert) marquerChampOuvert(el,false);
+});
+document.addEventListener("change",e=>{
+  const el=e.target; if(el && el.dataset && el.dataset.ouvert) marquerChampOuvert(el,true);
+});
+
+/* Lit un champ ouvert : valeur de la liste, ou nom saisi librement (texte). */
+function lireOuvert(id,tableId,colId,libelle){
+  return valeurOuverte(id,tableId,colId);
 }
 
 function valeurChamp(id,tableId,colId){

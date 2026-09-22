@@ -605,7 +605,7 @@ tbody tr.ligne-com:hover{background:transparent;}
 .btn-sup:hover{background:#fdecec;color:#c62828;}
 
 /* ---------- Saisies en attente d'enregistrement ---------- */
-.champ input.libre,input.libre{border-style:dashed;border-color:var(--orange);background:var(--orange-pastel);}
+.champ input.libre,input.libre,input.libre:hover,input.libre:focus{border-style:dashed;border-color:var(--orange);background:var(--orange-pastel);}
 .edit.modifie{box-shadow:inset 3px 0 0 var(--orange);background:#FFF7F0;
   border-color:var(--orange);}
 .edit.modifie:hover,.edit.modifie:focus{border-color:var(--orange);background:#FFF7F0;}
@@ -2620,6 +2620,8 @@ function editeur(tableId,ligne,colId,opts){
   if(!info) return '<div class="fige">'+esc(txt(v))+'</div>';
   if(info.type.startsWith("RefList")||info.type.startsWith("ChoiceList")||info.type.startsWith("Attachments"))
     return '<div class="fige">'+esc(lire(tableId,ligne,colId))+'</div>';
+  if(estColPorteur(tableId,colId) && (info.type.startsWith("Ref:")||info.type==="Choice"))
+    return editeurOuvert(tableId,ligne,colId,info,mk);
   if(info.type.startsWith("Ref:")){
     const map=S.refLabels[info.refTable+"."+info.refDisplay];
     if(!map) return '<div class="fige">'+esc(lire(tableId,ligne,colId))+'</div>';
@@ -2652,6 +2654,58 @@ function editeur(tableId,ligne,colId,opts){
   if(info.type.startsWith("Numeric")||info.type.startsWith("Int"))
     return '<input class="edit'+mk+'" type="number" step="any" data-k="num" '+attr+' value="'+esc(v==null?"":v)+'">';
   return '<input class="edit'+mk+'" type="text" data-k="txt" '+attr+' value="'+esc(txt(v))+'">';
+}
+
+/* Colonnes Porteur (projets/actions et tâches) : saisie libre autorisée. */
+function estColPorteur(tableId,colId){
+  const c=S.cfg;
+  return !!colId && ((tableId===c.tblMain && colId===c.colPorteur) ||
+                     (tableId===c.tblTache && colId===c.colTachePorteur));
+}
+
+/* Une seule <datalist> par colonne, partagée par toutes les lignes affichées. */
+const DL_OUVERTS={};
+function datalistColonne(tableId,colId,info){
+  let vals=[];
+  if(info.type==="Choice") vals=info.choices.slice();
+  else{
+    const map=S.refLabels[info.refTable+"."+info.refDisplay]||{};
+    vals=Object.keys(map).map(i=>String(map[i]));
+  }
+  vals=vals.filter(Boolean).sort((a,b)=>a.localeCompare(b,"fr"));
+  const cle=tableId+"|"+colId;
+  let dl=DL_OUVERTS[cle];
+  if(!dl || !document.body.contains(dl)){
+    dl=document.createElement("datalist");
+    dl.id="dl-col-"+Object.keys(DL_OUVERTS).length+"-"+Date.now();
+    document.body.appendChild(dl);
+    DL_OUVERTS[cle]=dl;
+  }
+  const sig=vals.join("\u0001");
+  if(dl.dataset.sig!==sig){
+    dl.innerHTML=vals.map(v=>'<option value="'+esc(v)+'"></option>').join("");
+    dl.dataset.sig=sig;
+  }
+  return dl.id;
+}
+
+let NUM_OUVERT=0;
+function editeurOuvert(tableId,ligne,colId,info,mk){
+  const v=ligne[colId];
+  let aff="", libre=false;
+  if(info.type==="Choice"){
+    aff=txt(v); libre=!!aff && !info.choices.includes(aff);
+  }else if(typeof v==="number"){
+    aff=v ? lire(tableId,ligne,colId) : "";
+  }else if(v!==null && v!==undefined && v!==""){
+    aff=String(v); libre=true;              // nom saisi librement (référence invalide)
+  }
+  return '<input class="edit'+mk+(libre?" libre":"")+'" type="text" id="edo-'+(++NUM_OUVERT)+'" '+
+    'list="'+datalistColonne(tableId,colId,info)+'" autocomplete="off" '+
+    'placeholder="Choisir ou saisir un nom" data-k="ouvert" data-ouvert="1" '+
+    'data-t="'+esc(tableId)+'" data-r="'+ligne.id+'" data-c="'+esc(colId)+'" '+
+    'title="'+(libre?"Nom saisi manuellement : absent de la table Collaborateur":"")+'" '+
+    'value="'+esc(aff)+'">';
 }
 
 /* hauteur des zones de texte ajustée au contenu, pour éviter d'avoir à faire défiler */
@@ -2713,6 +2767,7 @@ function brancherEditeurs(){
       }
       else if(k==="num") v=v===""?null:Number(v);
       else if(k==="ref") v=Number(v)||0;
+      else if(k==="ouvert") v=valeurOuverte(el.id,t,c);   // identifiant, ou nom libre (texte)
       else if(k==="bool") v=v===""?null:v==="1";
       noterModif(t,Number(r),c,v);
       el.classList.add("modifie");
@@ -4927,7 +4982,8 @@ function formulaireNote(p,n,dest,texte){
   const champCol=(tid,col,id,lib,val)=>{
     if(!col) return "";
     if(val) S.notePrefill[id]=val;
-    return '<div class="champ"><label>'+lib+'</label>'+champVierge(tid,col,id)+'</div>';
+    return '<div class="champ"><label>'+lib+'</label>'+
+      (estColPorteur(tid,col) ? champOuvert(tid,col,id) : champVierge(tid,col,id))+'</div>';
   };
 
   let h='<div class="note-form"><div class="grille colonne">';
@@ -5180,7 +5236,8 @@ function lireFormulaireNote(dest){
   if($("#nf-porteur")){
     const tP=dest==="tache"?c.tblTache:c.tblMain;
     const cP=dest==="tache"?c.colTachePorteur:c.colPorteur;
-    extra.porteur=valeurChamp("nf-porteur",tP,cP);
+    extra.porteur=estColPorteur(tP,cP) ? valeurOuverte("nf-porteur",tP,cP)
+                                       : valeurChamp("nf-porteur",tP,cP);
   }
 
   const db=dateDe("nf-debut","Date de début"); if(!db.ok) return null;

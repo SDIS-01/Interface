@@ -1750,6 +1750,7 @@ function actionsDe(p){
   const c=S.cfg;
   const info=infoCol(c.tblMain,c.colProjKey);
   const parRef=!!(info && /^Ref(List)?:/.test(info.type));
+  const sursTblMain=parRef && (!info.refTable || info.refTable===c.tblMain);
   const brut=p[c.colProjKey];
   const refProjet=(estListe(brut)?brut.slice(1):[brut]).map(Number).filter(Boolean);
   const cle=txt(brut);                               // identifiant porté par le projet
@@ -1758,9 +1759,14 @@ function actionsDe(p){
     if(!estAction(r)) return false;
     const v=r[c.colProjKey];
     const vals=(estListe(v)?v.slice(1):[v]);
-    if(parRef)
-      return vals.some(x=>Number(x)===p.id                 // la référence désigne la ligne du projet
-                       || refProjet.includes(Number(x)));  // ou la même cible que le projet
+    if(parRef){
+      /* Les n° de ligne ne se comparent qu'au sein d'une même table : une
+         référence vers une table annexe (Liste_PEPS_AV…) ne peut pas être
+         confrontée à p.id, sous peine de rattacher une action au projet qui
+         partage par hasard le même n° de ligne. */
+      if(sursTblMain) return vals.some(x=>Number(x)===p.id);
+      return vals.some(x=>refProjet.includes(Number(x)));
+    }
     const textes=vals.map(x=>txt(x)).filter(x=>x!=="");
     if(!textes.length) return false;
     if(cle && textes.includes(cle)) return true;
@@ -1880,6 +1886,20 @@ function lieA(tableId,ligne,colLien,cibleId,cleTexte){
   return l.some(x=>String(x)===String(cleTexte)); // sinon : on compare les clés saisies
 }
 
+/* Lien d'une ligne annexe vers un projet. Si la colonne référence une autre
+   table que la table principale, on compare à la cible portée par le projet,
+   et non à son n° de ligne. */
+function lienProjet(tableId,ligne,colLien,p){
+  const c=S.cfg, info=infoCol(tableId,colLien);
+  if(info && /^Ref(List)?:/.test(info.type) && info.refTable && info.refTable!==c.tblMain){
+    const v=p[c.colProjKey];
+    const cibles=(estListe(v)?v.slice(1):[v]).map(Number).filter(Boolean);
+    const w=ligne[colLien];
+    return (estListe(w)?w.slice(1):[w]).some(x=>cibles.includes(Number(x)));
+  }
+  return lieA(tableId,ligne,colLien,p.id,cleProjet(p));
+}
+
 function dateDepuisTexte(s){
   const m=String(s||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   return m ? Date.UTC(+m[3],+m[2]-1,+m[1])/1000 : null;
@@ -1888,7 +1908,7 @@ function dateDepuisTexte(s){
 function instancesDe(p){
   const c=S.cfg, out=[];
   if(c.tblInstance && c.colInsLien)
-    S.data.instances.filter(j=>lieA(c.tblInstance,j,c.colInsLien,p.id,cleProjet(p))).forEach(j=>{
+    S.data.instances.filter(j=>lienProjet(c.tblInstance,j,c.colInsLien,p)).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
       out.push({
         id:j.id, table:c.tblInstance, genre:"Instance", ligne:j,
@@ -9608,6 +9628,15 @@ function remplirFiltresRevue(){
     ((!selA||selA.includes(k))?" checked":"")+'> '+esc(l)+'</label>').join("");
 }
 
+/* Dossier complet : au-delà d'une action, le planning s'en tient au projet et
+   aux actions ; avec une seule action ou aucune, on y fait figurer les tâches.
+   Renvoie null si le choix n'a pas lieu d'être automatisé. */
+function planningTachesAuto(p){
+  const c=S.cfg;
+  if(!p || !(c.tblTache && c.colTacheLien)) return null;
+  return actionsDe(p).length<2;
+}
+
 function majFormulairePptx(){
   const mode=document.querySelector('input[name=pptx-mode]:checked');
   const portefeuille = mode && mode.value==="portefeuille";
@@ -9637,7 +9666,10 @@ function majFormulairePptx(){
   const ct0=$("#pptx-taches");
   if(ct0) ct0.checked=IMPR.taches!==false;
   const cpt=$("#pptx-pl-taches");
-  if(cpt) cpt.checked=!!IMPR.planningTaches;
+  if(cpt){
+    const auto=(mode && mode.value==="projet") ? planningTachesAuto(S.projetSel) : null;
+    cpt.checked = auto===null ? !!IMPR.planningTaches : auto;
+  }
   if(!portefeuille) return;
   const grp=valeursPortefeuille(S.cfg.colGroupement);
   const selG=IMPR.groupementsPptx;
@@ -9718,9 +9750,19 @@ $("#pptx-ok").onclick=async()=>{
   const ct=$("#pptx-taches");
   IMPR.taches = ct ? ct.checked : true;
   const cpt=$("#pptx-pl-taches");
-  if(cpt) IMPR.planningTaches=cpt.checked;
+  const modeOk=m?m.value:"projet";
   $("#voile-pptx").classList.remove("ouvert");
-  await genererODP(m?m.value:"projet");
+  if(cpt && modeOk==="projet"){
+    /* choix propre à cet export : le réglage partagé avec le PDF n'est pas
+       modifié, il est rétabli une fois le fichier produit */
+    const avant=IMPR.planningTaches;
+    IMPR.planningTaches=cpt.checked;
+    try{ await genererODP(modeOk); }
+    finally{ IMPR.planningTaches=avant; }
+    return;
+  }
+  if(cpt) IMPR.planningTaches=cpt.checked;
+  await genererODP(modeOk);
 };
 $("#btn-actualiser").onclick=async()=>{
   if(nbModifs()){

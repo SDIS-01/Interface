@@ -200,8 +200,7 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .ana-jb{flex:1;height:14px;background:#eef2f8;border-radius:7px;overflow:hidden;}
 .ana-jb i{display:block;height:100%;border-radius:7px;}
 .ana-jn{color:var(--gris);font-size:11.5px;}
-.ana-ecart{margin:8px 0 0 120px;font-weight:bold;font-size:13px;}
-.ana-ecart.ana-rouge{color:#993333}.ana-ecart.ana-orange{color:#a85a12}.ana-ecart.ana-vert{color:#3b6d11}
+.ana-ech-rouge{color:#993333;font-weight:bold;}
 .ana-anneau{display:flex;align-items:center;gap:8px;}
 .ana-anneau ul{list-style:none;margin:0;padding:0;font-size:11.5px;line-height:1.7;}
 .ana-anneau i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;}
@@ -1301,7 +1300,7 @@ const DEF = {
   colNotePJ:"Piece_jointe",
   btnLibelle:"", btnUrl:"", mdpHash:"", pdfVisible:false,
   /* seuils de l'onglet Analyse */
-  anaSeuilVert:5, anaSeuilRouge:15, anaJoursJournal:60, anaJoursProches:30,
+  anaJoursJournal:60, anaJoursProches:30,
   /* trois boutons libres de la barre supérieure */
   barre1Libelle:"", barre1Url:"", barre1Coul:"",
   barre2Libelle:"", barre2Url:"", barre2Coul:"",
@@ -4668,7 +4667,6 @@ function anaJours(n){ return anaPluriel(Math.abs(Math.round(n)),"jour"); }
 
 function analyseProjet(p){
   const c=S.cfg, auj=aujourdHuiUTC();
-  const SV=anaReglage("anaSeuilVert",5), SR=anaReglage("anaSeuilRouge",15);
   const JJ=anaReglage("anaJoursJournal",60), JP=anaReglage("anaJoursProches",30);
   const lib=r=>lire(c.tblMain,r,c.colLibelle)||"(sans libellé)";
   const alertes=[];            // {g:"rouge"|"orange", t}
@@ -4680,30 +4678,21 @@ function analyseProjet(p){
   const inter=interrompu(p);
   const d0=Number(p[c.colDebut])||null, ech=Number(p[c.colEch])||null,
         fin=Number(p[c.colFin])||null;
-  const cal={av, d0, ech, fin, consomme:null, ecart:null, projete:null,
-             depasse:false, joursRestants:null};
+  /* Le retard ne se mesure qu'à la date : une échéance passée alors que
+     l'avancement n'atteint pas 100 %. */
+  const cal={av, d0, ech, fin, depasse:false, joursRestants:null};
   if(fin){
     /* projet clôturé : on compare la fin réelle à l'échéance prévue */
     if(ech) cal.retardFin=Math.round((fin-ech)/JOUR);
-  }else if(d0 && ech && ech>d0){
-    cal.consomme=Math.max(0,Math.round((auj-d0)/(ech-d0)*100));
-    cal.ecart=Math.min(100,cal.consomme)-avN;
+  }else if(ech){
     cal.joursRestants=Math.round((ech-auj)/JOUR);
     cal.depasse=auj>ech && avN<100;
-    if(avN>0 && avN<100 && auj>d0) cal.projete=d0+(auj-d0)*100/avN;
   }
   if(!inter && !fin && avN<100){
     if(cal.depasse)
       alerte("rouge","Échéance du projet dépassée de "+anaJours(-cal.joursRestants)+
         " ("+dateVersFR(ech)+"), avancement "+avN+" %");
-    if(cal.ecart!=null && cal.ecart>SR)
-      alerte("rouge","Retard estimé de "+cal.ecart+" points sur le calendrier");
-    else if(cal.ecart!=null && cal.ecart>SV)
-      alerte("orange","Retard estimé de "+cal.ecart+" points sur le calendrier");
-    if(!d0 || !ech)
-      alerte("orange","Calendrier incomplet : "+
-        (!d0&&!ech?"dates de début et d'échéance":(!d0?"date de début":"échéance prévue"))+
-        " à renseigner pour mesurer le délai");
+    if(!ech) alerte("orange","Échéance prévue du projet non renseignée");
   }
 
   /* --- actions MEO --- */
@@ -4804,7 +4793,7 @@ function analyseProjet(p){
   else if(fin || avN>=100) meteo={n:"vert",l:"Terminé"};
   else if(alertes.some(a=>a.g==="rouge")) meteo={n:"rouge",l:"En retard"};
   else if(alertes.length) meteo={n:"orange",l:"À surveiller"};
-  else meteo={n:"vert",l:"Dans les temps"};
+  else meteo={n:"vert",l:"Dans les délais"};
   alertes.sort((x,y)=>(x.g===y.g)?0:(x.g==="rouge"?-1:1));
 
   /* --- synthèse rédigée --- */
@@ -4818,25 +4807,14 @@ function analyseProjet(p){
        cal.retardFin<0?", "+anaJours(cal.retardFin)+" avant l'échéance prévue":
        cal.retardFin===0?", à l'échéance prévue":"")+
       " ; avancement "+(av==null?"non renseigné":av+" %")+".");
-  }else if(cal.consomme!=null){
-    let s="Le projet est avancé à "+avN+" % alors que "+Math.min(cal.consomme,100)+
-      " % du délai est écoulé";
-    if(cal.ecart>SV) s+=" : il présente un retard estimé de "+cal.ecart+" points";
-    else if(cal.ecart< -SV) s+=" : il est en avance de "+(-cal.ecart)+" points";
-    else s+=" : il est dans les temps";
-    s+=".";
-    if(cal.depasse) s+=" L'échéance du "+dateVersFR(ech)+" est dépassée de "+
-      anaJours(-cal.joursRestants)+".";
-    else if(cal.projete && avN<100){
-      const d=Math.round((cal.projete-ech)/JOUR);
-      s+=" Au rythme actuel, la fin est estimée au "+dateVersFR(Math.round(cal.projete/JOUR)*JOUR)+
-        (d>7?", soit "+anaJours(d)+" après l'échéance.":
-         d< -7?", soit "+anaJours(d)+" avant l'échéance.":", conforme à l'échéance.");
-    }
-    phr.push(s);
   }else{
-    phr.push("Le projet est avancé à "+(av==null?"— (non renseigné)":avN+" %")+
-      " ; le délai consommé ne peut pas être mesuré faute de dates complètes.");
+    let s="Le projet est avancé à "+(av==null?"— (non renseigné)":avN+" %")+".";
+    if(!ech) s+=" Aucune échéance prévue n'est renseignée.";
+    else if(cal.depasse) s+=" L'échéance du "+dateVersFR(ech)+" est dépassée de "+
+      anaJours(-cal.joursRestants)+".";
+    else if(avN<100) s+=" Échéance prévue le "+dateVersFR(ech)+
+      (cal.joursRestants>0?", dans "+anaJours(cal.joursRestants)+".":", aujourd'hui.");
+    phr.push(s);
   }
   if(acts.length){
     const morceaux=[];
@@ -4863,7 +4841,7 @@ function analyseProjet(p){
       : "Dernière entrée au journal "+(joursSans===0?"aujourd'hui":"il y a "+anaJours(joursSans))+
         ", "+anaPluriel(nb90,"entrée")+" sur les 3 derniers mois.");
 
-  return {p,meteo,phr,alertes,cal,SV,SR,JJ,JP,
+  return {p,meteo,phr,alertes,cal,JJ,JP,
           acts,etatAct,actRetard,actSansTache,actProches,
           taches,etatT,tRetard,tSansFin,charge,
           jnl,derniere,nb90,joursSans,echJRetard,echJProches,
@@ -4881,15 +4859,11 @@ function lignesAnalyse(A){
   add("Avancement",cal.av==null?"Non renseigné":cal.av+" %");
   if(cal.fin) add("Clôture",dateVersFR(cal.fin)+
     (cal.retardFin>0?" — "+anaJours(cal.retardFin)+" après l'échéance":""));
-  else if(cal.consomme!=null){
-    add("Délai consommé",Math.min(cal.consomme,100)+" % ("+dateVersFR(cal.d0)+" → "+dateVersFR(cal.ech)+")"+
-      (cal.depasse?" — échéance dépassée de "+anaJours(-cal.joursRestants):
-       cal.joursRestants!=null?" — "+anaJours(cal.joursRestants)+" restants":""),
-      cal.depasse?"rouge":"");
-    add("Écart",(cal.ecart>0?"Retard de ":cal.ecart<0?"Avance de ":"")+Math.abs(cal.ecart)+" points",
-      cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert");
-    if(cal.projete) add("Fin projetée",dateVersFR(Math.round(cal.projete/JOUR)*JOUR)+" (au rythme actuel)");
-  }else add("Délai","Non mesurable : dates de début ou d'échéance manquantes","orange");
+  else if(cal.ech) add("Échéance",dateVersFR(cal.ech)+
+    (cal.depasse?" — dépassée de "+anaJours(-cal.joursRestants):
+     (cal.av||0)>=100?"":cal.joursRestants>0?" — dans "+anaJours(cal.joursRestants):" — aujourd'hui"),
+    cal.depasse?"rouge":"");
+  else add("Échéance","Non renseignée","orange");
   /* actions */
   if(A.acts.length){
     const e=A.etatAct;
@@ -4974,12 +4948,8 @@ function analyseComplete(p){
   /* feu par action */
   A.feux=A.acts.map(a=>{
     const aa=pct(a[c.colAvancement]), av=aa==null?0:aa;
-    const d0=Number(a[c.colDebut])||A.cal.d0||null, ech=Number(a[c.colEch])||null;
-    let consomme=null, ecart=null;
-    if(d0 && ech && ech>d0){
-      consomme=Math.max(0,Math.round((auj-d0)/(ech-d0)*100));
-      ecart=Math.min(100,consomme)-av;
-    }
+    const ech=Number(a[c.colEch])||null;
+    const jours=ech?Math.round((ech-auj)/JOUR):null;
     const ts=tachesOk?tachesDe(a):[];
     const tRet=ts.filter(t=>{
       const tn=pct(t[c.colTacheAvancement])||0, tf=Number(t[c.colTacheFin])||0;
@@ -4989,11 +4959,9 @@ function analyseComplete(p){
     if(interrompu(a)) feu={n:"gris",l:"Interrompue"};
     else if(av>=100) feu={n:"vert",l:"Terminée"};
     else if(ech && ech<auj) feu={n:"rouge",l:"Échéance dépassée"};
-    else if(ecart!=null && ecart>A.SR) feu={n:"rouge",l:"En retard"};
-    else if((ecart!=null && ecart>A.SV) || tRet || (tachesOk && !ts.length))
-      feu={n:"orange",l:"À surveiller"};
-    else feu={n:"vert",l:"Dans les temps"};
-    return {a,lib:A.lib(a),av,ech,consomme,ecart,nbT:ts.length,tRet,feu};
+    else if(tRet || (tachesOk && !ts.length)) feu={n:"orange",l:"À surveiller"};
+    else feu={n:"vert",l:"Dans les délais"};
+    return {a,lib:A.lib(a),av,ech,jours,nbT:ts.length,tRet,feu};
   });
 
   /* frise : de J-30 à J+90 */
@@ -5029,13 +4997,8 @@ function analyseComplete(p){
     if(A.cal.depasse)
       rec("rouge","Replanifier l'échéance du projet (prévue le "+dateVersFR(A.cal.ech)+
         ") ou arbitrer son périmètre lors de la prochaine instance.");
-    else if(A.cal.ecart!=null && A.cal.ecart>A.SV)
-      rec(A.cal.ecart>A.SR?"rouge":"orange","Revoir le planning : "+
-        (A.cal.projete?"au rythme actuel la fin est estimée au "+
-          dateVersFR(Math.round(A.cal.projete/JOUR)*JOUR)+". ":"")+
-        "Renforcer les moyens, réduire le périmètre ou décaler l'échéance.");
-    if(!A.cal.d0 || !A.cal.ech)
-      rec("orange","Renseigner la date de début et l'échéance prévue du projet pour suivre les délais.");
+    if(!A.cal.ech)
+      rec("orange","Renseigner l'échéance prévue du projet pour suivre les délais.");
     A.actRetard.forEach(x=>rec("rouge",A.lib(x.a)+
       " : replanifier l'échéance ou renforcer l'action ("+x.av+" %, "+anaJours(x.jours)+" de retard)."));
     A.actProches.filter(x=>x.av<=0).forEach(x=>rec("orange",A.lib(x.a)+
@@ -5102,6 +5065,18 @@ function anaSegTaches(A){
           {l:"Non démarrées",v:e.nondem,coul:ANA_COUL.nondem},
           {l:"Interrompues",v:e.inter,coul:ANA_COUL.inter}];
 }
+function anaTexteEcheance(cal){
+  if(cal.fin) return "Projet clôturé le "+dateVersFR(cal.fin);
+  if(!cal.ech) return "Non renseignée";
+  if(cal.depasse) return dateVersFR(cal.ech)+" — dépassée de "+anaJours(-cal.joursRestants);
+  if((cal.av||0)>=100) return dateVersFR(cal.ech);
+  return dateVersFR(cal.ech)+(cal.joursRestants>0?" — dans "+anaJours(cal.joursRestants):" — aujourd'hui");
+}
+function anaDelaiAction(f){
+  if(f.jours==null || f.feu.n==="gris" || f.av>=100) return "—";
+  if(f.jours<0) return "Dépassée de "+anaJours(-f.jours);
+  return f.jours===0?"Aujourd'hui":"Dans "+anaJours(f.jours);
+}
 function anaJaugeHtml(lib,v,coul,note){
   const w=Math.max(0,Math.min(100,v==null?0:v));
   return '<div class="ana-jauge"><span class="ana-jl">'+esc(lib)+'</span>'+
@@ -5152,25 +5127,18 @@ function vueAnalyse(p){
   const L=lignesAnalyse(A);
   const pris=r=>L.filter(l=>l.r===r||(Array.isArray(r)&&r.includes(l.r)));
   const items=rubs=>pris(rubs).map(l=>li((["Actions","Tâches","Avancement","Écart",
-    "Délai consommé","Délai","Fin projetée","Clôture","Journal de bord",
+    "Échéance","Clôture","Journal de bord",
     "Charge par porteur","Sans date de fin","Dernière instance","Prochaine instance"]
     .includes(l.r)?l.r+" : ":"")+l.t,l.g));
   const bloc=(titre,its)=>its.length
     ? '<div class="carte"><h2>'+titre+'</h2><ul class="ana-liste">'+its.join("")+'</ul></div>' : "";
   const cal=A.cal;
-  const bConso=bandesImpr(cal.ecart>A.SR?0:cal.ecart>A.SV?30:100,false);
 
   const tdb='<div class="carte"><h2>Tableau de bord</h2><div class="ana-tdb">'+
     '<div class="ana-jauges">'+
       anaJaugeHtml("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill)+
-      (cal.consomme!=null
-        ? anaJaugeHtml("Délai consommé",Math.min(cal.consomme,100),"#8aa0c8",
-            cal.depasse?"échéance dépassée":(cal.joursRestants!=null?anaJours(cal.joursRestants)+" restants":""))
-        : '<div class="ana-jauge"><span class="ana-jl">Délai consommé</span><span class="ana-jn">'+
-          (cal.fin?"projet clôturé le "+esc(dateVersFR(cal.fin)):"dates incomplètes")+'</span></div>')+
-      (cal.ecart!=null?'<div class="ana-ecart ana-'+(cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert")+'">'+
-        (cal.ecart>0?"Retard de "+cal.ecart+" points":cal.ecart<0?"Avance de "+(-cal.ecart)+" points":"Dans les temps")+
-        '</div>':'')+
+      '<div class="ana-jauge"><span class="ana-jl">Échéance</span>'+
+        '<span class="'+(cal.depasse?"ana-ech-rouge":"")+'">'+esc(anaTexteEcheance(cal))+'</span></div>'+
     '</div>'+
     (A.acts.length?anaSvgAnneau("actions",anaSegActions(A),A.acts.length):"")+
     (A.taches.length?anaSvgAnneau("tâches",anaSegTaches(A),A.taches.length):"")+
@@ -5181,13 +5149,11 @@ function vueAnalyse(p){
 
   const feux=A.feux.length
     ? '<div class="carte"><h2>Feu par action</h2><div class="ana-defil"><table class="ana-tab"><thead><tr>'+
-      '<th></th><th>Action</th><th>Avct</th><th>Délai conso.</th><th>Écart</th><th>Échéance</th>'+
+      '<th></th><th>Action</th><th>Avct</th><th>Échéance</th><th>Délai</th>'+
       '<th>Tâches</th><th>État</th></tr></thead><tbody>'+
       A.feux.map(f=>'<tr><td>'+ANA_METEO[f.feu.n]+'</td><td>'+esc(f.lib)+'</td>'+
-        '<td>'+f.av+' %</td><td>'+(f.consomme==null?"—":Math.min(f.consomme,100)+" %")+'</td>'+
-        '<td class="ana-'+(f.ecart>A.SR?"rouge":f.ecart>A.SV?"orange":"vert")+'">'+
-          (f.ecart==null?"—":(f.ecart>0?"+":"")+f.ecart)+'</td>'+
-        '<td>'+esc(dateVersFR(f.ech)||"—")+'</td>'+
+        '<td>'+f.av+' %</td><td>'+esc(dateVersFR(f.ech)||"—")+'</td>'+
+        '<td'+(f.feu.l==="Échéance dépassée"?' class="ana-rouge"':'')+'>'+esc(anaDelaiAction(f))+'</td>'+
         '<td>'+f.nbT+(f.tRet?' <span class="ana-rouge">('+f.tRet+' en retard)</span>':'')+'</td>'+
         '<td style="color:'+ANA_TXT[f.feu.n]+';font-weight:bold">'+esc(f.feu.l)+'</td></tr>').join("")+
       '</tbody></table></div></div>' : "";
@@ -5201,14 +5167,14 @@ function vueAnalyse(p){
     bloc("Points d'attention",A.alertes.length
       ? A.alertes.map(a=>li(a.t,a.g)) : [li("Aucun point d'attention","vert")])+
     '<details class="carte ana-detail"><summary><h2>Détail de l\'analyse</h2></summary>'+
-      bloc("Avancement et délais",items(["Avancement","Clôture","Délai consommé","Écart","Fin projetée","Délai"]))+
+      bloc("Avancement et délais",items(["Avancement","Clôture","Échéance"]))+
       bloc("Actions MEO",items(["Actions","Action en retard","Action sans tâche","Échéance à "+A.JP+" j"]))+
       bloc("Tâches",items(["Tâches","Tâche en retard","Sans date de fin","Charge par porteur"]))+
       bloc("Pilotage et suivi",items(["Journal de bord","À mener — en retard","À mener — sous 7 j",
         "Dernière instance","Prochaine instance"]))+
     '</details>'+
-    '<p class="ana-note">Seuils : vert jusqu\'à '+A.SV+' points d\'écart, rouge au-delà de '+A.SR+
-      ' ; alerte journal à '+A.JJ+' jours ; échéances proches à '+A.JP+
+    '<p class="ana-note">Un retard correspond à une échéance dépassée. Alerte journal à '+A.JJ+
+      ' jours ; échéances proches à '+A.JP+
       ' jours. Réglables dans les paramètres du widget.</p>';
 }
 
@@ -5266,17 +5232,10 @@ function pdfAnalyseTdb(ctx,A){
   };
   const yJ=ctx.y;
   jauge("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill);
-  if(cal.consomme!=null) jauge("Délai consommé",Math.min(cal.consomme,100),"#8aa0c8",
-    cal.depasse?"échéance dépassée":(cal.joursRestants!=null?anaJours(cal.joursRestants)+" restants":""));
-  if(cal.ecart!=null){
-    const g=cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert";
-    pTexte(pdf,jx,ctx.y+fz(11),cal.ecart>0?"Retard de "+cal.ecart+" points":
-      cal.ecart<0?"Avance de "+(-cal.ecart)+" points":"Dans les temps",
-      {taille:12,style:"bold",couleur:ANA_TXT[g]});
-    ctx.y+=fz(16)+8;
-  }
-  if(cal.projete) { pTexte(pdf,jx,ctx.y+fz(10),"Fin projetée au rythme actuel : "+
-    dateVersFR(Math.round(cal.projete/JOUR)*JOUR),{taille:10,couleur:PDFC.gris}); ctx.y+=fz(14)+6; }
+  pTexte(pdf,MX,ctx.y+fz(11),"Échéance",{taille:11,style:"bold",couleur:PDFC.gris});
+  pTexte(pdf,jx,ctx.y+fz(11),anaTexteEcheance(cal),
+    {taille:11,style:"bold",couleur:cal.depasse?ANA_TXT.rouge:PDFC.encre});
+  ctx.y+=fz(14)+12;
   /* anneaux à droite des jauges */
   const r=46;
   if(A.acts.length) pAnneau(pdf,PW-MX-420,yJ+r+4,r,16,anaSegActions(A),A.acts.length,"actions");
@@ -5289,10 +5248,10 @@ function lignesFeuxPdf(A){
     feu:{type:"texte",t:"●",couleur:ANA_TXT[f.feu.n],style:"bold"},
     lib:{type:"texte",t:f.lib},
     av:{type:"texte",t:f.av+" %"},
-    conso:{type:"texte",t:f.consomme==null?"—":Math.min(f.consomme,100)+" %"},
-    ecart:{type:"texte",t:f.ecart==null?"—":(f.ecart>0?"+":"")+f.ecart,
-      couleur:ANA_TXT[f.ecart>A.SR?"rouge":f.ecart>A.SV?"orange":"vert"],style:"bold"},
     ech:{type:"texte",t:dateVersFR(f.ech)||"—"},
+    delai:{type:"texte",t:anaDelaiAction(f),
+      couleur:f.feu.l==="Échéance dépassée"?ANA_TXT.rouge:PDFC.encre,
+      style:f.feu.l==="Échéance dépassée"?"bold":undefined},
     taches:{type:"texte",t:f.nbT+(f.tRet?" ("+f.tRet+" en retard)":""),couleur:f.tRet?ANA_TXT.rouge:PDFC.encre},
     etat:{type:"texte",t:f.feu.l,couleur:ANA_TXT[f.feu.n],style:"bold"}}}));
 }
@@ -5317,9 +5276,9 @@ function dessinerAnalysePdf(ctx,p){
   const A=analyseComplete(p), sec=IMPR.sections, lw=PW-2*MX;
   if(sec.anaTdb) pdfAnalyseTdb(ctx,A);
   if(sec.anaFeux && A.feux.length) dessinerTableau(ctx,"Feu par action",
-    [{cle:"feu",titre:"",w:26},{cle:"lib",titre:"Action",w:lw-26-70-90-70-95-150-140},
-     {cle:"av",titre:"Avct",w:70},{cle:"conso",titre:"Délai conso.",w:90},{cle:"ecart",titre:"Écart",w:70},
-     {cle:"ech",titre:"Échéance",w:95},{cle:"taches",titre:"Tâches",w:150},{cle:"etat",titre:"État",w:140}],
+    [{cle:"feu",titre:"",w:26},{cle:"lib",titre:"Action",w:lw-26-70-95-140-150-140},
+     {cle:"av",titre:"Avct",w:70},{cle:"ech",titre:"Échéance",w:95},{cle:"delai",titre:"Délai",w:140},
+     {cle:"taches",titre:"Tâches",w:150},{cle:"etat",titre:"État",w:140}],
     lignesFeuxPdf(A),MX,lw,!sec.anaTdb);
   if(sec.anaReco) dessinerTableau(ctx,"Recommandations et points d'attention",
     [{cle:"type",titre:"Type",w:160},{cle:"t",titre:"Constat / proposition",w:lw-160}],
@@ -5386,17 +5345,10 @@ function odpAnalyseTdb(d,p,A){
     y+=jh+0.35;
   };
   jauge("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill);
-  if(cal.consomme!=null) jauge("Délai consommé",Math.min(cal.consomme,100),"#8aa0c8",
-    cal.depasse?"échéance dépassée":(cal.joursRestants!=null?anaJours(cal.joursRestants)+" restants":""));
-  if(cal.ecart!=null){
-    const g=cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert";
-    pg.texte(jx,y,jw+4,0.55,cal.ecart>0?"Retard de "+cal.ecart+" points":
-      cal.ecart<0?"Avance de "+(-cal.ecart)+" points":"Dans les temps",
-      {taille:12,gras:true,couleur:ANA_TXT[g],valign:"middle",pad:0});
-    y+=0.65;
-  }
-  if(cal.projete) pg.texte(jx,y,jw+4,0.5,"Fin projetée au rythme actuel : "+
-    dateVersFR(Math.round(cal.projete/JOUR)*JOUR),{taille:10,couleur:ODP_C.attenue,valign:"middle",pad:0});
+  pg.texte(z.x,y,3.3,jh,"Échéance",{taille:11,gras:true,couleur:ODP_C.attenue,valign:"middle",pad:0});
+  pg.texte(jx,y,jw+4,jh,anaTexteEcheance(cal),
+    {taille:11,gras:true,couleur:cal.depasse?ANA_TXT.rouge:ODP_C.encre,valign:"middle",pad:0});
+  y+=jh+0.35;
   /* anneaux sous les jauges, côte à côte */
   const r=1.35, ya=Math.max(y+0.8,yJ+3.2)+r;
   if(ya+r<=z.y+z.h){
@@ -5411,14 +5363,13 @@ function odpAnalyseComplete(d,p){
   const titre=lire(S.cfg.tblMain,p,S.cfg.colLibelle);
   if(sec.anaTdb!==false) odpAnalyseTdb(d,p,A);
   if(sec.anaFeux!==false && A.feux.length) odpTableau(d,"Feu par action",titre,
-    [{t:"",w:z.w*0.04},{t:"Action",w:z.w*0.34},{t:"Avct",w:z.w*0.08},{t:"Délai conso.",w:z.w*0.1},
-     {t:"Écart",w:z.w*0.08},{t:"Échéance",w:z.w*0.11},{t:"Tâches",w:z.w*0.11},{t:"État",w:z.w*0.14}],
+    [{t:"",w:z.w*0.04},{t:"Action",w:z.w*0.36},{t:"Avct",w:z.w*0.08},{t:"Échéance",w:z.w*0.11},
+     {t:"Délai",w:z.w*0.14},{t:"Tâches",w:z.w*0.13},{t:"État",w:z.w*0.14}],
     A.feux.map(f=>[cel("●",{gras:true,couleur:ANA_TXT[f.feu.n],align:"center"}),cel(f.lib),
       cel(f.av+" %",{align:"center"}),
-      cel(f.consomme==null?"—":Math.min(f.consomme,100)+" %",{align:"center"}),
-      cel(f.ecart==null?"—":(f.ecart>0?"+":"")+f.ecart,{align:"center",gras:true,
-        couleur:ANA_TXT[f.ecart>A.SR?"rouge":f.ecart>A.SV?"orange":"vert"]}),
       cel(dateVersFR(f.ech)||"—",{align:"center"}),
+      cel(anaDelaiAction(f),{gras:f.feu.l==="Échéance dépassée",
+        couleur:f.feu.l==="Échéance dépassée"?ODP_C.alerte:ODP_C.encre}),
       cel(f.nbT+(f.tRet?" ("+f.tRet+" en retard)":""),{couleur:f.tRet?ODP_C.alerte:ODP_C.encre}),
       cel(f.feu.l,{gras:true,couleur:ANA_TXT[f.feu.n]})]));
   if(sec.anaReco!==false){
@@ -8025,11 +7976,9 @@ function rendreReglages(){
       Math.round(Number(v)*100)+'&nbsp;%)</option>').join("")+
   '</select></div>'+
   '<div class="bloc-reglage"><h3>Analyse du projet</h3>'+
-  '<p>Écart = délai consommé − avancement, en points. Météo verte jusqu\'au premier seuil, '+
-  'rouge au-delà du second (ou si une échéance du projet ou d\'une action est dépassée).</p>'+
+  '<p>Un retard correspond uniquement à une échéance dépassée (projet, action, tâche ou action à mener).</p>'+
   '<div class="grille">'+
-  [["anaSeuilVert","Écart toléré (vert), en points"],["anaSeuilRouge","Écart critique (rouge), en points"],
-   ["anaJoursJournal","Alerte sans journal, en jours"],["anaJoursProches","Échéances proches, en jours"]]
+  [["anaJoursJournal","Alerte sans journal, en jours"],["anaJoursProches","Échéances proches, en jours"]]
     .map(([k,l])=>'<div class="champ"><label>'+l+'</label><input type="number" min="0" data-cfg="'+k+
       '" value="'+esc(c[k])+'"></div>').join("")+
   '</div></div>'+
@@ -10235,7 +10184,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-a — Analyse : tableau de bord, feux, recommandations";
+const VERSION="2026-09-25-b — Analyse : retard mesuré à la date uniquement";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

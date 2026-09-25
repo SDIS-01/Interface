@@ -196,7 +196,11 @@ tr.tache-cible td{background:#fff3c4!important;transition:background .4s;}
   overflow:auto;padding:18px 22px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
 .fa-tete{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
 .fa-titre{flex:1;}
-.fa-titre textarea,.fa-titre input{font-size:16px;font-weight:bold;color:var(--bleu);}
+.fa-titre-champ{width:100%;box-sizing:border-box;font:inherit;font-size:16px;font-weight:bold;color:var(--bleu);
+  border:1px solid var(--trait);border-radius:6px;padding:6px 9px;}
+.com-lecture{white-space:pre-wrap;font-size:12.5px;line-height:1.55;background:var(--fond);
+  border:1px solid var(--trait);border-radius:6px;padding:8px 10px;max-height:220px;overflow:auto;}
+.com-lecture.vide-com{color:var(--gris);font-style:italic;}
 .fa-fermer{border:0;background:var(--fond);border-radius:6px;width:32px;height:32px;cursor:pointer;
   font-size:15px;color:var(--gris);}
 .fa-fermer:hover{background:var(--trait);}
@@ -900,6 +904,11 @@ tbody tr.ligne-com:hover{background:transparent;}
 .diag-tab th,.diag-tab td{border:1px solid var(--trait);padding:4px 10px;
   text-align:left;text-transform:none;letter-spacing:0;}
 .diag-tab th{background:#fff;color:var(--gris);font-weight:bold;}
+.nc-groupe{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;}
+.nc-groupe+.nc-groupe{margin-top:6px;}
+.nc-titre{font-size:10.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--gris);width:100%;margin-bottom:1px;}
+.nc-fin{justify-content:flex-end;}
 .note-choix{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;
   padding-top:9px;border-top:1px solid var(--trait);}
 .note-choix .btn-2.actif{border-color:var(--bleu);background:var(--bleu-clair);
@@ -4014,6 +4023,12 @@ function vueTaches(p){
    ======================================================================= */
 
 /* Ordre manuel d'une tâche (colonne « Ordre »), ou null. */
+/* Commentaire affiché sans saisie possible : on le complète par la bulle 💬 */
+function commentaireLecture(v){
+  const s=txt(v).trim();
+  return s ? '<div class="com-lecture">'+esc(s)+'</div>'
+           : '<div class="com-lecture vide-com">Aucun commentaire. Utilisez 💬 pour en ajouter un.</div>';
+}
 function ordreTache(t){
   const c=S.cfg;
   if(!c.colTacheOrdre) return null;
@@ -4044,8 +4059,7 @@ function ligneTacheHtml(r,act,avecStatutT,nbColT){
     (detail
       ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
         '><td colspan="'+nbColT+'">'+
-        (c.colTacheCommentaire?'<label>Commentaire</label>'+
-          editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true}):'')+
+        (c.colTacheCommentaire?'<label>Commentaire</label>'+commentaireLecture(r[c.colTacheCommentaire]):'')+
         (c.colTachePJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
           blocPJ(c.tblTache,r,c.colTachePJ)+'</div>':'')+
         '</td></tr>'
@@ -4306,7 +4320,8 @@ function rendreFenetreAction(){
   const av=pct(a[c.colAvancement]);
   const ts=tachesDe(a);
   v.innerHTML='<div class="fa-fenetre" role="dialog" aria-modal="true">'+
-    '<div class="fa-tete"><div class="fa-titre">'+editeur(t,a,c.colLibelle,{auto:true})+'</div>'+
+    '<div class="fa-tete"><div class="fa-titre"><input type="text" class="edit fa-titre-champ" '+
+      'data-t="'+t+'" data-r="'+a.id+'" data-c="'+c.colLibelle+'" value="'+esc(txt(a[c.colLibelle]))+'"></div>'+
     '<button type="button" class="fa-fermer" title="Fermer (Échap)">✕</button></div>'+
     '<div class="grille">'+
       (c.colStatut?ch("Statut",editeur(t,a,c.colStatut)):"")+
@@ -4319,7 +4334,7 @@ function rendreFenetreAction(){
       ? '<div class="fa-bloc"><div class="fa-bloc-tete"><h3>Commentaire</h3>'+
         '<button type="button" class="btn-2 btn-bulle" data-bulle-t="'+t+'" data-bulle-r="'+a.id+
         '" data-bulle-c="'+c.colCommentaire+'">💬 Ajouter un commentaire</button></div>'+
-        editeur(t,a,c.colCommentaire,{multi:true})+'</div>' : "")+
+        commentaireLecture(a[c.colCommentaire])+'</div>' : "")+
     (c.colPJ?'<div class="fa-bloc"><h3>Pièces jointes</h3>'+blocPJ(t,a,c.colPJ)+'</div>':"")+
     (c.tblTache && c.colTacheLien
       ? '<div class="fa-bloc"><h3>Tâches <span class="n">'+ts.length+'</span></h3>'+
@@ -5835,6 +5850,10 @@ const IMG_PAGE_GARDE   = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxoAAAJT
 
 const NOTE_STATUTS={attente:"À caractériser", traitee:"Traitée", sansSuite:"Sans suite"};
 
+/* libellés des boutons de classement : on distingue ce que la note crée de
+   ce qu'elle vient compléter */
+const NOTE_BOUTONS={journal:"Nouvelle entrée au journal", instance:"Nouvelle instance",
+  action:"Nouvelle action", tache:"Nouvelle tâche", commentaire:"Commenter une action ou une tâche"};
 const NOTE_DESTINATIONS=[
   ["journal",   "Journal de bord", "tblJournal",  "colJnlLien"],
   ["instance",  "Instance",        "tblInstance", "colInsLien"],
@@ -6104,7 +6123,7 @@ async function classerNote(p,note,dest,extra){
     const trace={projet:projetC, element:libelleElement(tableC,ligne,projetC),
                  op:HM_NOTE, champ:libelleColonneBrut(tableC,colC), nouveau:ajout};
     const surProjet = tableC===c.tblMain && projetC && ligne.id===projetC.id;
-    const ok=await majLigne(tableC,ligne.id,{[colC]:ancien?ancien+"\n"+ajout:ajout},
+    const ok=await majLigne(tableC,ligne.id,{[colC]:ancien.trim()?ajout+"\n"+ancien:ajout},
                             surProjet?[]:[trace]);
     if(!ok) return;
     toast("Commentaire complété");
@@ -6151,9 +6170,13 @@ function ligneNoteHtml(p,n,enAttente){
 
   if(enAttente){
     h+='<div class="note-choix">'+
-      NOTE_DESTINATIONS.map(([k,l])=>'<button class="btn-2'+(ouvert===k?" actif":"")+
-        '" data-dest="'+k+'" data-n="'+n.id+'">'+esc(l)+'</button>').join("")+
-      '<button class="btn-2 note-rien" data-rien="'+n.id+'">Sans suite</button>'+
+      '<div class="nc-groupe"><span class="nc-titre">Créer à partir de la note</span>'+
+      NOTE_DESTINATIONS.filter(d=>d[0]!=="commentaire").map(([k])=>'<button class="btn-2'+(ouvert===k?" actif":"")+
+        '" data-dest="'+k+'" data-n="'+n.id+'">'+esc(NOTE_BOUTONS[k])+'</button>').join("")+'</div>'+
+      '<div class="nc-groupe"><span class="nc-titre">Rattacher à l\'existant</span>'+
+      '<button class="btn-2'+(ouvert==="commentaire"?" actif":"")+'" data-dest="commentaire" data-n="'+n.id+'">'+
+        esc(NOTE_BOUTONS.commentaire)+'</button></div>'+
+      '<div class="nc-groupe nc-fin"><button class="btn-2 note-rien" data-rien="'+n.id+'">Classer sans suite</button></div>'+
     '</div>';
     if(ouvert) h+=formulaireNote(p,n,ouvert,texte);
   }else{
@@ -10588,7 +10611,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-h — liens depuis les échéances de l'analyse";
+const VERSION="2026-09-25-j — fenêtre d'action : titre sur une ligne, commentaire en lecture";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

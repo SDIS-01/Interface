@@ -199,8 +199,28 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .pf-k span{display:block;font-size:11px;color:var(--gris);}
 .pf-k b{font-size:19px;}
 .ana-faits{margin-top:16px;padding-top:12px;border-top:1px solid var(--trait);}
-.ana-faits-l{font-size:12.5px;margin-top:8px;}
-.ana-faits-l span{display:inline-block;width:140px;color:var(--gris);font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+.af-grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+.af-k{background:#fff;border:1px solid var(--trait);border-left:4px solid var(--bleu);border-radius:8px;padding:9px 12px;}
+.af-k span{display:block;font-size:11px;color:var(--gris);margin-bottom:2px;}
+.af-k b{font-size:22px;line-height:1.15;color:var(--encre);}
+.af-k b small{font-size:13px;color:var(--gris);font-weight:normal;}
+.af-k.af-rouge{border-left-color:var(--rouge);} .af-k.af-rouge b{color:#993333;}
+.af-k.af-vert{border-left-color:var(--vert);} .af-k.af-vert b{color:#3b6d11;}
+.af-k.af-orange{border-left-color:var(--orange);} .af-k.af-orange b{color:#a85a12;}
+.af-barre{height:5px;background:#eef1f5;border-radius:3px;margin-top:6px;overflow:hidden;}
+.af-barre i{display:block;height:100%;background:var(--vert);border-radius:3px;}
+.af-duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px;}
+.af-carte{background:var(--fond);border-radius:8px;padding:10px 14px;min-width:0;}
+.af-tete{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.03em;color:var(--gris);margin-bottom:6px;}
+.af-type{font-size:11px;color:var(--gris);}
+.af-lib{font-size:14px;font-weight:bold;color:var(--encre);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.af-date{font-size:12.5px;margin-top:4px;color:var(--encre);}
+.af-vide{font-size:12.5px;color:var(--gris);font-style:italic;}
+.af-pastille{font-style:normal;font-size:11px;font-weight:bold;border-radius:10px;padding:1px 8px;margin-left:6px;}
+.af-p-orange{background:var(--orange-pastel);color:#a85a12;}
+.af-p-bleu{background:var(--bleu-clair);color:var(--bleu);}
+.af-p-rouge{background:var(--rouge-pastel);color:#993333;}
+.af-p-gris{background:#e7eaef;color:#4a5264;}
 .pf-point{display:inline-block;width:10px;height:10px;border-radius:50%;}
 .pf-2col{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;}
 /* fenêtre d'action */
@@ -5576,25 +5596,39 @@ function anaFaits(p,A){
 }
 function anaFaitsHtml(p,A){
   const F=anaFaits(p,A), auj=aujourdHuiUTC();
-  const k=(lab,val,rouge)=>'<div class="pf-k"><span>'+lab+'</span><b'+(rouge?' style="color:#993333"':'')+'>'+val+'</b></div>';
-  const libProch=F.proch?(F.proch.type==="Action"?(decouperLibelleAction(F.proch.lib).num||odpCourt(F.proch.lib,50))
-    :odpCourt(F.proch.lib,60)):"";
+  /* vignette chiffrée, avec une barre de progression pour les ratios */
+  const k=(lab,val,opt)=>{
+    opt=opt||{};
+    const barre=opt.ratio!=null
+      ? '<div class="af-barre"><i style="width:'+Math.round(opt.ratio*100)+'%"></i></div>' : '';
+    return '<div class="af-k'+(opt.ton?' af-'+opt.ton:'')+'"><span>'+lab+'</span><b>'+val+'</b>'+barre+'</div>';
+  };
+  const libProch=F.proch?(F.proch.type==="Action"?(decouperLibelleAction(F.proch.lib).num||odpCourt(F.proch.lib,60))
+    :odpCourt(F.proch.lib,80)):"";
   const jours=F.proch?Math.round((F.proch.ts-auj)/JOUR):0;
+  const depuis=F.act?Math.max(0,Math.round((auj-F.act.ts)/JOUR)):null;
+  const pastille=(t,ton)=>'<em class="af-pastille af-p-'+ton+'">'+esc(t)+'</em>';
   return '<div class="ana-faits">'+
-    '<div class="pf-kpis">'+
-      (F.actives?k("Actions terminées",F.actT+" / "+F.actives):"")+
-      (F.tActives?k("Tâches terminées",F.tT+" / "+F.tActives):"")+
-      k("Échéances dépassées",F.depassees,F.depassees>0)+
-      (S.cfg.colJnlNature?k("Décisions en attente",F.decisions):"")+
+    '<div class="af-grille">'+
+      (F.actives?k("Actions terminées",F.actT+'<small> / '+F.actives+'</small>',{ratio:F.actT/F.actives}):"")+
+      (F.tActives?k("Tâches terminées",F.tT+'<small> / '+F.tActives+'</small>',{ratio:F.tT/F.tActives}):"")+
+      k("Échéances dépassées",F.depassees,{ton:F.depassees>0?"rouge":"vert"})+
+      (S.cfg.colJnlNature?k("Décisions en attente",F.decisions,{ton:F.decisions>0?"orange":""}):"")+
     '</div>'+
-    '<div class="ana-faits-l"><span>Prochaine échéance</span>'+(F.proch
-      ? '<b>'+esc(F.proch.type)+' — '+esc(libProch)+'</b> · '+esc(dateVersFR(F.proch.ts))+' ('+
-        (jours===0?"aujourd'hui":"dans "+anaJours(jours))+')'
-      : '<i>aucune échéance à venir</i>')+'</div>'+
-    '<div class="ana-faits-l"><span>Dernière activité</span>'+(F.act
-      ? '<b>'+esc(dateVersFR(F.act.ts))+'</b>'+(F.act.qui?' — '+esc(F.act.qui):'')+', '+esc(F.act.quoi)+
-        ' ('+(Math.round((auj-F.act.ts)/JOUR)<=0?"aujourd'hui":"il y a "+anaJours(Math.round((auj-F.act.ts)/JOUR)))+')'
-      : '<i>aucune activité enregistrée</i>')+'</div>'+
+    '<div class="af-duo">'+
+      '<div class="af-carte"><div class="af-tete">📅 Prochaine échéance</div>'+(F.proch
+        ? '<div class="af-type">'+esc(F.proch.type)+'</div>'+
+          '<div class="af-lib" title="'+esc(F.proch.lib)+'">'+esc(libProch)+'</div>'+
+          '<div class="af-date">'+esc(dateVersFR(F.proch.ts))+' '+
+            pastille(jours===0?"aujourd'hui":"dans "+anaJours(jours),jours<=7?"orange":"bleu")+'</div>'
+        : '<div class="af-vide">Aucune échéance à venir.</div>')+'</div>'+
+      '<div class="af-carte"><div class="af-tete">🕘 Dernière activité</div>'+(F.act
+        ? '<div class="af-type">'+esc(F.act.quoi.charAt(0).toUpperCase()+F.act.quoi.slice(1))+'</div>'+
+          '<div class="af-lib">'+esc(F.act.qui||"Auteur non renseigné")+'</div>'+
+          '<div class="af-date">'+esc(dateVersFR(F.act.ts))+' '+
+            pastille(depuis===0?"aujourd'hui":"il y a "+anaJours(depuis),depuis>A.JJ?"rouge":"gris")+'</div>'
+        : '<div class="af-vide">Aucune activité enregistrée.</div>')+'</div>'+
+    '</div>'+
     '</div>';
 }
 function anaTableauEcheances(A){
@@ -5719,9 +5753,6 @@ function vueAnalyse(p){
       '</tbody></table></div></div>' : "";
 
   $("#corps").innerHTML=
-    '<div class="carte ana-tete ana-fond-'+A.meteo.n+'">'+
-      '<div class="ana-meteo">'+ANA_METEO[A.meteo.n]+' '+esc(A.meteo.l)+'</div>'+
-      '<p>'+A.phr.map(esc).join(" ")+'</p></div>'+
     tdb+anaEvolutionHtml(p,A)+anaTableauEcheances(A)+feux+
     bloc("Recommandations",A.recos.length?A.recos.map(r=>li(r.t,r.g)):[li("Aucune action à proposer","vert")])+
     bloc("Points d'attention",A.alertes.length
@@ -6648,7 +6679,7 @@ function ouvrirAnalysePortefeuille(){
     '<div class="ana-note" style="margin:2px 0 0">Projets de la liste de gauche, filtres compris, hors archives et projets interrompus.</div></div>'+
     '<button type="button" class="fa-fermer" title="Fermer (Échap)">✕</button></div>'+
     '<div class="pf-kpis">'+kc("Projets en cours",enCours.length)+kc("Avec retard",nRet,ANA_ETAT_TXT.rouge)+
-      kc("Sans retard",enCours.length-nRet,ANA_ETAT_TXT.vert)+kc("Terminés en "+annee,termines.length)+'</div>'+
+      kc("Sans retard",enCours.length-nRet,ANA_ETAT_TXT.vert)+'</div>'+
     bloc("Projets arrivant à échéance (90 jours)",aEch.length,
       tab(["","Projet","Porteur","Échéance","Dans","Avct"],aEch.map(l=>'<tr><td>'+point(l)+'</td><td>'+lien(l)+'</td><td>'+
         esc(pfPorteur(l))+'</td><td>'+esc(dateVersFR(l.A.cal.ech))+'</td><td>'+anaJours(l.A.cal.joursRestants)+'</td><td>'+
@@ -6666,11 +6697,6 @@ function ouvrirAnalysePortefeuille(){
         (l.A.actRetard.length?' class="ana-rouge"':'')+'>'+l.A.actRetard.length+'</td><td'+
         (l.A.tRetard.length?' class="ana-rouge"':'')+'>'+l.A.tRetard.length+'</td></tr>')),
       "Aucun projet en cours.")+
-    bloc("Projets terminés en "+annee,termines.length,
-      tab(["Projet","Porteur","Terminé le","Avct"],termines.map(l=>'<tr><td>'+lien(l)+'</td><td>'+esc(pfPorteur(l))+
-        '</td><td>'+esc(dateVersFR((l.A.cal.fin&&l.A.cal.fin<=auj)?l.A.cal.fin:l.A.cal.ech)||"—")+'</td><td>'+
-        (l.A.cal.av==null?"—":l.A.cal.av+" %")+'</td></tr>')),
-      "Aucun projet terminé cette année.")+
     '</div>';
   v.querySelector(".fa-fermer").onclick=fermer;
   v.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{
@@ -11541,7 +11567,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-v — faits clés et recommandation porteurs";
+const VERSION="2026-09-25-y — faits clés : nouveau visuel";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -242,6 +242,16 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .af-p-gris{background:#e7eaef;color:#4a5264;}
 .pf-photo{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 10px;}
 .pf-photo input{flex:1 1 260px;font:inherit;font-size:12.5px;border:1px solid var(--trait);border-radius:6px;padding:7px 9px;}
+.evo-grille{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start;}
+@media (max-width:900px){.evo-grille{grid-template-columns:1fr;}}
+.evo-tab td small{color:var(--gris);}
+.evo-bon{color:#3b6d11;font-weight:bold;}
+.evo-mauvais{color:#993333;font-weight:bold;}
+.evo-h3{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--gris);margin:0 0 6px;}
+.evo-faits{list-style:none;margin:0;padding:0;font-size:12.5px;}
+.evo-faits li{padding:5px 0;border-bottom:1px solid var(--trait);line-height:1.45;}
+.evo-faits li span{font-weight:bold;margin-right:8px;}
+.evo-faits li em{font-style:normal;font-size:11px;color:var(--gris);background:var(--fond);border-radius:4px;padding:1px 6px;margin-right:6px;}
 .pf-point{display:inline-block;width:10px;height:10px;border-radius:50%;}
 .pf-2col{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;}
 /* fenêtre d'action */
@@ -6683,15 +6693,17 @@ function anaSvgCourbe(photos,A){
     const q=pts.filter(p=>p[k]!=null && !isNaN(p[k]));
     if(q.length<2) return "";
     return '<polyline fill="none" stroke="'+coul+'" stroke-width="2" points="'+q.map(p=>X(p.ts)+","+Y(p[k])).join(" ")+'"/>'+
-      q.map(p=>'<circle cx="'+X(p.ts)+'" cy="'+Y(p[k])+'" r="3" fill="'+coul+'"><title>'+
-        dateVersFR(p.ts)+" : "+Math.round(p[k])+'</title></circle>').join("");
+      q.map(p=>'<circle cx="'+X(p.ts)+'" cy="'+Y(p[k])+'" r="3.5" fill="'+coul+'"><title>'+
+        dateVersFR(p.ts)+" : "+Math.round(p[k])+' %</title></circle>'+
+        '<text x="'+X(p.ts)+'" y="'+(Y(p[k])-7)+'" font-size="10" text-anchor="middle" fill="'+coul+'">'+Math.round(p[k])+' %</text>'+
+        '<text x="'+X(p.ts)+'" y="'+(H-6)+'" font-size="9.5" text-anchor="middle" fill="#8a93a3">'+
+          (p.auj?"auj.":dateVersFR(p.ts).slice(0,5))+'</text>').join("");
   };
   let s='<svg viewBox="0 0 '+W+' '+H+'" class="ana-courbe">';
   [0,50,100].forEach(v=>s+='<line x1="'+x0+'" x2="'+x1+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#eef1f5"/>'+
     '<text x="'+(x0-6)+'" y="'+(Y(v)+4)+'" font-size="10" text-anchor="end" fill="#8a93a3">'+v+'</text>');
   s+=ligne("av","#002395");
-  s+='<text x="'+x0+'" y="'+(H-6)+'" font-size="10" fill="#8a93a3">'+dateVersFR(t0)+'</text>'+
-     '<text x="'+x1+'" y="'+(H-6)+'" font-size="10" text-anchor="end" fill="#8a93a3">aujourd\'hui</text>';
+
   return s+'</svg><div class="ana-legende"><span style="color:#002395">■ Avancement</span></div>';
 }
 
@@ -6705,23 +6717,58 @@ function anaEvolutionHtml(p,A){
   if(S.photosEtat && S.photosEtat.startsWith("incomplete"))
     return '<div class="carte"><h2>Évolution</h2><div class="ana-note">Colonnes manquantes dans '+esc(t)+' : '+
       esc(S.photosEtat.split(":")[1])+'.</div></div>';
-  const ph=photosDe(p), auj=aujourdHuiUTC();
-  const instAuj=instancesDe(p).find(j=>Number(j.date)===auj);
-  const dejaAuj=ph.some(r=>Number(r.Date)===auj);
+  const ph=photosDe(p), auj=aujourdHuiUTC(), c=S.cfg;
   const m=mesuresPhoto(A), der=ph[ph.length-1];
-  let corps;
-  if(!der) corps='<div class="ana-note">Aucune photo pour ce projet. Les photos se prennent pour tous les projets en cours '+
-    'depuis la fenêtre « Analyse portefeuille ».</div>';
-  else{
-    const d=k=>(m[k]==null||der[k]==null)?null:Math.round(m[k]-Number(der[k]));
-    corps='<p class="ana-evol">Depuis la photo du <b>'+esc(dateVersFR(der.Date))+'</b>'+
-      (der.Instance?' ('+esc(der.Instance)+')':'')+' : avancement '+anaDelta(d("Avancement")," pts")+
-      ', actions terminées '+anaDelta(d("Actions_terminees"))+
-      ', tâches terminées '+anaDelta(d("Taches_terminees"))+', échéances dépassées '+
-      anaDelta(d("Echeances_depassees"),"",true)+'.</p>'+anaSvgCourbe(ph,A);
-  }
+  if(!der) return '<div class="carte"><h2>Évolution</h2><div class="ana-note">Aucune photo pour ce projet. '+
+    'Les photos se prennent pour tous les projets en cours depuis la fenêtre « Analyse portefeuille ».</div></div>';
+  const dPh=Number(der.Date), jours=Math.round((auj-dPh)/JOUR);
+  const num=k=>der[k]==null||der[k]===""?null:Number(der[k]);
+  /* tableau avant / maintenant / écart ; « mieux » dit dans quel sens l'écart est favorable */
+  const ligne=(lib,avant,apres,unite,mieux,total)=>{
+    const ecart=(avant==null||apres==null)?null:Math.round(apres-avant);
+    const bon=ecart==null||ecart===0?null:(mieux>0?ecart>0:ecart<0);
+    const f=v=>v==null?"—":v+(unite||"");
+    return '<tr><td>'+lib+'</td><td>'+f(avant)+(total&&total.av!=null?' <small>/ '+total.av+'</small>':'')+
+      '</td><td><b>'+f(apres)+'</b>'+(total&&total.ap!=null?' <small>/ '+total.ap+'</small>':'')+'</td>'+
+      '<td class="'+(bon===null?'':bon?'evo-bon':'evo-mauvais')+'">'+
+        (ecart==null?"—":ecart===0?"inchangé":(ecart>0?"▲ +":"▼ ")+ecart+(unite===" %"?" pts":""))+'</td></tr>';
+  };
+  const tab='<table class="ana-tab evo-tab"><thead><tr><th>Indicateur</th><th>Photo du '+esc(dateVersFR(dPh))+
+      '</th><th>Aujourd\'hui</th><th>Évolution</th></tr></thead><tbody>'+
+    ligne("Avancement du projet",num("Avancement"),m.Avancement," %",1)+
+    ligne("Actions terminées",num("Actions_terminees"),m.Actions_terminees,"",1,{av:num("Actions_total"),ap:m.Actions_total})+
+    ligne("Tâches terminées",num("Taches_terminees"),m.Taches_terminees,"",1,{av:num("Taches_total"),ap:m.Taches_total})+
+    ligne("Actions en retard",num("Actions_retard"),m.Actions_retard,"",-1)+
+    ligne("Tâches en retard",num("Taches_retard"),m.Taches_retard,"",-1)+
+    ligne("Échéances dépassées",num("Echeances_depassees"),m.Echeances_depassees,"",-1)+
+    '</tbody></table>';
+  /* ce qui s'est concrètement passé depuis la photo */
+  const faits=[];
+  A.acts.forEach(a=>{
+    const av=pct(a[c.colAvancement])||0, d=Number(a[c.colFin])||Number(a[c.colEch])||0;
+    if(av>=100 && d>=dPh && d<=auj) faits.push({ts:d,t:"Action terminée",lib:A.lib(a)});
+  });
+  A.taches.forEach(({t})=>{
+    const av=pct(t[c.colTacheAvancement])||0, d=Number(t[c.colTacheFin])||0;
+    if(av>=100 && d>=dPh && d<=auj) faits.push({ts:d,t:"Tâche terminée",lib:lire(c.tblTache,t,c.colTacheLibelle)});
+  });
+  A.jnl.forEach(j=>{
+    const d=Number(j[c.colJnlDate])||0;
+    if(d>=dPh && d<=auj) faits.push({ts:d,t:"Journal de bord",lib:txt(lire(c.tblJournal,j,c.colJnlTexte)).split("\n")[0]});
+  });
+  faits.sort((a,b)=>b.ts-a.ts);
+  const liste=faits.length
+    ? '<ul class="evo-faits">'+faits.slice(0,10).map(f=>'<li><span>'+esc(dateVersFR(f.ts))+'</span><em>'+esc(f.t)+
+        '</em>'+esc(f.lib)+'</li>').join("")+(faits.length>10?'<li class="ana-note">… et '+(faits.length-10)+' autre(s)</li>':'')+'</ul>'
+    : '<div class="ana-note">Aucune tâche ou action terminée, aucune entrée au journal depuis cette photo.</div>';
   return '<div class="carte"><h2>Évolution</h2>'+
-    corps+(ph.length?'<div class="ana-note">'+anaPluriel(ph.length,"photo")+' enregistrée'+(ph.length>1?'s':'')+'.</div>':'')+
+    '<p class="ana-evol">Comparaison avec la photo du <b>'+esc(dateVersFR(dPh))+'</b>'+
+      (der.Instance?' — '+esc(der.Instance):'')+' ('+(jours<=0?"prise aujourd'hui":"il y a "+anaJours(jours))+').</p>'+
+    '<div class="evo-grille"><div>'+tab+'</div>'+
+      '<div><h3 class="evo-h3">Depuis cette photo</h3>'+liste+'</div></div>'+
+    (new Set(ph.map(r=>Number(r.Date))).size>=2
+      ? '<h3 class="evo-h3" style="margin-top:14px">Avancement d\'une photo à l\'autre</h3>'+anaSvgCourbe(ph,A) : '')+
+    '<div class="ana-note">'+anaPluriel(ph.length,"photo")+' enregistrée'+(ph.length>1?'s':'')+' pour ce projet.</div>'+
     '</div>';
 }
 function brancherEvolution(p){ /* photos prises uniquement depuis le portefeuille */ }
@@ -11761,7 +11808,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-n — photo protégée par mot de passe";
+const VERSION="2026-09-26-o — évolution concrète";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

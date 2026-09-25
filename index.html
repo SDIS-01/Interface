@@ -6437,15 +6437,75 @@ function analysePortefeuille(){
     grp.set(g,gg);
   });
   const rang={rouge:0,orange:1,vert:2,gris:3};
-  lignes.sort((a,b)=>(rang[a.A.meteo.n]-rang[b.A.meteo.n]) || ((a.score==null?999:a.score)-(b.score==null?999:b.score)) ||
-    a.lib.localeCompare(b.lib,"fr"));
+  lignes.sort((a,b)=>(rang[a.A.meteo.n]-rang[b.A.meteo.n]) ||
+    ((a.A.cal.ech||Infinity)-(b.A.cal.ech||Infinity)) || a.lib.localeCompare(b.lib,"fr"));
   retards.sort((a,b)=>a.ts-b.ts);
   const scores=lignes.map(l=>l.score).filter(v=>v!=null);
+  /* 1. échéances de projets dans les 90 jours ; 2. projets silencieux ;
+     3. décisions attendues ; 5. réalisé du mois */
+  const auj=aujourdHuiUTC(), JJ=anaReglage("anaJoursJournal",60);
+  const actifs=lignes.filter(l=>l.A.meteo.n!=="gris" && !l.A.cal.fin && (l.A.cal.av||0)<100);
+  const aEcheance=actifs.filter(l=>l.A.cal.ech && l.A.cal.ech>=auj && l.A.cal.ech<=auj+90*JOUR)
+    .sort((a,b)=>a.A.cal.ech-b.A.cal.ech);
+  const silencieux=[];
+  actifs.forEach(l=>{
+    const h=hmDe(l.p)[0];
+    const dh=h && typeof h[c.colHmDate]==="number" ? h[c.colHmDate] : null;
+    const der=Math.max(l.A.derniere||0,dh||0)||null;
+    const jours=der?Math.round((auj-der)/JOUR):null;
+    if(jours===null || jours>JJ) silencieux.push({l,der,jours});
+  });
+  silencieux.sort((a,b)=>(b.jours==null?1e9:b.jours)-(a.jours==null?1e9:a.jours));
+  const decisions=[];
+  if(c.tblJournal && c.colJnlNature) lignes.forEach(l=>l.A.jnl.forEach(j=>{
+    const nat=txt(lire(c.tblJournal,j,c.colJnlNature)).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    if(!/decision/.test(nat)) return;
+    if(c.colJnlTraite && j[c.colJnlTraite]===true) return;
+    decisions.push({l,j,butoir:c.colJnlDelai?Number(j[c.colJnlDelai])||null:null,
+      texte:txt(lire(c.tblJournal,j,c.colJnlTexte)).split("\n")[0],
+      auteur:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""});
+  }));
+  decisions.sort((a,b)=>(a.butoir||Infinity)-(b.butoir||Infinity));
+  const realise=[];
+  lignes.forEach(l=>{
+    const RA=odpRealiseAVenir(l.p,l.A);
+    const nA=RA.faits.filter(f=>f.t==="Action").length, nT=RA.faits.filter(f=>f.t==="Tâche").length;
+    if(nA||nT) realise.push({l,nA,nT});
+  });
+  realise.sort((a,b)=>(b.nA+b.nT)-(a.nA+a.nT) || a.l.lib.localeCompare(b.l.lib,"fr"));
   return {lignes,retards,charge:[...charge.entries()].sort((a,b)=>b[1].retard-a[1].retard||b[1].ouvertes-a[1].ouvertes),
     groupements:[...grp.entries()].sort((a,b)=>a[0].localeCompare(b[0],"fr")),
-    moyenne:scores.length?Math.round(scores.reduce((x,y)=>x+y,0)/scores.length):null};
+    moyenne:scores.length?Math.round(scores.reduce((x,y)=>x+y,0)/scores.length):null,
+    aEcheance,silencieux,decisions,realise,JJ};
 }
 
+function pfLien(l){
+  return '<button type="button" class="lien-action lien-fin" data-pf="'+l.p.id+'">'+esc(l.lib)+'</button>';
+}
+function pfBlocs(P){
+  const bloc=(titre,n,html,vide)=>'<div class="fa-bloc"><h3>'+titre+' <span class="n">'+n+'</span></h3>'+
+    (n?'<div class="ana-defil">'+html+'</div>':'<div class="ana-note">'+vide+'</div>')+'</div>';
+  const tab=(tetes,lignes)=>'<table class="ana-tab"><thead><tr>'+tetes.map(t=>'<th>'+t+'</th>').join("")+
+    '</tr></thead><tbody>'+lignes.join("")+'</tbody></table>';
+  return bloc("Projets arrivant à échéance (90 jours)",P.aEcheance.length,
+      tab(["Projet","Échéance","Dans","Avct"],P.aEcheance.map(l=>'<tr><td>'+pfLien(l)+'</td><td>'+
+        esc(dateVersFR(l.A.cal.ech))+'</td><td>'+anaJours(l.A.cal.joursRestants)+'</td><td>'+
+        (l.A.cal.av==null?"—":l.A.cal.av+" %")+'</td></tr>')),
+      "Aucun projet n'arrive à échéance dans les 90 prochains jours.")+
+    bloc("Décisions attendues",P.decisions.length,
+      tab(["Projet","Décision","Proposée par","Avant le"],P.decisions.map(x=>'<tr><td>'+pfLien(x.l)+'</td><td>'+
+        esc(x.texte)+'</td><td>'+esc(x.auteur||"—")+'</td><td'+(x.butoir&&x.butoir<aujourdHuiUTC()?' class="ana-rouge"':'')+'>'+
+        esc(x.butoir?dateVersFR(x.butoir):"—")+'</td></tr>')),
+      "Aucune décision en attente. Elles proviennent des entrées du journal de nature « Décision à prendre » non traitées.")+
+    bloc("Projets silencieux (plus de "+P.JJ+" jours sans activité)",P.silencieux.length,
+      tab(["Projet","Dernière activité","Depuis"],P.silencieux.map(x=>'<tr><td>'+pfLien(x.l)+'</td><td>'+
+        esc(x.der?dateVersFR(x.der):"Aucune")+'</td><td>'+(x.jours==null?"—":anaJours(x.jours))+'</td></tr>')),
+      "Tous les projets en cours ont eu une activité récente.")+
+    bloc("Réalisé du mois (30 derniers jours)",P.realise.length,
+      tab(["Projet","Actions terminées","Tâches terminées"],P.realise.map(x=>'<tr><td>'+pfLien(x.l)+'</td><td>'+
+        x.nA+'</td><td>'+x.nT+'</td></tr>')),
+      "Aucune action ni tâche terminée sur la période.");
+}
 function ouvrirAnalysePortefeuille(){
   const P=analysePortefeuille();
   let v=document.querySelector(".fa-voile.pf");
@@ -6462,29 +6522,15 @@ function ouvrirAnalysePortefeuille(){
     '<div class="ana-note" style="margin:2px 0 0">Projets de la liste de gauche, filtres compris, hors archives.</div></div>'+
     '<button type="button" class="fa-fermer" title="Fermer (Échap)">✕</button></div>'+
     '<div class="pf-kpis">'+kc("Projets",P.lignes.length)+kc("Échéance dépassée",nb("rouge"),ANA_ETAT_TXT.rouge)+
-      kc("Dans les délais",nb("vert"),ANA_ETAT_TXT.vert)+kc("Interrompus",nb("gris"))+
-      kc("Score moyen",P.moyenne==null?"—":P.moyenne+"/100")+'</div>'+
+      kc("Dans les délais",nb("vert"),ANA_ETAT_TXT.vert)+kc("Interrompus",nb("gris"))+'</div>'+
     '<div class="fa-bloc"><h3>Projets, du plus exposé au moins exposé</h3><div class="ana-defil"><table class="ana-tab"><thead><tr>'+
-      '<th></th><th>Projet</th><th>Score</th><th>Évol.</th><th>Avct</th><th>Échéance</th><th>Actions en retard</th><th>Tâches en retard</th></tr></thead><tbody>'+
+      '<th></th><th>Projet</th><th>Avct</th><th>Échéance</th><th>Actions en retard</th><th>Tâches en retard</th></tr></thead><tbody>'+
       P.lignes.map(l=>'<tr><td>'+ANA_METEO[l.A.meteo.n]+'</td><td><button type="button" class="lien-action lien-fin" data-pf="'+l.p.id+'">'+
-        esc(l.lib)+'</button></td><td style="font-weight:bold;color:'+ANA_ETAT_TXT[niveauScore(l.score)]+'">'+(l.score==null?"—":l.score)+
-        '</td><td>'+(l.evol==null?"—":anaDelta(l.evol))+'</td><td>'+(l.A.cal.av==null?"—":l.A.cal.av+" %")+'</td><td'+
+        esc(l.lib)+'</button></td><td>'+(l.A.cal.av==null?"—":l.A.cal.av+" %")+'</td><td'+
         (l.A.cal.depasse?' class="ana-rouge"':'')+'>'+esc(dateVersFR(l.A.cal.ech)||"—")+'</td><td>'+l.A.actRetard.length+
         '</td><td>'+l.A.tRetard.length+'</td></tr>').join("")+'</tbody></table></div></div>'+
-    '<div class="fa-bloc"><h3>Les 10 retards les plus anciens</h3>'+(P.retards.length?
-      '<table class="ana-tab"><thead><tr><th>Date</th><th>Projet</th><th>Type</th><th>Élément</th><th>Retard</th></tr></thead><tbody>'+
-      P.retards.slice(0,10).map(r=>'<tr><td>'+esc(dateVersFR(r.ts))+'</td><td>'+esc(odpCourt(r.projet,50))+'</td><td>'+esc(r.type)+
-        '</td><td>'+esc(r.lib)+'</td><td class="ana-rouge">'+anaJours((auj-r.ts)/JOUR)+'</td></tr>').join("")+'</tbody></table>'
-      :'<div class="ana-note">Aucun retard.</div>')+'</div>'+
-    '<div class="pf-2col"><div class="fa-bloc"><h3>Charge par porteur de tâches</h3><table class="ana-tab"><thead><tr><th>Porteur</th>'+
-      '<th>Ouvertes</th><th>En retard</th><th>Projets</th></tr></thead><tbody>'+
-      P.charge.slice(0,15).map(([q,x])=>'<tr><td>'+esc(q)+'</td><td>'+x.ouvertes+'</td><td'+(x.retard?' class="ana-rouge"':'')+'>'+
-        x.retard+'</td><td>'+x.projets.size+'</td></tr>').join("")+'</tbody></table></div>'+
-    '<div class="fa-bloc"><h3>Par groupement</h3><table class="ana-tab"><thead><tr><th>Groupement</th><th>Projets</th>'+
-      '<th>🔴</th><th>🟢</th><th>⏸</th><th>Score moyen</th></tr></thead><tbody>'+
-      P.groupements.map(([g,x])=>'<tr><td>'+esc(g)+'</td><td>'+x.n+'</td><td>'+x.rouge+'</td><td>'+x.vert+'</td><td>'+x.gris+
-        '</td><td>'+(x.scores.length?Math.round(x.scores.reduce((a,b)=>a+b,0)/x.scores.length):"—")+'</td></tr>').join("")+
-      '</tbody></table></div></div></div>';
+    pfBlocs(P)+
+    '</div>';
   v.querySelector(".fa-fermer").onclick=fermer;
   v.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{
     S.projetSel=S.data.main.find(r=>r.id===Number(b.dataset.pf));
@@ -6502,21 +6548,12 @@ function odpPortefeuilleAnalyse(d,liste){
   const titre=anaPluriel(L.length,"projet")+" suivi"+(L.length>1?"s":"")+" — "+
     (nR?nR+(nR>1?" ont":" a")+" dépassé leur échéance":"aucune échéance de projet dépassée");
   const r=odpTableau(d,titre,null,
-    [{t:"",w:z.w*0.04},{t:"Projet",w:z.w*0.44},{t:"Score",w:z.w*0.09},{t:"Avct",w:z.w*0.09},
+    [{t:"",w:z.w*0.04},{t:"Projet",w:z.w*0.53},{t:"Avct",w:z.w*0.09},
      {t:"Échéance",w:z.w*0.12},{t:"Actions en retard",w:z.w*0.11},{t:"Tâches en retard",w:z.w*0.11}],
     L.map(l=>[cel("●",{gras:true,couleur:ANA_PUCE[l.A.meteo.n],align:"center"}),cel(l.lib),
-      cel(l.score==null?"—":String(l.score),{align:"center",gras:true,couleur:ANA_ETAT_TXT[niveauScore(l.score)]}),
       cel(l.A.cal.av==null?"—":l.A.cal.av+" %",{align:"center"}),
       cel(dateVersFR(l.A.cal.ech)||"—",{align:"center",gras:l.A.cal.depasse,couleur:l.A.cal.depasse?ODP_C.alerte:ODP_C.encre}),
       cel(String(l.A.actRetard.length),{align:"center"}),cel(String(l.A.tRetard.length),{align:"center"})]));
-  if(P.retards.length){
-    const auj=aujourdHuiUTC();
-    odpTableau(d,"Les retards les plus anciens",null,
-      [{t:"Date",w:z.w*0.12},{t:"Projet",w:z.w*0.3},{t:"Type",w:z.w*0.1},{t:"Élément",w:z.w*0.36},{t:"Retard",w:z.w*0.12}],
-      P.retards.filter(x=>ids.has(x.p.id)).slice(0,10).map(x=>[cel(dateVersFR(x.ts),{align:"center"}),
-        cel(odpCourt(x.projet,60)),cel(x.type),cel(x.lib),
-        cel(anaJours((auj-x.ts)/JOUR),{gras:true,couleur:ODP_C.alerte})]));
-  }
   return L.map(l=>l.p);   // ordre par gravité
 }
 
@@ -11365,7 +11402,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-n — score de santé, évolution, analyse de portefeuille";
+const VERSION="2026-09-25-q — portefeuille : échéances, décisions, silencieux, réalisé";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

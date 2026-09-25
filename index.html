@@ -1456,7 +1456,7 @@ const DEF = {
   /* seuils de l'onglet Analyse */
   anaJoursJournal:60, anaJoursProches:30,
   anaPoidsDelais:25, anaPoidsActions:25, anaPoidsTaches:25, anaPoidsPilotage:25,
-  tblPhotos:"Analyse_Photos",
+  tblPhotos:"Analyse_Photos", tblRevueHisto:"",
   /* trois boutons libres de la barre supérieure */
   barre1Libelle:"", barre1Url:"", barre1Coul:"",
   barre2Libelle:"", barre2Url:"", barre2Coul:"",
@@ -1833,6 +1833,8 @@ async function charger(){
   S.data.agents   = await lireTable(c.tblAgent);
   S.data.hm       = await lireTable(c.tblHm);
   await chargerPhotos();
+  /* sans attendre : l'éventuelle photo liée à la revue ne retarde pas l'affichage */
+  setTimeout(()=>photoSurArchivageRevue(),0);
   await chargerPJ();
 
   // libellés des colonnes de type Référence utilisées à l'écran
@@ -6641,7 +6643,28 @@ async function chargerPhotos(){
         S.photosEtat = m.length ? "incomplete:"+m.join(", ") : "ok";
       }
     }
+    /* colonne facultative : liste des actions et tâches terminées à l'instant de la photo */
+    S.photosDetail=false;
+    if(S.photosEtat==="ok"){
+      if(S.data.photos.length) S.photosDetail="Detail" in S.data.photos[0];
+      else{
+        const cols=await grist.docApi.fetchTable("_grist_Tables_column").catch(()=>null);
+        const tabs=await grist.docApi.fetchTable("_grist_Tables").catch(()=>null);
+        if(cols && tabs){
+          const ref=tabs.id[tabs.tableId.indexOf(t)];
+          S.photosDetail=cols.colId.some((x,i)=>x==="Detail" && cols.parentId[i]===ref);
+        }
+      }
+    }
   }catch(e){ S.photosEtat="absente"; }
+}
+
+/* identifiants des actions et tâches terminées (hors interrompues) */
+function termineesDe(A){
+  const c=S.cfg;
+  return {a:A.acts.filter(a=>!interrompu(a) && (pct(a[c.colAvancement])||0)>=100).map(a=>a.id),
+          t:A.taches.filter(({t})=>!statutInterrompu(c.tblTache,t,c.colTacheStatut) &&
+            (pct(t[c.colTacheAvancement])||0)>=100).map(({t})=>t.id)};
 }
 
 function photosDe(p){
@@ -6657,7 +6680,8 @@ function mesuresPhoto(A){
   return {Avancement:A.cal.av==null?null:A.cal.av, Meteo:A.meteo.l,
     Actions_total:A.acts.length, Actions_terminees:A.etatAct.terminees.length, Actions_retard:A.actRetard.length,
     Taches_total:A.taches.length, Taches_terminees:A.etatT.terminees, Taches_retard:A.tRetard.length,
-    Echeances_depassees:A.frise.ev.filter(e=>e.etat==="depasse").length};
+    Echeances_depassees:A.frise.ev.filter(e=>e.etat==="depasse").length,
+    ...(S.photosDetail?{Detail:JSON.stringify(termineesDe(A))}:{})};
 }
 
 async function photographier(p,instance){
@@ -6743,24 +6767,35 @@ function anaEvolutionHtml(p,A){
     ligne("Échéances dépassées",num("Echeances_depassees"),m.Echeances_depassees,"",-1)+
     '</tbody></table>';
   /* ce qui s'est concrètement passé depuis la photo */
+  /* actions et tâches : comparaison de la liste enregistrée dans la photo avec
+     l'état actuel ; les dates prévues ne disent pas quand une tâche a été finie */
   const faits=[];
-  A.acts.forEach(a=>{
-    const av=pct(a[c.colAvancement])||0, d=Number(a[c.colFin])||Number(a[c.colEch])||0;
-    if(av>=100 && d>=dPh && d<=auj) faits.push({ts:d,t:"Action terminée",lib:A.lib(a)});
-  });
-  A.taches.forEach(({t})=>{
-    const av=pct(t[c.colTacheAvancement])||0, d=Number(t[c.colTacheFin])||0;
-    if(av>=100 && d>=dPh && d<=auj) faits.push({ts:d,t:"Tâche terminée",lib:lire(c.tblTache,t,c.colTacheLibelle)});
-  });
+  let detail=null;
+  try{ detail=der.Detail?JSON.parse(der.Detail):null; }catch(e){ detail=null; }
+  if(detail){
+    const avA=new Set(detail.a||[]), avT=new Set(detail.t||[]), now=termineesDe(A);
+    now.a.filter(id=>!avA.has(id)).forEach(id=>{
+      const a=A.acts.find(x=>x.id===id);
+      faits.push({ts:null,t:"Action terminée",lib:A.lib(a)});
+    });
+    now.t.filter(id=>!avT.has(id)).forEach(id=>{
+      const x=A.taches.find(y=>y.t.id===id);
+      faits.push({ts:null,t:"Tâche terminée",lib:lire(c.tblTache,x.t,c.colTacheLibelle)});
+    });
+  }
   A.jnl.forEach(j=>{
     const d=Number(j[c.colJnlDate])||0;
     if(d>=dPh && d<=auj) faits.push({ts:d,t:"Journal de bord",lib:txt(lire(c.tblJournal,j,c.colJnlTexte)).split("\n")[0]});
   });
-  faits.sort((a,b)=>b.ts-a.ts);
-  const liste=faits.length
-    ? '<ul class="evo-faits">'+faits.slice(0,10).map(f=>'<li><span>'+esc(dateVersFR(f.ts))+'</span><em>'+esc(f.t)+
+  faits.sort((a,b)=>(b.ts||Infinity)-(a.ts||Infinity));
+  const sansDetail=!detail
+    ? '<div class="ana-note">Le détail des actions et tâches terminées n\'est pas disponible pour cette photo'+
+      (S.photosDetail?' : il le sera à partir de la prochaine.':' : ajoutez la colonne Detail (texte) à la table des photos.')+'</div>' : '';
+  const liste=(faits.length
+    ? '<ul class="evo-faits">'+faits.slice(0,10).map(f=>'<li>'+(f.ts?'<span>'+esc(dateVersFR(f.ts))+'</span>':'')+'<em>'+esc(f.t)+
         '</em>'+esc(f.lib)+'</li>').join("")+(faits.length>10?'<li class="ana-note">… et '+(faits.length-10)+' autre(s)</li>':'')+'</ul>'
-    : '<div class="ana-note">Aucune tâche ou action terminée, aucune entrée au journal depuis cette photo.</div>';
+    : '<div class="ana-note">'+(detail?"Aucune tâche ou action terminée, aucune entrée au journal depuis cette photo."
+        :"Aucune entrée au journal depuis cette photo.")+'</div>')+sansDetail;
   return '<div class="carte"><h2>Évolution</h2>'+
     '<p class="ana-evol">Comparaison avec la photo du <b>'+esc(dateVersFR(dPh))+'</b>'+
       (der.Instance?' — '+esc(der.Instance):'')+' ('+(jours<=0?"prise aujourd'hui":"il y a "+anaJours(jours))+').</p>'+
@@ -6964,6 +6999,63 @@ function odpPortefeuilleAnalyse(d,liste){
       cel(dateVersFR(l.A.cal.ech)||"—",{align:"center",gras:l.A.cal.depasse,couleur:l.A.cal.depasse?ODP_C.alerte:ODP_C.encre}),
       cel(String(l.A.actRetard.length),{align:"center"}),cel(String(l.A.tRetard.length),{align:"center"})]));
   return L.map(l=>l.p);   // ordre par gravité
+}
+
+
+/* =======================================================================
+   Photo déclenchée par l'archivage d'une édition de la revue annuelle
+   =======================================================================
+   Le widget « Revue annuelle » archive ses éditions dans une table
+   d'historique (Date_Edition, Libelle, Indicateurs…). La console la lit :
+   si la dernière édition, archivée depuis moins de 30 jours, n'a pas encore
+   de photos, elle photographie tous les projets en cours, avec le libellé
+   de l'édition comme instance. L'archivage vaut autorisation : pas de mot
+   de passe ici. */
+
+async function tableRevueHisto(){
+  if(S.cfg.tblRevueHisto) return S.cfg.tblRevueHisto;
+  if(S.tblRevueDevinee!==undefined) return S.tblRevueDevinee;
+  S.tblRevueDevinee="";
+  try{
+    const tabs=await grist.docApi.fetchTable("_grist_Tables");
+    const cols=await grist.docApi.fetchTable("_grist_Tables_column");
+    for(let i=0;i<tabs.id.length;i++){
+      const ids=cols.colId.filter((x,k)=>cols.parentId[k]===tabs.id[i]);
+      if(["Date_Edition","Libelle","Indicateurs"].every(k=>ids.includes(k))){
+        S.tblRevueDevinee=tabs.tableId[i]; break;
+      }
+    }
+  }catch(e){}
+  return S.tblRevueDevinee;
+}
+
+async function photoSurArchivageRevue(){
+  if(S.photoRevueEnCours || S.photosEtat!=="ok") return;
+  const t=await tableRevueHisto();
+  if(!t) return;
+  S.photoRevueEnCours=true;
+  try{
+    const ed=enLignes(await grist.docApi.fetchTable(t))
+      .filter(r=>Number(r.Date_Edition) && String(r.Libelle||"").trim())
+      .sort((a,b)=>Number(b.Date_Edition)-Number(a.Date_Edition))[0];
+    if(!ed) return;
+    const lib=String(ed.Libelle).trim(), auj=aujourdHuiUTC();
+    if(Number(ed.Date_Edition)<auj-30*JOUR) return;           // trop ancienne
+    S.revuesTraitees=S.revuesTraitees||new Set();
+    if(S.revuesTraitees.has(lib)) return;
+    await chargerPhotos();                                       // état à jour, au cas où une autre console l'aurait fait
+    if((S.data.photos||[]).some(r=>String(r.Instance||"").trim()===lib)){ S.revuesTraitees.add(lib); return; }
+    S.revuesTraitees.add(lib);
+    const enCours=S.data.main.filter(p=>{
+      if(!estProjet(p) || estArchive(p) || interrompu(p)) return false;
+      const A=analyseComplete(p);
+      return !((A.cal.fin && A.cal.fin<=auj) || (A.cal.av||0)>=100);
+    });
+    if(!enCours.length) return;
+    const ok=await photographierTous(enCours,lib);
+    if(ok) toast("Revue « "+lib+" » archivée : photo de "+anaPluriel(enCours.length,"projet")+" en cours enregistrée.");
+  }catch(e){ console.warn("Photo de la revue : "+e.message); }
+  finally{ S.photoRevueEnCours=false; }
 }
 
 /* on renseigne la table des vues une fois toutes les fonctions déclarées */
@@ -9572,6 +9664,8 @@ function rendreReglages(){
   '</div>'+
   '<div class="champ" style="margin-top:10px"><label>Table des photos (évolution)</label>'+
     '<input type="text" data-cfg="tblPhotos" value="'+esc(c.tblPhotos||"Analyse_Photos")+'"></div>'+
+  '<div class="champ" style="margin-top:10px"><label>Historique de la revue annuelle (photo à l\'archivage)</label>'+
+    '<input type="text" data-cfg="tblRevueHisto" placeholder="détection automatique" value="'+esc(c.tblRevueHisto||"")+'"></div>'+
   '</div>'+
   '<div class="bloc-reglage"><h3>Barre supérieure</h3>'+
   '<p>Le bouton PDF est masqué par défaut. Le diaporama reste toujours accessible.</p>'+
@@ -11808,7 +11902,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-o — évolution concrète";
+const VERSION="2026-09-26-q — évolution : détail exact des terminées";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

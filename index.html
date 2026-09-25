@@ -1043,6 +1043,8 @@ tbody tr.ligne-com:hover{background:transparent;}
     aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg> PDF</button>
   <button class="btn-top btn-impr btn-diapo" id="btn-pptx"
     title="Exporter en diaporama Impress">Diaporama</button>
+  <button class="btn-top" id="btn-xlsx-ech"
+    title="Exporter en Excel les échéances en retard et à venir des projets affichés">Échéances (Excel)</button>
   <button class="btn-top" id="btn-vue-mobile" hidden
     title="Revenir à l'affichage adapté au téléphone">📱 Vue mobile</button>
   <button class="btn-top" id="btn-actualiser">Actualiser</button>
@@ -5359,21 +5361,26 @@ function analyseComplete(p){
   const dansFenetre=ts=>ts && ts<=fin;
   const etat=ts=>ts<auj?"depasse":(ts<=auj+7*JOUR?"proche":"avenir");
   if(!A.cal.fin && dansFenetre(A.cal.ech) && (A.cal.av||0)<100)
-    ev.push({ts:A.cal.ech,type:"Projet",lib:"Échéance du projet",etat:etat(A.cal.ech)});
+    ev.push({ts:A.cal.ech,type:"Projet",lib:"Échéance du projet",etat:etat(A.cal.ech),
+      resp:lire(c.tblMain,p,c.colPorteur),av:A.cal.av});
   A.feux.forEach(f=>{
     if(f.feu.n==="gris" || f.av>=100 || !dansFenetre(f.ech)) return;
-    ev.push({ts:f.ech,type:"Action",lib:f.lib,etat:etat(f.ech),id:f.a.id});
+    ev.push({ts:f.ech,type:"Action",lib:f.lib,etat:etat(f.ech),id:f.a.id,
+      resp:lire(c.tblMain,f.a,c.colPorteur),av:f.av,meo:decouperLibelleAction(f.lib).num});
   });
   A.taches.forEach(({t,porteur})=>{
     const tn=pct(t[c.colTacheAvancement])||0, tf=Number(t[c.colTacheFin])||0;
     if(tn>=100 || statutInterrompu(c.tblTache,t,c.colTacheStatut) || !dansFenetre(tf)) return;
     ev.push({ts:tf,type:"Tâche",lib:lire(c.tblTache,t,c.colTacheLibelle),etat:etat(tf),
-      id:t.id,porteur:porteur?porteur.id:null});
+      id:t.id,porteur:porteur?porteur.id:null,
+      resp:c.colTachePorteur?lire(c.tblTache,t,c.colTachePorteur):"",av:tn,
+      meo:(porteur && porteur.id!==p.id)?decouperLibelleAction(lire(c.tblMain,porteur,c.colLibelle)).num:""});
   });
   [...A.echJRetard,...A.echJProches].forEach(e=>{
     if(!dansFenetre(e.ts)) return;
     ev.push({ts:e.ts,type:"À mener",
-      lib:txt(lire(c.tblJournal,e.j,c.colJnlTexte)).split("\n")[0].slice(0,90),etat:etat(e.ts)});
+      lib:txt(lire(c.tblJournal,e.j,c.colJnlTexte)).split("\n")[0].slice(0,90),etat:etat(e.ts),
+      resp:c.colJnlAuteur?lire(c.tblJournal,e.j,c.colJnlAuteur):""});
   });
   instancesDe(p).forEach(j=>{
     const ts=Number(j.date);
@@ -5833,6 +5840,142 @@ function odpAnalyseComplete(d,p){
       cel({depasse:"Dépassée",proche:"Sous 7 jours",avenir:"À venir",passe:"Passée"}[e.etat],
         {gras:true,couleur:ANA_ETAT_COUL[e.etat]})]));
   return true;
+}
+
+
+/* =======================================================================
+   Export Excel des échéances de tous les projets de la liste filtrée
+   =======================================================================
+   Mêmes règles que le tableau « Échéances à venir et en retard » de
+   l'analyse : tout ce qui est en retard et non traité, puis ce qui arrive
+   jusqu'à J+90. Bibliothèque : SheetJS avec styles (xlsx-js-style), chargée
+   au premier export ; à défaut, SheetJS de cdnjs, sans couleurs. */
+
+function chargerScript(url){
+  return new Promise((ok,ko)=>{
+    const s=document.createElement("script");
+    s.src=url; s.onload=ok; s.onerror=()=>ko(new Error("chargement impossible : "+url));
+    document.head.appendChild(s);
+  });
+}
+async function chargerSheetJS(){
+  if(window.XLSX) return;
+  try{
+    await chargerScript("https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js");
+    S.xlsxStyles=true;
+  }catch(e){
+    await chargerScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+    S.xlsxStyles=false;
+  }
+}
+
+function lignesExportEcheances(){
+  const c=S.cfg, auj=aujourdHuiUTC();
+  const liste=projetsFiltres().filter(p=>!estArchive(p) && !interrompu(p));
+  const lignes=[], synthese=[];
+  liste.forEach(p=>{
+    let A;
+    try{ A=analyseComplete(p); }catch(e){ console.warn(e); return; }
+    const projet=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
+    const grp=lire(c.tblMain,p,c.colGroupement), porteur=lire(c.tblMain,p,c.colPorteur);
+    const cpt={depasse:0,proche:0,avenir:0};
+    A.frise.ev.forEach(e=>{
+      if(cpt[e.etat]!==undefined) cpt[e.etat]++;
+      lignes.push({grp,projet,porteur,type:e.type,meo:e.meo||"",lib:e.lib,resp:e.resp||"",
+        ts:e.ts,etat:e.etat,jours:Math.round((e.ts-auj)/JOUR),av:e.av});
+    });
+    if(A.frise.ev.length) synthese.push({grp,projet,porteur,...cpt,total:A.frise.ev.length});
+  });
+  lignes.sort((a,b)=>a.ts-b.ts || a.projet.localeCompare(b.projet,"fr"));
+  synthese.sort((a,b)=>b.depasse-a.depasse || b.proche-a.proche || a.projet.localeCompare(b.projet,"fr"));
+  return {lignes,synthese,nbProjets:liste.length};
+}
+
+async function exporterEcheancesExcel(){
+  if(nbModifs()){ toast("Enregistrez vos saisies avant d'exporter.",true); return; }
+  try{ await chargerSheetJS(); }
+  catch(e){ toast("Bibliothèque Excel non chargée : vérifiez l'accès au CDN.",true); return; }
+  const X=window.XLSX;
+  const {lignes,synthese,nbProjets}=lignesExportEcheances();
+  if(!lignes.length){ toast("Aucune échéance en retard ou à venir dans les projets affichés.",true); return; }
+
+  const COUL={depasse:"C0504D",proche:"E07B1F",avenir:"002395"};
+  const dateXL=ts=>new Date(ts*1000);
+  const entete=["Groupement","Projet","Porteur du projet","Type","N° MEO","Élément","Responsable",
+                "Date","État","Jours","Avancement"];
+  const aoa=[entete].concat(lignes.map(l=>[l.grp,l.projet,l.porteur,l.type,l.meo,l.lib,l.resp,
+    dateXL(l.ts),ANA_ETAT_LIB[l.etat]||"",l.jours,l.av==null?null:l.av/100]));
+  const ws=X.utils.aoa_to_sheet(aoa,{cellDates:true});
+  const n=aoa.length;
+  for(let r=1;r<n;r++){
+    const d=ws[X.utils.encode_cell({r,c:7})]; if(d) d.z="dd/mm/yyyy";
+    const a=ws[X.utils.encode_cell({r,c:10})]; if(a) a.z="0%";
+  }
+  ws["!cols"]=[18,40,22,10,9,55,22,11,13,7,11].map(w=>({wch:w}));
+  ws["!autofilter"]={ref:"A1:K"+n};
+  if(S.xlsxStyles){
+    const tete={font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"002395"}},
+                alignment:{vertical:"center",wrapText:true}};
+    entete.forEach((x,i)=>{ const cel=ws[X.utils.encode_cell({r:0,c:i})]; if(cel) cel.s=tete; });
+    for(let r=1;r<n;r++){
+      const l=lignes[r-1];
+      const e=ws[X.utils.encode_cell({r,c:8})];
+      if(e) e.s={font:{bold:true,color:{rgb:COUL[l.etat]||"444444"}}};
+      const j=ws[X.utils.encode_cell({r,c:9})];
+      if(j && l.jours<0) j.s={font:{color:{rgb:COUL.depasse}}};
+      for(const ci of [1,5]){
+        const cel=ws[X.utils.encode_cell({r,c:ci})];
+        if(cel) cel.s=Object.assign({},cel.s||{},{alignment:{wrapText:true,vertical:"top"}});
+      }
+    }
+  }
+
+  const ent2=["Groupement","Projet","Porteur du projet","Dépassées","Sous 7 jours","À venir","Total"];
+  const aoa2=[ent2].concat(synthese.map(s=>[s.grp,s.projet,s.porteur,s.depasse,s.proche,s.avenir,s.total]));
+  const ws2=X.utils.aoa_to_sheet(aoa2);
+  ws2["!cols"]=[18,50,22,11,12,10,8].map(w=>({wch:w}));
+  ws2["!autofilter"]={ref:"A1:G"+aoa2.length};
+  if(S.xlsxStyles){
+    const tete={font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"002395"}}};
+    ent2.forEach((x,i)=>{ const cel=ws2[X.utils.encode_cell({r:0,c:i})]; if(cel) cel.s=tete; });
+    for(let r=1;r<aoa2.length;r++){
+      const d=ws2[X.utils.encode_cell({r,c:3})];
+      if(d && d.v>0) d.s={font:{bold:true,color:{rgb:COUL.depasse}}};
+    }
+  }
+
+  const wb=X.utils.book_new();
+  X.utils.book_append_sheet(wb,ws,"Échéances");
+  X.utils.book_append_sheet(wb,ws2,"Synthèse par projet");
+  const nom="Echeances_"+new Date().toISOString().slice(0,10)+".xlsx";
+
+  /* SheetJS communautaire n'écrit pas les volets figés : on les ajoute dans
+     le XML des deux feuilles avant de livrer le fichier. */
+  let blob;
+  try{
+    const brut=X.write(wb,{bookType:"xlsx",type:"array"});
+    const z=await JSZip.loadAsync(brut);
+    const volet='<sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" '+
+      'activePane="bottomLeft" state="frozen"/></sheetView>';
+    for(const f of ["xl/worksheets/sheet1.xml","xl/worksheets/sheet2.xml"]){
+      const fic=z.file(f); if(!fic) continue;
+      const xml=(await fic.async("string")).replace(/<sheetView workbookViewId="0"\/>/,volet);
+      z.file(f,xml);
+    }
+    blob=await z.generateAsync({type:"blob",
+      mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }catch(e){
+    console.warn("Volets figés non appliqués : "+e.message);
+    X.writeFile(wb,nom);
+    toast(lignes.length+" échéances exportées ("+nbProjets+" projets)");
+    return;
+  }
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=nom;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500);
+  toast(lignes.length+" échéance"+(lignes.length>1?"s":"")+" exportée"+(lignes.length>1?"s":"")+
+    " ("+nbProjets+" projet"+(nbProjets>1?"s":"")+")"+(S.xlsxStyles?"":" — sans couleurs"));
 }
 
 /* on renseigne la table des vues une fois toutes les fonctions déclarées */
@@ -10637,7 +10780,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-k — liste des actions : numéro en pastille, survol bleu";
+const VERSION="2026-09-25-l — export Excel des échéances";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -10951,6 +11094,10 @@ function majFormulairePptx(){
       'Aucune priorité renseignée : tous les projets seront exportés.</p>';
 }
 
+$("#btn-xlsx-ech").onclick=()=>{
+  if(enMobile()){ toast("L'export Excel n'est disponible que sur ordinateur.",true); return; }
+  exporterEcheancesExcel();
+};
 $("#btn-pptx").onclick=()=>{
   if(enMobile()){ toast("L'export du diaporama n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet.",true); return; }

@@ -7035,8 +7035,16 @@ async function photoSurArchivageRevue(){
   if(!t) return;
   S.photoRevueEnCours=true;
   try{
+    /* seules la revue annuelle complète et la revue P2A déclenchent une photo */
+    const typeEd=r=>{
+      if(r.Type_Revue) return String(r.Type_Revue);
+      try{ const o=JSON.parse(r.Indicateurs||"{}"); if(o && o.type) return String(o.type); }catch(e){}
+      const per=String(r.Perimetre||"");
+      return /^Revue annuelle complète/.test(per)?"complete":/^P2A\b/.test(per)?"p2a":"";
+    };
     const ed=enLignes(await grist.docApi.fetchTable(t))
       .filter(r=>Number(r.Date_Edition) && String(r.Libelle||"").trim())
+      .filter(r=>["complete","p2a"].includes(typeEd(r)))
       .sort((a,b)=>Number(b.Date_Edition)-Number(a.Date_Edition))[0];
     if(!ed) return;
     const lib=String(ed.Libelle).trim(), auj=aujourdHuiUTC();
@@ -11902,7 +11910,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-q — évolution : détail exact des terminées";
+const VERSION="2026-09-26-r — photo sur revue complète ou P2A uniquement";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

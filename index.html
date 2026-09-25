@@ -190,7 +190,7 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .ana-fond-gris{border-left:5px solid var(--interrompu);background:var(--interrompu-pastel);}
 .ana-liste{margin:0;padding-left:18px;font-size:12.5px;line-height:1.65;}
 .ana-liste li.ana-rouge{color:#993333;font-weight:bold;}
-.ana-liste li.ana-orange{color:#a85a12;}
+.ana-liste li.ana-orange{color:var(--encre);}
 .ana-liste li.ana-vert{color:#3b6d11;}
 .ana-note{color:var(--gris);font-size:11px;margin:4px 2px 14px;}
 .ana-tdb{display:flex;flex-wrap:wrap;gap:22px;align-items:center;}
@@ -212,7 +212,7 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .ana-tab th{text-align:left;color:var(--gris);font-size:11px;border-bottom:1px solid var(--trait);padding:5px 6px;}
 .ana-tab td{border-bottom:1px solid var(--trait);padding:5px 6px;vertical-align:top;}
 .ana-tab td.ana-rouge,.ana-tab .ana-rouge{color:#993333;font-weight:bold}
-.ana-tab td.ana-orange{color:#a85a12;font-weight:bold}.ana-tab td.ana-vert{color:#3b6d11}
+.ana-tab td.ana-orange{color:var(--encre);font-weight:bold}.ana-tab td.ana-vert{color:#3b6d11}
 .ana-detail summary{cursor:pointer;list-style:none;}
 .ana-detail summary h2{display:inline;}
 .ana-detail summary::before{content:"▸ ";color:var(--gris);}
@@ -4791,8 +4791,9 @@ function analyseProjet(p){
   let meteo;
   if(inter) meteo={n:"gris",l:"Interrompu"};
   else if(fin || avN>=100) meteo={n:"vert",l:"Terminé"};
-  else if(alertes.some(a=>a.g==="rouge")) meteo={n:"rouge",l:"En retard"};
-  else if(alertes.length) meteo={n:"orange",l:"À surveiller"};
+  /* la météo ne dépend que du projet lui-même : une action ou une tâche en
+     retard figure dans les points d'attention sans changer la météo */
+  else if(cal.depasse) meteo={n:"rouge",l:"Échéance dépassée"};
   else meteo={n:"vert",l:"Dans les délais"};
   alertes.sort((x,y)=>(x.g===y.g)?0:(x.g==="rouge"?-1:1));
 
@@ -4938,7 +4939,9 @@ function odpAnalyse(d,p){
 /* --- Lot 1 : feux par action, frise des échéances, recommandations --- */
 
 const ANA_COUL={termine:"#7FA23F",encours:"#E8B400",nondem:"#C0504D",inter:"#595959"};
-const ANA_TXT={rouge:"#993333",orange:"#a85a12",vert:"#3b6d11",gris:"#666660"};
+/* texte : pas d'orange, jugé peu lisible ; l'orange reste réservé aux pastilles et filets */
+const ANA_TXT={rouge:"#993333",orange:"#1c2330",vert:"#3b6d11",gris:"#666660"};
+const ANA_PUCE={rouge:"#C0504D",orange:"#F79646",vert:"#7FA23F",gris:"#595959"};
 
 function analyseComplete(p){
   const A=analyseProjet(p);
@@ -4999,11 +5002,21 @@ function analyseComplete(p){
         ") ou arbitrer son périmètre lors de la prochaine instance.");
     if(!A.cal.ech)
       rec("orange","Renseigner l'échéance prévue du projet pour suivre les délais.");
-    A.actRetard.forEach(x=>rec("rouge",A.lib(x.a)+
-      " : replanifier l'échéance ou renforcer l'action ("+x.av+" %, "+anaJours(x.jours)+" de retard)."));
-    A.actProches.filter(x=>x.av<=0).forEach(x=>rec("orange",A.lib(x.a)+
-      " : engager l'action, échéance dans "+anaJours(x.jours)+" sans avancement."));
-    A.actSansTache.forEach(a=>rec("orange",A.lib(a)+" : découper l'action en tâches datées et attribuées."));
+    /* une seule ligne par constat : au-delà d'une action, on cite leurs numéros */
+    const grouper=(g,liste,seule,plusieurs)=>{
+      if(!liste.length) return;
+      if(liste.length===1) rec(g,A.lib(liste[0].a)+" : "+seule(liste[0]));
+      else rec(g,plusieurs+" : "+liste.map(x=>anaNumeroMeo(A.lib(x.a))).join(", ")+".");
+    };
+    grouper("rouge",A.actRetard,
+      x=>"replanifier l'échéance ou renforcer l'action ("+x.av+" %, "+anaJours(x.jours)+" de retard).",
+      "Replanifier l'échéance ou renforcer les actions en retard");
+    grouper("orange",A.actProches.filter(x=>x.av<=0),
+      x=>"engager l'action, échéance dans "+anaJours(x.jours)+" sans avancement.",
+      "Engager les actions à échéance proche sans avancement");
+    grouper("orange",A.actSansTache.map(a=>({a})),
+      ()=>"découper l'action en tâches datées et attribuées.",
+      "Découper les actions en tâches datées et attribuées");
     const parPorteur=new Map();
     A.tRetard.forEach(x=>{
       const q=(c.colTachePorteur && lire(c.tblTache,x.t,c.colTachePorteur))||"";
@@ -5064,6 +5077,11 @@ function anaSegTaches(A){
           {l:"En cours",v:e.encours,coul:ANA_COUL.encours},
           {l:"Non démarrées",v:e.nondem,coul:ANA_COUL.nondem},
           {l:"Interrompues",v:e.inter,coul:ANA_COUL.inter}];
+}
+/* « 2026_08_P_MEO01_… » ou « …_MOE10_… » -> « MEO1 » / « MEO10 » ; à défaut, le libellé */
+function anaNumeroMeo(lib){
+  const m=String(lib||"").match(/M(?:EO|OE)[\s_-]*0*(\d+)/i);
+  return m?"MEO"+m[1]:String(lib||"");
 }
 function anaTexteEcheance(cal){
   if(cal.fin) return "Projet clôturé le "+dateVersFR(cal.fin);
@@ -5217,7 +5235,7 @@ function pdfAnalyseTdb(ctx,A){
   const lignes=pDecoupe(pdf,A.phr.join(" "),lw-40,11,"normal");
   const h=fz(20)+lignes.length*fz(15)+16;
   pAplat(pdf,MX,ctx.y,lw,h,fonds[A.meteo.n],4);
-  pAplat(pdf,MX,ctx.y,5,h,ANA_TXT[A.meteo.n]);
+  pAplat(pdf,MX,ctx.y,5,h,ANA_PUCE[A.meteo.n]);
   pTexte(pdf,MX+18,ctx.y+fz(16),"● "+A.meteo.l,{taille:13,style:"bold",couleur:ANA_TXT[A.meteo.n]});
   lignes.forEach((l,k)=>pTexte(pdf,MX+18,ctx.y+fz(20)+8+(k+1)*fz(15)-fz(4),l,{taille:11}));
   ctx.y+=h+18;
@@ -5245,7 +5263,7 @@ function pdfAnalyseTdb(ctx,A){
 
 function lignesFeuxPdf(A){
   return A.feux.map(f=>({cellules:{
-    feu:{type:"texte",t:"●",couleur:ANA_TXT[f.feu.n],style:"bold"},
+    feu:{type:"texte",t:"●",couleur:ANA_PUCE[f.feu.n],style:"bold"},
     lib:{type:"texte",t:f.lib},
     av:{type:"texte",t:f.av+" %"},
     ech:{type:"texte",t:dateVersFR(f.ech)||"—"},
@@ -5330,7 +5348,7 @@ function odpAnalyseTdb(d,p,A){
   const nb=odpLignes(txtS,z.w-0.9,11,false,30);
   const h=Math.min(6,0.75+nb*odpHautLigne(11)+0.3);
   pg.rect(z.x,y,z.w,h,{fond:fonds[A.meteo.n],rayon:0.12});
-  pg.rect(z.x,y,0.12,h,{fond:ANA_TXT[A.meteo.n]});
+  pg.rect(z.x,y,0.12,h,{fond:ANA_PUCE[A.meteo.n]});
   pg.texte(z.x+0.35,y+0.1,z.w-0.6,0.6,"● "+A.meteo.l,{taille:13,gras:true,couleur:ANA_TXT[A.meteo.n]});
   pg.texte(z.x+0.35,y+0.7,z.w-0.6,h-0.75,txtS,{taille:11,couleur:ODP_C.encre});
   y+=h+0.5;
@@ -5365,7 +5383,7 @@ function odpAnalyseComplete(d,p){
   if(sec.anaFeux!==false && A.feux.length) odpTableau(d,"Feu par action",titre,
     [{t:"",w:z.w*0.04},{t:"Action",w:z.w*0.36},{t:"Avct",w:z.w*0.08},{t:"Échéance",w:z.w*0.11},
      {t:"Délai",w:z.w*0.14},{t:"Tâches",w:z.w*0.13},{t:"État",w:z.w*0.14}],
-    A.feux.map(f=>[cel("●",{gras:true,couleur:ANA_TXT[f.feu.n],align:"center"}),cel(f.lib),
+    A.feux.map(f=>[cel("●",{gras:true,couleur:ANA_PUCE[f.feu.n],align:"center"}),cel(f.lib),
       cel(f.av+" %",{align:"center"}),
       cel(dateVersFR(f.ech)||"—",{align:"center"}),
       cel(anaDelaiAction(f),{gras:f.feu.l==="Échéance dépassée",
@@ -10184,7 +10202,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-b — Analyse : retard mesuré à la date uniquement";
+const VERSION="2026-09-25-c — Analyse : météo du projet, recommandations regroupées";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

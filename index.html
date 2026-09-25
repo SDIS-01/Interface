@@ -1188,17 +1188,16 @@ tbody tr.ligne-com:hover{background:transparent;}
       </div>
       <div class="bloc-reglage">
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="projet" checked>
-          Dossier complet du projet sélectionné — synthèse, actions et tâches,
-          journal de bord</label>
+          Dossier complet du projet sélectionné — planning, puis « En un coup d'œil »</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="projet-filtre">
           Dossier du projet sélectionné, restreint aux actions retenues par les
           filtres en cours</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="revue-actions">
-          Revue détaillée du projet sélectionné — une diapositive par action,
-          avec son planning et ses tâches</label>
+          Revue détaillée du projet sélectionné — planning, « En un coup d'œil »,
+          puis une diapositive par action avec ses tâches</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="portefeuille">
-          Revue de portefeuille — un tableau d'ensemble, puis une
-          diapositive de synthèse par projet</label>
+          Revue de portefeuille — le tableau des projets de la liste, puis
+          « En un coup d'œil » pour chacun</label>
       </div>
       <div class="bloc-reglage">
         <h3>Contenu et ordre des diapositives</h3>
@@ -10746,6 +10745,12 @@ async function genererODP(mode){
         return true;
       });
       if(!liste.length){ toast("Aucun projet à exporter.",true); return; }
+      if(IMPR.stylePptx!=="classique"){
+        /* sans filtres dans la fenêtre d'export : on suit la liste de gauche */
+        liste.length=0;
+        projetsFiltres().filter(p=>!estArchive(p)).forEach(p=>liste.push(p));
+        if(!liste.length){ toast("Aucun projet à exporter.",true); return; }
+      }
       trierPortefeuille(liste);
       odpGarde(d,"Suivi des projets et actions",null);
       if(IMPR.stylePptx!=="classique"){
@@ -10754,11 +10759,7 @@ async function genererODP(mode){
         const tries=odpPortefeuilleAnalyse(d,liste);
         tries.forEach(p=>{
           const lib=lire(c.tblMain,p,c.colLibelle);
-          if(IMPR.sectionsPptx.apercu!==false) odpApercu(d,p,analyseComplete(p),lib);
-          else{
-            const r=odpSynthese(d,p,lib);
-            if(r.reste) odpPlanningSuite(d,p,r.reste,lib,r.tous);
-          }
+          odpApercu(d,p,analyseComplete(p),lib);
         });
         odpAjouterNotes(d); odpFinitions(d);
         await odpEcrire(d,"Revue de portefeuille — "+new Date().toISOString().slice(0,10)+".odp");
@@ -10786,12 +10787,12 @@ async function genererODP(mode){
       odpGarde(d,titre,p);
       const r=odpSynthese(d,p,titre);
       if(r.reste) odpPlanningSuite(d,p,r.reste,titre,r.tous);
-      if(IMPR.stylePptx!=="classique" && IMPR.sectionsPptx.apercu!==false)
-        odpApercu(d,p,analyseComplete(p),null);
-      if(IMPR.sectionsPptx.analyse) odpAnalyseComplete(d,p);
+      const nouveau=IMPR.stylePptx!=="classique";
+      if(nouveau) odpApercu(d,p,analyseComplete(p),null);
+      if(!nouveau && IMPR.sectionsPptx.analyse) odpAnalyseComplete(d,p);
       acts.forEach((a,i)=>odpActionDiapo(d,a,i+1));
-      if(IMPR.sectionsPptx.commentaire) odpCommentaireProjet(d,p);
-      if(IMPR.sectionsPptx.journal) odpJournal(d,p);
+      if(!nouveau && IMPR.sectionsPptx.commentaire) odpCommentaireProjet(d,p);
+      if(!nouveau && IMPR.sectionsPptx.journal) odpJournal(d,p);
       if(IMPR.stylePptx!=="classique"){ odpAjouterNotes(d); odpFinitions(d); }
       await odpEcrire(d,"Revue — "+titre.replace(/[\\/:*?"<>|]/g,"-").slice(0,70)+".odp");
       toast(acts.length+" action"+(acts.length>1?"s":"")+" détaillée"+
@@ -10813,7 +10814,7 @@ async function genererODP(mode){
            synthèse avec le planning ; le reste relève de la présentation classique */
         const A=analyseComplete(p);
         f.synthese();
-        if(sec.apercu!==false) odpApercu(d,p,A,null);
+        odpApercu(d,p,A,null);
       }else
       IMPR.ordrePptx.forEach(cle=>{ if(sec[cle] && f[cle]) f[cle](); });
       if(IMPR.stylePptx!=="classique"){ odpAjouterNotes(d); odpFinitions(d); }
@@ -11574,7 +11575,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-z — diaporama : planning puis coup d'œil épuré";
+const VERSION="2026-09-26-a — export diaporama : trois choix seulement";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -11833,6 +11834,24 @@ function planningTachesAuto(p){
   return actionsDe(p).length<2;
 }
 
+/* La fenêtre d'export ne propose que le type d'export ; tous les autres
+   blocs de réglage sont masqués (leur code est conservé). */
+function simplifierFenetrePptx(){
+  const v=$("#voile-pptx");
+  if(!v) return;
+  v.querySelectorAll(".bloc-reglage").forEach(b=>{
+    b.style.display = b.querySelector('input[name=pptx-mode]') ? "" : "none";
+  });
+  const filtre=v.querySelector('input[name=pptx-mode][value=projet-filtre]');
+  if(filtre){
+    const lab=filtre.closest("label");
+    if(lab) lab.style.display="none";
+    if(filtre.checked){ const r=v.querySelector('input[name=pptx-mode][value=projet]'); if(r) r.checked=true; }
+  }
+  const intro=v.querySelector(".corps-modale > p");
+  if(intro) intro.textContent="Choisissez le type d'export. Le fichier produit est un diaporama "+
+    "LibreOffice Impress (.odp) bâti sur le modèle du SDIS.";
+}
 function majFormulairePptx(){
   const mode=document.querySelector('input[name=pptx-mode]:checked');
   document.querySelectorAll('input[name=pptx-style]').forEach(r=>{
@@ -11913,6 +11932,7 @@ $("#btn-pptx").onclick=()=>{
   if(enMobile()){ toast("L'export du diaporama n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet.",true); return; }
   majFormulairePptx();
+  simplifierFenetrePptx();
   $("#voile-pptx").classList.add("ouvert");
   document.querySelectorAll('input[name=pptx-mode]')
     .forEach(r=>r.onchange=majFormulairePptx);
@@ -11969,6 +11989,14 @@ $("#pptx-ok").onclick=async()=>{
   const ct=$("#pptx-taches");
   IMPR.taches = ct ? ct.checked : true;
   const cpt=$("#pptx-pl-taches");
+  /* seul le type d'export se choisit : la présentation et son contenu sont
+     ceux arrêtés ensemble (nouvelle présentation, projets et actions complets) */
+  IMPR.stylePptx="nouveau";
+  IMPR.prioritesPptx=null; IMPR.groupementsPptx=null;
+  IMPR.echDuPptx=""; IMPR.echAuPptx="";
+  IMPR.porteursRevue=null; IMPR.avctRevue=null;
+  IMPR.instancesGarde=null;
+  IMPR.taches=true;
   const modeOk=m?m.value:"projet";
   $("#voile-pptx").classList.remove("ouvert");
   if(cpt && modeOk==="projet"){

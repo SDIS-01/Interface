@@ -611,6 +611,10 @@ body.mob .msel-pan label{padding:9px 6px;}
 }
 .onglet:hover{color:var(--encre);}
 .onglet.actif{color:var(--bleu);border-bottom-color:var(--bleu);}
+/* l'onglet Analyse se distingue en rouge, actif ou non */
+.onglet[data-o="analyse"]{color:#C0504D;}
+.onglet[data-o="analyse"]:hover{color:#A33F3C;}
+.onglet[data-o="analyse"].actif{color:#C0504D;border-bottom-color:#C0504D;}
 .onglet .n{
   display:inline-block;background:#eef1f5;color:#4b5462;border-radius:9px;
   padding:0 6px;margin-left:5px;font-size:10.5px;
@@ -5440,7 +5444,7 @@ function analyseComplete(p){
   A.feux.forEach(f=>{
     if(f.feu.n==="gris" || f.av>=100 || !dansFenetre(f.ech)) return;
     ev.push({ts:f.ech,type:"Action",lib:f.lib,etat:etat(f.ech),id:f.a.id,
-      resp:lire(c.tblMain,f.a,c.colPorteur),av:f.av,meo:decouperLibelleAction(f.lib).num});
+      resp:lire(c.tblMain,f.a,c.colPorteur),av:f.av,meo:decouperLibelleAction(f.lib).num,meoLib:f.lib});
   });
   A.taches.forEach(({t,porteur})=>{
     const tn=pct(t[c.colTacheAvancement])||0, tf=Number(t[c.colTacheFin])||0;
@@ -5448,7 +5452,8 @@ function analyseComplete(p){
     ev.push({ts:tf,type:"Tâche",lib:lire(c.tblTache,t,c.colTacheLibelle),etat:etat(tf),
       id:t.id,porteur:porteur?porteur.id:null,
       resp:c.colTachePorteur?lire(c.tblTache,t,c.colTachePorteur):"",av:tn,
-      meo:(porteur && porteur.id!==p.id)?decouperLibelleAction(lire(c.tblMain,porteur,c.colLibelle)).num:""});
+      meo:(porteur && porteur.id!==p.id)?decouperLibelleAction(lire(c.tblMain,porteur,c.colLibelle)).num:"",
+      meoLib:(porteur && porteur.id!==p.id)?lire(c.tblMain,porteur,c.colLibelle):""});
   });
   [...A.echJRetard,...A.echJProches].forEach(e=>{
     if(!dansFenetre(e.ts)) return;
@@ -5695,9 +5700,15 @@ function anaFaitsHtml(p,A){
         go:F.decisions?"decisions":"",titre:"Voir les décisions en attente"}):"")+
     '</div>'+
     '<div class="af-duo">'+
-      '<div class="af-carte"><div class="af-tete">📅 Prochaine échéance</div>'+(F.proch
+      '<div class="af-carte'+(F.proch&&["Action","Tâche","À mener","Projet"].includes(F.proch.type)?' af-clic':'')+'"'+
+        (F.proch?(F.proch.type==="Action"?' data-ech-act="'+F.proch.id+'"'
+          :F.proch.type==="Tâche"?' data-ech-tache="'+F.proch.id+'" data-ech-porteur="'+(F.proch.porteur||"")+'"'
+          :F.proch.type==="À mener"?' data-go="journal"'
+          :F.proch.type==="Projet"?' data-go="depassees"':''):'')+
+        ' role="button" tabindex="0" title="Ouvrir"><div class="af-tete">📅 Prochaine échéance'+
+        (F.proch?' <i class="af-fleche">›</i>':'')+'</div>'+(F.proch
         ? '<div class="af-type">'+esc(F.proch.type)+'</div>'+
-          '<div class="af-lib" title="'+esc(F.proch.lib)+'">'+esc(libProch)+'</div>'+
+          '<div class="af-lib">'+esc(libProch)+'</div>'+
           '<div class="af-date">'+esc(dateVersFR(F.proch.ts))+' '+
             pastille(jours===0?"aujourd'hui":"dans "+anaJours(jours),jours<=7?"orange":"bleu")+'</div>'
         : '<div class="af-vide">Aucune échéance à venir.</div>')+'</div>'+
@@ -5851,6 +5862,7 @@ function brancherFaits(p){
         lignes.forEach(tr=>tr.classList.add("tache-cible"));
         setTimeout(()=>lignes.forEach(tr=>tr.classList.remove("tache-cible")),2600);
       }else if(el.dataset.go==="decisions") ouvrirDecisions(p);
+      else if(el.dataset.go==="journal"){ S.onglet="journal"; rendreProjet(); }
     };
     el.onclick=aller;
     el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); aller(); } };
@@ -6134,7 +6146,7 @@ function lignesExportEcheances(){
     const cpt={depasse:0,proche:0,avenir:0};
     A.frise.ev.forEach(e=>{
       if(cpt[e.etat]!==undefined) cpt[e.etat]++;
-      lignes.push({grp,projet,porteur,type:e.type,meo:e.meo||"",lib:e.lib,resp:e.resp||"",
+      lignes.push({grp,projet,porteur,type:e.type,meo:e.meoLib||e.meo||"",lib:e.lib,resp:e.resp||"",
         ts:e.ts,etat:e.etat,jours:Math.round((e.ts-auj)/JOUR),av:e.av});
     });
     if(A.frise.ev.length) synthese.push({grp,projet,porteur,...cpt,total:A.frise.ev.length});
@@ -6154,7 +6166,7 @@ async function exporterEcheancesExcel(){
 
   const COUL={depasse:"C0504D",proche:"E07B1F",avenir:"002395"};
   const dateXL=ts=>new Date(ts*1000);
-  const entete=["Groupement","Projet","Porteur du projet","Type","N° MEO","Élément","Responsable",
+  const entete=["Groupement","Projet","Porteur du projet","Type","Action (MEO)","Élément","Responsable",
                 "Date","État","Jours","Avancement"];
   const aoa=[entete].concat(lignes.map(l=>[l.grp,l.projet,l.porteur,l.type,l.meo,l.lib,l.resp,
     dateXL(l.ts),ANA_ETAT_LIB[l.etat]||"",l.jours,l.av==null?null:l.av/100]));
@@ -6164,7 +6176,7 @@ async function exporterEcheancesExcel(){
     const d=ws[X.utils.encode_cell({r,c:7})]; if(d) d.z="dd/mm/yyyy";
     const a=ws[X.utils.encode_cell({r,c:10})]; if(a) a.z="0%";
   }
-  ws["!cols"]=[18,40,22,10,9,55,22,11,13,7,11].map(w=>({wch:w}));
+  ws["!cols"]=[18,40,22,10,45,55,22,11,13,7,11].map(w=>({wch:w}));
   ws["!autofilter"]={ref:"A1:K"+n};
   if(S.xlsxStyles){
     const tete={font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"002395"}},
@@ -6176,7 +6188,7 @@ async function exporterEcheancesExcel(){
       if(e) e.s={font:{bold:true,color:{rgb:COUL[l.etat]||"444444"}}};
       const j=ws[X.utils.encode_cell({r,c:9})];
       if(j && l.jours<0) j.s={font:{color:{rgb:COUL.depasse}}};
-      for(const ci of [1,5]){
+      for(const ci of [1,4,5]){
         const cel=ws[X.utils.encode_cell({r,c:ci})];
         if(cel) cel.s=Object.assign({},cel.s||{},{alignment:{wrapText:true,vertical:"top"}});
       }
@@ -11727,7 +11739,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-i — export diaporama sans revue de portefeuille";
+const VERSION="2026-09-26-l — prochaine échéance cliquable";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

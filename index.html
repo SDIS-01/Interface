@@ -213,9 +213,9 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .af-carte{background:var(--fond);border-radius:8px;padding:10px 14px;min-width:0;}
 .af-tete{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.03em;color:var(--gris);margin-bottom:6px;}
 .af-type{font-size:11px;color:var(--gris);}
-.af-lib{font-size:14px;font-weight:bold;color:var(--encre);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.af-lib{font-size:14px;font-weight:bold;color:var(--encre);line-height:1.35;}
 .af-date{font-size:12.5px;margin-top:4px;color:var(--encre);}
-.af-extrait{font-size:12.5px;color:var(--encre);font-style:italic;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.af-extrait{font-size:12.5px;color:var(--encre);font-style:italic;margin-top:3px;line-height:1.45;white-space:pre-wrap;}
 .af-clic{cursor:pointer;transition:box-shadow .15s;}
 .af-clic:hover{box-shadow:0 2px 8px rgba(0,35,149,.15);}
 .af-clic:focus-visible{outline:2px solid var(--bleu);outline-offset:2px;}
@@ -223,6 +223,13 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .dec-item{border:1px solid var(--trait);border-radius:8px;padding:10px 12px;margin-top:10px;}
 .dec-meta{font-size:11.5px;color:var(--gris);}
 .dec-texte{font-size:13px;margin-top:5px;white-space:pre-wrap;line-height:1.5;}
+.af-tete-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.af-nav{display:inline-flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;}
+.af-nav em{font-style:normal;font-size:11px;color:var(--gris);min-width:38px;text-align:center;}
+.af-nav button{border:1px solid var(--trait);background:#fff;border-radius:6px;width:26px;height:24px;cursor:pointer;
+  font-size:15px;line-height:1;color:var(--bleu);padding:0;}
+.af-nav button:hover:not([disabled]){background:var(--bleu-clair);}
+.af-nav button[disabled]{opacity:.35;cursor:default;}
 .af-vide{font-size:12.5px;color:var(--gris);font-style:italic;}
 .af-pastille{font-style:normal;font-size:11px;font-weight:bold;border-radius:10px;padding:1px 8px;margin-left:6px;}
 .af-p-orange{background:var(--orange-pastel);color:#a85a12;}
@@ -3755,7 +3762,6 @@ function vueSynthese(p){
         '</div></div>'
       : '')+
     '<div class="carte'+(ouvert&&hmPret()?" carte-ouverte":"")+'"><h2>Commentaire</h2><div class="grille">'+
-      (hmPret() ? ch("Dernières modifications",recapHtml(p),true) : "")+
       ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
     '</div></div>'+
     (c.colPJ?'<div class="carte"><h2>Pièces jointes</h2>'+blocPJ(t,p,c.colPJ)+'</div>':"");
@@ -5592,28 +5598,72 @@ function anaFaits(p,A){
   S.decisionsAnalyse=listeDecisions;
   const proch=A.frise.ev.filter(e=>e.ts>=auj && e.type!=="Instance")[0]||null;
   /* dernière activité : journal ou historique, la plus récente */
-  /* dernière activité : on dit ce qui s'est passé, sur quoi, et on cite le texte */
+  /* activités : entrées du journal et commentaires tracés dans l'historique,
+     de la plus récente à la plus ancienne ; on dit ce qui s'est passé, sur
+     quoi, et on cite le texte */
   const sansEntete=t=>String(t||"").split("\n")[0].replace(/^\d{2}\/\d{2}\/\d{4}\s+—\s+[^:]{1,60}:\s*/,"").trim();
-  let act=null;
+  const activites=[];
   A.jnl.forEach(j=>{
     const d=Number(j[c.colJnlDate])||0;
-    if(d && (!act || d>act.ts)) act={ts:d,qui:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",
-      quoi:"Entrée au journal de bord",cible:"",extrait:sansEntete(lire(c.tblJournal,j,c.colJnlTexte))};
+    if(d) activites.push({ts:d,qui:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",
+      quoi:"Entrée au journal de bord",cible:"",extrait:txt(lire(c.tblJournal,j,c.colJnlTexte)).trim()});
   });
-  const h=(typeof hmDe==="function")?hmDe(p)[0]:null;
-  if(h && typeof h[c.colHmDate]==="number" && (!act || h[c.colHmDate]>act.ts)){
+  const hs=(typeof hmDe==="function")?hmDe(p):[];
+  hs.forEach(h=>{
+    if(typeof h[c.colHmDate]!=="number") return;
     const el=lire(c.tblHm,h,c.colHmElement), cat=categorieHm(el), nom=nomHm(el);
     const op=lire(c.tblHm,h,c.colHmOperation);
-    const quoi = cat==="Journal de bord" ? (op==="Ajout"?"Entrée au journal de bord":"Journal de bord modifié")
+    if(cat==="Journal de bord" && op==="Ajout") return;   // déjà repris depuis le journal
+    const quoi = cat==="Journal de bord" ? "Journal de bord modifié"
       : cat==="Action" ? "Commentaire sur l'action"
       : cat==="Tâche" ? "Commentaire sur la tâche"
       : cat==="Projet" ? "Commentaire sur le projet" : "Modification";
-    act={ts:h[c.colHmDate],qui:lire(c.tblHm,h,c.colHmAuteur),quoi,
-      cible:nom?(cat==="Action"?(decouperLibelleAction(nom).num||nom):nom):"",
-      extrait:sansEntete(lire(c.tblHm,h,c.colHmNouveau))};
-  }
+    /* l'historique ne garde qu'un libellé abrégé : on retrouve le libellé
+       complet parmi les actions et tâches du projet */
+    let complet=nom;
+    const pref=String(nom||"").replace(/…$/,"").trim();
+    if(pref && /…$/.test(nom||"")){
+      const cands = cat==="Tâche" ? A.taches.map(x=>lire(c.tblTache,x.t,c.colTacheLibelle))
+                  : cat==="Action" ? A.acts.map(a=>lire(c.tblMain,a,c.colLibelle)) : [];
+      complet=cands.find(l=>String(l||"").startsWith(pref))||nom;
+    }
+    const dec=cat==="Action"?decouperLibelleAction(complet):null;
+    activites.push({ts:h[c.colHmDate],qui:lire(c.tblHm,h,c.colHmAuteur),quoi,
+      cible:complet?(dec&&dec.num?dec.num+" — "+dec.texte:complet):"",
+      extrait:sansEntete(lire(c.tblHm,h,c.colHmNouveau))});
+  });
+  activites.sort((a,b)=>b.ts-a.ts);
+  const act=activites[0]||null;
   return {actT:A.etatAct.terminees.length,actives,tT:A.etatT.terminees,tActives,
-    depassees:A.frise.ev.filter(e=>e.etat==="depasse").length,decisions,proch,act};
+    depassees:A.frise.ev.filter(e=>e.etat==="depasse").length,decisions,proch,act,activites:activites.slice(0,50)};
+}
+/* carte « Activité » avec défilement ‹ › d'une activité à l'autre */
+function carteActivite(liste,i,JJ){
+  const auj=aujourdHuiUTC(), n=liste.length;
+  S.activitesAnalyse=liste; S.activiteIdx=i; S.activiteJJ=JJ;
+  const nav=n>1
+    ? '<span class="af-nav"><button type="button" data-act-nav="-1" title="Plus récente"'+(i<=0?" disabled":"")+'>‹</button>'+
+      '<em>'+(i+1)+' / '+n+'</em>'+
+      '<button type="button" data-act-nav="1" title="Plus ancienne"'+(i>=n-1?" disabled":"")+'>›</button></span>' : '';
+  const tete='<div class="af-tete af-tete-nav"><span>🕘 '+(i===0?"Dernière activité":"Activité")+'</span>'+nav+'</div>';
+  if(!n) return tete+'<div class="af-vide">Aucune activité enregistrée.</div>';
+  const a=liste[i], depuis=Math.max(0,Math.round((auj-a.ts)/JOUR));
+  const ton=depuis>JJ?"rouge":"gris";
+  return tete+'<div class="af-type">'+esc(a.quoi)+'</div>'+
+    (a.cible?'<div class="af-lib">'+esc(a.cible)+'</div>':'')+
+    (a.extrait?'<div class="af-extrait">« '+esc(a.extrait)+' »</div>':'')+
+    '<div class="af-date">'+esc(dateVersFR(a.ts))+(a.qui?' · '+esc(a.qui):'')+' '+
+      '<em class="af-pastille af-p-'+ton+'">'+(depuis===0?"aujourd'hui":"il y a "+anaJours(depuis))+'</em></div>';
+}
+function brancherActivite(){
+  const zone=$("#af-activite");
+  if(!zone) return;
+  zone.querySelectorAll("[data-act-nav]").forEach(b=>b.onclick=()=>{
+    const n=(S.activitesAnalyse||[]).length;
+    const i=Math.max(0,Math.min(n-1,(S.activiteIdx||0)+Number(b.dataset.actNav)));
+    zone.innerHTML=carteActivite(S.activitesAnalyse,i,S.activiteJJ);
+    brancherActivite();
+  });
 }
 function anaFaitsHtml(p,A){
   const F=anaFaits(p,A), auj=aujourdHuiUTC();
@@ -5626,8 +5676,8 @@ function anaFaitsHtml(p,A){
       (opt.go?' data-go="'+opt.go+'" role="button" tabindex="0" title="'+esc(opt.titre||"")+'"':'')+
       '><span>'+lab+(opt.go?' <i class="af-fleche">›</i>':'')+'</span><b>'+val+'</b>'+barre+'</div>';
   };
-  const libProch=F.proch?(F.proch.type==="Action"?(decouperLibelleAction(F.proch.lib).num||odpCourt(F.proch.lib,60))
-    :odpCourt(F.proch.lib,80)):"";
+  const libProch=F.proch?(F.proch.type==="Action"&&decouperLibelleAction(F.proch.lib).num
+    ? decouperLibelleAction(F.proch.lib).num+" — "+decouperLibelleAction(F.proch.lib).texte : F.proch.lib):"";
   const jours=F.proch?Math.round((F.proch.ts-auj)/JOUR):0;
   const depuis=F.act?Math.max(0,Math.round((auj-F.act.ts)/JOUR)):null;
   const pastille=(t,ton)=>'<em class="af-pastille af-p-'+ton+'">'+esc(t)+'</em>';
@@ -5647,13 +5697,7 @@ function anaFaitsHtml(p,A){
           '<div class="af-date">'+esc(dateVersFR(F.proch.ts))+' '+
             pastille(jours===0?"aujourd'hui":"dans "+anaJours(jours),jours<=7?"orange":"bleu")+'</div>'
         : '<div class="af-vide">Aucune échéance à venir.</div>')+'</div>'+
-      '<div class="af-carte"><div class="af-tete">🕘 Dernière activité</div>'+(F.act
-        ? '<div class="af-type">'+esc(F.act.quoi)+'</div>'+
-          (F.act.cible?'<div class="af-lib" title="'+esc(F.act.cible)+'">'+esc(F.act.cible)+'</div>':'')+
-          (F.act.extrait?'<div class="af-extrait" title="'+esc(F.act.extrait)+'">« '+esc(F.act.extrait)+' »</div>':'')+
-          '<div class="af-date">'+esc(dateVersFR(F.act.ts))+(F.act.qui?' · '+esc(F.act.qui):'')+' '+
-            pastille(depuis===0?"aujourd'hui":"il y a "+anaJours(depuis),depuis>A.JJ?"rouge":"gris")+'</div>'
-        : '<div class="af-vide">Aucune activité enregistrée.</div>')+'</div>'+
+      '<div class="af-carte" id="af-activite">'+carteActivite(F.activites,0,A.JJ)+'</div>'+
     '</div>'+
     '</div>';
 }
@@ -5789,6 +5833,7 @@ function vueAnalyse(p){
   brancherLiensEcheances($("#corps"));
   brancherEvolution(p);
   brancherFaits(p);
+  brancherActivite();
 }
 /* vignettes cliquables : on conduit l'utilisateur vers le détail */
 function brancherFaits(p){
@@ -11649,7 +11694,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-c — vignettes cliquables";
+const VERSION="2026-09-26-e — activités à faire défiler, synthèse allégée";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

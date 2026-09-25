@@ -240,6 +240,8 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .af-p-bleu{background:var(--bleu-clair);color:var(--bleu);}
 .af-p-rouge{background:var(--rouge-pastel);color:#993333;}
 .af-p-gris{background:#e7eaef;color:#4a5264;}
+.pf-photo{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 10px;}
+.pf-photo input{flex:1 1 260px;font:inherit;font-size:12.5px;border:1px solid var(--trait);border-radius:6px;padding:7px 9px;}
 .pf-point{display:inline-block;width:10px;height:10px;border-radius:50%;}
 .pf-2col{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;}
 /* fenêtre d'action */
@@ -885,6 +887,8 @@ tbody tr.ligne-com:hover{background:transparent;}
   align-items:center;justify-content:center;z-index:50;padding:20px;
 }
 .voile.ouvert{display:flex;}
+/* la saisie du mot de passe passe au-dessus des fenêtres (action, portefeuille) */
+#voile-mdp{z-index:59;}
 .modale{
   background:#fff;border-radius:8px;width:min(880px,100%);max-height:88vh;
   display:flex;flex-direction:column;overflow:hidden;
@@ -6706,7 +6710,8 @@ function anaEvolutionHtml(p,A){
   const dejaAuj=ph.some(r=>Number(r.Date)===auj);
   const m=mesuresPhoto(A), der=ph[ph.length-1];
   let corps;
-  if(!der) corps='<div class="ana-note">Aucune photo pour ce projet. Prenez-en une à chaque instance pour suivre l\'évolution.</div>';
+  if(!der) corps='<div class="ana-note">Aucune photo pour ce projet. Les photos se prennent pour tous les projets en cours '+
+    'depuis la fenêtre « Analyse portefeuille ».</div>';
   else{
     const d=k=>(m[k]==null||der[k]==null)?null:Math.round(m[k]-Number(der[k]));
     corps='<p class="ana-evol">Depuis la photo du <b>'+esc(dateVersFR(der.Date))+'</b>'+
@@ -6715,25 +6720,31 @@ function anaEvolutionHtml(p,A){
       ', tâches terminées '+anaDelta(d("Taches_terminees"))+', échéances dépassées '+
       anaDelta(d("Echeances_depassees"),"",true)+'.</p>'+anaSvgCourbe(ph,A);
   }
-  return '<div class="carte"><div class="fa-bloc-tete"><h2 style="margin:0">Évolution</h2>'+
-    '<button type="button" class="btn-2" id="ana-photo">📷 Photographier</button></div>'+
-    (instAuj && !dejaAuj ? '<div class="ana-bandeau-photo">Instance aujourd\'hui : <b>'+esc(instAuj.libelle||"")+
-      '</b>. Pensez à photographier l\'état du projet. <button type="button" class="btn" id="ana-photo-inst">Photographier</button></div>':'')+
+  return '<div class="carte"><h2>Évolution</h2>'+
     corps+(ph.length?'<div class="ana-note">'+anaPluriel(ph.length,"photo")+' enregistrée'+(ph.length>1?'s':'')+'.</div>':'')+
     '</div>';
 }
-function brancherEvolution(p){
-  const b=$("#ana-photo");
-  if(b) b.onclick=()=>{
-    const auj=aujourdHuiUTC();
-    const j=instancesDe(p).find(x=>Number(x.date)===auj);
-    photographier(p,j?(j.libelle||""):"");
-  };
-  const b2=$("#ana-photo-inst");
-  if(b2) b2.onclick=()=>{
-    const j=instancesDe(p).find(x=>Number(x.date)===aujourdHuiUTC());
-    photographier(p,j?(j.libelle||""):"");
-  };
+function brancherEvolution(p){ /* photos prises uniquement depuis le portefeuille */ }
+
+/* Photo de tous les projets en cours, en une seule écriture ; un projet déjà
+   photographié aujourd'hui est ignoré */
+async function photographierTous(liste,instance){
+  const t=S.cfg.tblPhotos||"Analyse_Photos";
+  if(S.photosEtat!=="ok"){ toast("Table "+t+" absente ou incomplète : créez-la d'abord dans Grist.",true); return false; }
+  const auj=aujourdHuiUTC(), info=infoCol(t,"Projet"), ref=!!(info && /^Ref:/.test(info.type));
+  const aFaire=liste.filter(p=>!photosDe(p).some(r=>Number(r.Date)===auj));
+  if(!aFaire.length){ toast("Tous les projets en cours ont déjà leur photo du jour."); return false; }
+  const lignes=aFaire.map(p=>Object.assign({Projet:ref?p.id:(cleProjet(p)||p.id),Date:auj,Instance:instance||""},
+    mesuresPhoto(analyseComplete(p))));
+  const cols={};
+  Object.keys(lignes[0]).forEach(k=>cols[k]=lignes.map(l=>l[k]));
+  try{ await grist.docApi.applyUserActions([["BulkAddRecord",t,lignes.map(()=>null),cols]]); }
+  catch(e){ toast("Photos non enregistrées : "+e.message,true); return false; }
+  await chargerPhotos();
+  const ignores=liste.length-aFaire.length;
+  toast(anaPluriel(aFaire.length,"projet")+" photographié"+(aFaire.length>1?"s":"")+
+    (ignores?" ("+ignores+" déjà photographié"+(ignores>1?"s":"")+" aujourd'hui)":""));
+  return true;
 }
 
 /* --- Portefeuille ------------------------------------------------------ */
@@ -6851,6 +6862,8 @@ function ouvrirAnalysePortefeuille(){
   v.innerHTML='<div class="fa-fenetre"><div class="fa-tete"><div class="fa-titre"><h2 style="margin:0">Analyse du portefeuille</h2>'+
     '<div class="ana-note" style="margin:2px 0 0">Projets de la liste de gauche, filtres compris, hors archives et projets interrompus.</div></div>'+
     '<button type="button" class="fa-fermer" title="Fermer (Échap)">✕</button></div>'+
+    '<div class="pf-photo"><input type="text" id="pf-instance" placeholder="Instance (facultatif) : CODIR du 29/09/2026">'+
+      '<button type="button" class="btn" id="pf-photo">📷 Photographier tous les projets en cours ('+enCours.length+')</button></div>'+
     '<div class="pf-kpis">'+kc("Projets en cours",enCours.length)+kc("Avec retard",nRet,ANA_ETAT_TXT.rouge)+
       kc("Sans retard",enCours.length-nRet,ANA_ETAT_TXT.vert)+'</div>'+
     bloc("Projets arrivant à échéance (90 jours)",aEch.length,
@@ -6872,6 +6885,15 @@ function ouvrirAnalysePortefeuille(){
       "Aucun projet en cours.")+
     '</div>';
   v.querySelector(".fa-fermer").onclick=fermer;
+  const bp=v.querySelector("#pf-photo");
+  if(bp) bp.onclick=async()=>{
+    if(!enCours.length){ toast("Aucun projet en cours.",true); return; }
+    if(!await motDePasseValide("Mot de passe requis pour photographier les projets en cours.")) return;
+    bp.disabled=true;
+    const ok=await photographierTous(enCours.map(l=>l.p),(v.querySelector("#pf-instance").value||"").trim());
+    bp.disabled=false;
+    if(ok) bp.textContent="✓ Photos enregistrées";
+  };
   v.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{
     S.projetSel=S.data.main.find(r=>r.id===Number(b.dataset.pf));
     S.onglet="analyse"; fermer(); reverrouiller(); rendreListe(); rendreProjet();
@@ -11739,7 +11761,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-l — prochaine échéance cliquable";
+const VERSION="2026-09-26-n — photo protégée par mot de passe";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

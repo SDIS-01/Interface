@@ -215,6 +215,7 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .af-type{font-size:11px;color:var(--gris);}
 .af-lib{font-size:14px;font-weight:bold;color:var(--encre);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .af-date{font-size:12.5px;margin-top:4px;color:var(--encre);}
+.af-extrait{font-size:12.5px;color:var(--encre);font-style:italic;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .af-vide{font-size:12.5px;color:var(--gris);font-style:italic;}
 .af-pastille{font-style:normal;font-size:11px;font-weight:bold;border-radius:10px;padding:1px 8px;margin-left:6px;}
 .af-p-orange{background:var(--orange-pastel);color:#a85a12;}
@@ -5582,14 +5583,26 @@ function anaFaits(p,A){
   });
   const proch=A.frise.ev.filter(e=>e.ts>=auj && e.type!=="Instance")[0]||null;
   /* dernière activité : journal ou historique, la plus récente */
+  /* dernière activité : on dit ce qui s'est passé, sur quoi, et on cite le texte */
+  const sansEntete=t=>String(t||"").split("\n")[0].replace(/^\d{2}\/\d{2}\/\d{4}\s+—\s+[^:]{1,60}:\s*/,"").trim();
   let act=null;
   A.jnl.forEach(j=>{
     const d=Number(j[c.colJnlDate])||0;
-    if(d && (!act || d>act.ts)) act={ts:d,qui:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",quoi:"journal de bord"};
+    if(d && (!act || d>act.ts)) act={ts:d,qui:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",
+      quoi:"Entrée au journal de bord",cible:"",extrait:sansEntete(lire(c.tblJournal,j,c.colJnlTexte))};
   });
   const h=(typeof hmDe==="function")?hmDe(p)[0]:null;
-  if(h && typeof h[c.colHmDate]==="number" && (!act || h[c.colHmDate]>act.ts))
-    act={ts:h[c.colHmDate],qui:lire(c.tblHm,h,c.colHmAuteur),quoi:"modification"};
+  if(h && typeof h[c.colHmDate]==="number" && (!act || h[c.colHmDate]>act.ts)){
+    const el=lire(c.tblHm,h,c.colHmElement), cat=categorieHm(el), nom=nomHm(el);
+    const op=lire(c.tblHm,h,c.colHmOperation);
+    const quoi = cat==="Journal de bord" ? (op==="Ajout"?"Entrée au journal de bord":"Journal de bord modifié")
+      : cat==="Action" ? "Commentaire sur l'action"
+      : cat==="Tâche" ? "Commentaire sur la tâche"
+      : cat==="Projet" ? "Commentaire sur le projet" : "Modification";
+    act={ts:h[c.colHmDate],qui:lire(c.tblHm,h,c.colHmAuteur),quoi,
+      cible:nom?(cat==="Action"?(decouperLibelleAction(nom).num||nom):nom):"",
+      extrait:sansEntete(lire(c.tblHm,h,c.colHmNouveau))};
+  }
   return {actT:A.etatAct.terminees.length,actives,tT:A.etatT.terminees,tActives,
     depassees:A.frise.ev.filter(e=>e.etat==="depasse").length,decisions,proch,act};
 }
@@ -5622,9 +5635,10 @@ function anaFaitsHtml(p,A){
             pastille(jours===0?"aujourd'hui":"dans "+anaJours(jours),jours<=7?"orange":"bleu")+'</div>'
         : '<div class="af-vide">Aucune échéance à venir.</div>')+'</div>'+
       '<div class="af-carte"><div class="af-tete">🕘 Dernière activité</div>'+(F.act
-        ? '<div class="af-type">'+esc(F.act.quoi.charAt(0).toUpperCase()+F.act.quoi.slice(1))+'</div>'+
-          '<div class="af-lib">'+esc(F.act.qui||"Auteur non renseigné")+'</div>'+
-          '<div class="af-date">'+esc(dateVersFR(F.act.ts))+' '+
+        ? '<div class="af-type">'+esc(F.act.quoi)+'</div>'+
+          (F.act.cible?'<div class="af-lib" title="'+esc(F.act.cible)+'">'+esc(F.act.cible)+'</div>':'')+
+          (F.act.extrait?'<div class="af-extrait" title="'+esc(F.act.extrait)+'">« '+esc(F.act.extrait)+' »</div>':'')+
+          '<div class="af-date">'+esc(dateVersFR(F.act.ts))+(F.act.qui?' · '+esc(F.act.qui):'')+' '+
             pastille(depuis===0?"aujourd'hui":"il y a "+anaJours(depuis),depuis>A.JJ?"rouge":"gris")+'</div>'
         : '<div class="af-vide">Aucune activité enregistrée.</div>')+'</div>'+
     '</div>'+
@@ -11575,7 +11589,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-a — export diaporama : trois choix seulement";
+const VERSION="2026-09-26-b — dernière activité explicite";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

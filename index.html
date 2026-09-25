@@ -198,6 +198,9 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .pf-k{background:var(--fond);border-radius:8px;padding:8px 14px;min-width:120px;}
 .pf-k span{display:block;font-size:11px;color:var(--gris);}
 .pf-k b{font-size:19px;}
+.ana-faits{margin-top:16px;padding-top:12px;border-top:1px solid var(--trait);}
+.ana-faits-l{font-size:12.5px;margin-top:8px;}
+.ana-faits-l span{display:inline-block;width:140px;color:var(--gris);font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
 .pf-point{display:inline-block;width:10px;height:10px;border-radius:50%;}
 .pf-2col{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;}
 /* fenêtre d'action */
@@ -5465,12 +5468,26 @@ function analyseComplete(p){
     if(A.echJRetard.length)
       rec("orange","Traiter ou clore "+anaPluriel(A.echJRetard.length,"action")+
         " à mener du journal arrivée"+(A.echJRetard.length>1?"s":"")+" à échéance.");
+    /* actions et tâches ouvertes sans porteur désigné */
+    const actSansPorteur=A.acts.filter(a=>!interrompu(a) && (pct(a[c.colAvancement])||0)<100 &&
+      c.colPorteur && !String(lire(c.tblMain,a,c.colPorteur)||"").trim());
+    const tSansPorteur=c.colTachePorteur ? A.taches.filter(({t})=>(pct(t[c.colTacheAvancement])||0)<100 &&
+      !statutInterrompu(c.tblTache,t,c.colTacheStatut) && !String(lire(c.tblTache,t,c.colTachePorteur)||"").trim()).length : 0;
+    if(actSansPorteur.length || tSansPorteur){
+      const morceaux=[];
+      if(actSansPorteur.length) morceaux.push(anaPluriel(actSansPorteur.length,"action")+
+        (actSansPorteur.length<=12?" ("+actSansPorteur.map(a=>anaNumeroMeo(A.lib(a))).join(", ")+")":""));
+      if(tSansPorteur) morceaux.push(anaPluriel(tSansPorteur,"tâche"));
+      rec("orange","Désigner un porteur : "+morceaux.join(" et ")+
+        ((actSansPorteur.length+tSansPorteur)>1?" attendent":" attend")+" encore d'être attribuée"+
+        ((actSansPorteur.length+tSansPorteur)>1?"s":"")+".");
+    }
     if(!A.insProchaine && c.tblInstance)
       rec("orange","Planifier la prochaine instance de suivi du projet.");
   }
   R.sort((x,y)=>(x.g===y.g)?0:(x.g==="rouge"?-1:1));
   A.recos=R;
-  A.score=scoreSante(A);
+  A.score=null;          // score de santé retiré à la demande de l'utilisateur
   return A;
 }
 
@@ -5533,6 +5550,52 @@ function mettreEnEvidenceTache(zone,id){
   tr.scrollIntoView({block:"center",behavior:"smooth"});
   tr.classList.add("tache-cible");
   setTimeout(()=>tr.classList.remove("tache-cible"),2600);
+}
+/* Chiffres clés, prochaine échéance et dernière activité : des faits bruts */
+function anaFaits(p,A){
+  const c=S.cfg, auj=aujourdHuiUTC();
+  const actives=A.acts.length-A.etatAct.inter.length;
+  const tActives=A.taches.length-A.etatT.inter;
+  let decisions=0;
+  if(c.tblJournal && c.colJnlNature) A.jnl.forEach(j=>{
+    const nat=txt(lire(c.tblJournal,j,c.colJnlNature)).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    if(/decision/.test(nat) && !(c.colJnlTraite && j[c.colJnlTraite]===true)) decisions++;
+  });
+  const proch=A.frise.ev.filter(e=>e.ts>=auj && e.type!=="Instance")[0]||null;
+  /* dernière activité : journal ou historique, la plus récente */
+  let act=null;
+  A.jnl.forEach(j=>{
+    const d=Number(j[c.colJnlDate])||0;
+    if(d && (!act || d>act.ts)) act={ts:d,qui:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",quoi:"journal de bord"};
+  });
+  const h=(typeof hmDe==="function")?hmDe(p)[0]:null;
+  if(h && typeof h[c.colHmDate]==="number" && (!act || h[c.colHmDate]>act.ts))
+    act={ts:h[c.colHmDate],qui:lire(c.tblHm,h,c.colHmAuteur),quoi:"modification"};
+  return {actT:A.etatAct.terminees.length,actives,tT:A.etatT.terminees,tActives,
+    depassees:A.frise.ev.filter(e=>e.etat==="depasse").length,decisions,proch,act};
+}
+function anaFaitsHtml(p,A){
+  const F=anaFaits(p,A), auj=aujourdHuiUTC();
+  const k=(lab,val,rouge)=>'<div class="pf-k"><span>'+lab+'</span><b'+(rouge?' style="color:#993333"':'')+'>'+val+'</b></div>';
+  const libProch=F.proch?(F.proch.type==="Action"?(decouperLibelleAction(F.proch.lib).num||odpCourt(F.proch.lib,50))
+    :odpCourt(F.proch.lib,60)):"";
+  const jours=F.proch?Math.round((F.proch.ts-auj)/JOUR):0;
+  return '<div class="ana-faits">'+
+    '<div class="pf-kpis">'+
+      (F.actives?k("Actions terminées",F.actT+" / "+F.actives):"")+
+      (F.tActives?k("Tâches terminées",F.tT+" / "+F.tActives):"")+
+      k("Échéances dépassées",F.depassees,F.depassees>0)+
+      (S.cfg.colJnlNature?k("Décisions en attente",F.decisions):"")+
+    '</div>'+
+    '<div class="ana-faits-l"><span>Prochaine échéance</span>'+(F.proch
+      ? '<b>'+esc(F.proch.type)+' — '+esc(libProch)+'</b> · '+esc(dateVersFR(F.proch.ts))+' ('+
+        (jours===0?"aujourd'hui":"dans "+anaJours(jours))+')'
+      : '<i>aucune échéance à venir</i>')+'</div>'+
+    '<div class="ana-faits-l"><span>Dernière activité</span>'+(F.act
+      ? '<b>'+esc(dateVersFR(F.act.ts))+'</b>'+(F.act.qui?' — '+esc(F.act.qui):'')+', '+esc(F.act.quoi)+
+        ' ('+(Math.round((auj-F.act.ts)/JOUR)<=0?"aujourd'hui":"il y a "+anaJours(Math.round((auj-F.act.ts)/JOUR)))+')'
+      : '<i>aucune activité enregistrée</i>')+'</div>'+
+    '</div>';
 }
 function anaTableauEcheances(A){
   const ev=A.frise.ev;
@@ -5641,7 +5704,7 @@ function vueAnalyse(p){
     (A.acts.length?anaSvgAnneau("actions",anaSegActions(A),A.acts.length):"")+
     (A.taches.length?anaSvgAnneau("tâches",anaSegTaches(A),A.taches.length):"")+
     '</div>'+
-    anaScoreHtml(A)+
+    anaFaitsHtml(p,A)+
     '</div>';
 
   const feux=A.feux.length
@@ -5727,10 +5790,6 @@ function pdfAnalyseTdb(ctx,A){
   pTexte(pdf,MX,ctx.y+fz(11),"Échéance",{taille:11,style:"bold",couleur:PDFC.gris});
   pTexte(pdf,jx,ctx.y+fz(11),anaTexteEcheance(cal),
     {taille:11,style:"bold",couleur:cal.depasse?ANA_TXT.rouge:PDFC.encre});
-  ctx.y+=fz(14)+12;
-  pTexte(pdf,MX,ctx.y+fz(11),"Score",{taille:11,style:"bold",couleur:PDFC.gris});
-  pTexte(pdf,jx,ctx.y+fz(11),texteScore(A.score).replace(/^Score de santé : /,""),
-    {taille:10.5,style:"bold",couleur:ANA_ETAT_TXT[niveauScore(A.score&&A.score.total)]});
   ctx.y+=fz(14)+12;
   /* anneaux à droite des jauges */
   const r=46;
@@ -5841,10 +5900,6 @@ function odpAnalyseTdb(d,p,A){
   pg.texte(z.x,y,3.3,jh,"Échéance",{taille:11,gras:true,couleur:ODP_C.attenue,valign:"middle",pad:0});
   pg.texte(jx,y,jw+4,jh,anaTexteEcheance(cal),
     {taille:11,gras:true,couleur:cal.depasse?ANA_TXT.rouge:ODP_C.encre,valign:"middle",pad:0});
-  y+=jh+0.35;
-  pg.texte(z.x,y,3.3,jh,"Score",{taille:11,gras:true,couleur:ODP_C.attenue,valign:"middle",pad:0});
-  pg.texte(jx,y,z.w-3.4,jh,texteScore(A.score).replace(/^Score de santé : /,""),
-    {taille:10.5,gras:true,couleur:ANA_ETAT_TXT[niveauScore(A.score&&A.score.total)],valign:"middle",pad:0});
   y+=jh+0.35;
   /* anneaux sous les jauges, côte à côte */
   const r=1.35, ya=Math.max(y+0.8,yJ+3.2)+r;
@@ -6162,7 +6217,7 @@ function odpApercu(d,p,A,titreProjet){
   odpColonne(pg,z.x+wc+gap,y,wc,hc,"Prochaines étapes",suite,"Aucune échéance à venir.","#F3F6FC");
   odpColonneAttention(pg,z.x+2*(wc+gap),y,wc,hc,att);
   pg.notes=[
-    "Météo : "+A.meteo.l+". "+texteScore(A.score)+".",
+    "Météo : "+A.meteo.l+".",
     A.phr.join(" "),
     A.recos.length?"Recommandations : "+A.recos.slice(0,5).map(r=>r.t).join(" / "):""
   ].filter(Boolean);
@@ -6345,7 +6400,7 @@ function texteScore(sc){
    Lot 3 — Évolution (photos) et analyse de portefeuille
    ======================================================================= */
 
-const PHOTO_COLS=["Projet","Date","Instance","Avancement","Score","Meteo","Actions_total","Actions_terminees",
+const PHOTO_COLS=["Projet","Date","Instance","Avancement","Meteo","Actions_total","Actions_terminees",
   "Actions_retard","Taches_total","Taches_terminees","Taches_retard","Echeances_depassees"];
 
 async function chargerPhotos(){
@@ -6381,7 +6436,7 @@ function photosDe(p){
 }
 
 function mesuresPhoto(A){
-  return {Avancement:A.cal.av==null?null:A.cal.av, Score:A.score?A.score.total:null, Meteo:A.meteo.l,
+  return {Avancement:A.cal.av==null?null:A.cal.av, Meteo:A.meteo.l,
     Actions_total:A.acts.length, Actions_terminees:A.etatAct.terminees.length, Actions_retard:A.actRetard.length,
     Taches_total:A.taches.length, Taches_terminees:A.etatT.terminees, Taches_retard:A.tRetard.length,
     Echeances_depassees:A.frise.ev.filter(e=>e.etat==="depasse").length};
@@ -6426,11 +6481,10 @@ function anaSvgCourbe(photos,A){
   let s='<svg viewBox="0 0 '+W+' '+H+'" class="ana-courbe">';
   [0,50,100].forEach(v=>s+='<line x1="'+x0+'" x2="'+x1+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#eef1f5"/>'+
     '<text x="'+(x0-6)+'" y="'+(Y(v)+4)+'" font-size="10" text-anchor="end" fill="#8a93a3">'+v+'</text>');
-  s+=ligne("av","#002395")+ligne("sc","#7FA23F");
+  s+=ligne("av","#002395");
   s+='<text x="'+x0+'" y="'+(H-6)+'" font-size="10" fill="#8a93a3">'+dateVersFR(t0)+'</text>'+
      '<text x="'+x1+'" y="'+(H-6)+'" font-size="10" text-anchor="end" fill="#8a93a3">aujourd\'hui</text>';
-  return s+'</svg><div class="ana-legende"><span style="color:#002395">■ Avancement</span>'+
-    '<span style="color:#7FA23F">■ Score de santé</span></div>';
+  return s+'</svg><div class="ana-legende"><span style="color:#002395">■ Avancement</span></div>';
 }
 
 function anaEvolutionHtml(p,A){
@@ -6453,7 +6507,7 @@ function anaEvolutionHtml(p,A){
     const d=k=>(m[k]==null||der[k]==null)?null:Math.round(m[k]-Number(der[k]));
     corps='<p class="ana-evol">Depuis la photo du <b>'+esc(dateVersFR(der.Date))+'</b>'+
       (der.Instance?' ('+esc(der.Instance)+')':'')+' : avancement '+anaDelta(d("Avancement")," pts")+
-      ', score '+anaDelta(d("Score")," pts")+', actions terminées '+anaDelta(d("Actions_terminees"))+
+      ', actions terminées '+anaDelta(d("Actions_terminees"))+
       ', tâches terminées '+anaDelta(d("Taches_terminees"))+', échéances dépassées '+
       anaDelta(d("Echeances_depassees"),"",true)+'.</p>'+anaSvgCourbe(ph,A);
   }
@@ -9249,11 +9303,6 @@ function rendreReglages(){
     .map(([k,l])=>'<div class="champ"><label>'+l+'</label><input type="number" min="0" data-cfg="'+k+
       '" value="'+esc(c[k])+'"></div>').join("")+
   '</div>'+
-  '<p style="margin-top:10px">Score de santé : poids des quatre axes (ramenés à 100).</p><div class="grille">'+
-  [["anaPoidsDelais","Délais"],["anaPoidsActions","Actions"],["anaPoidsTaches","Tâches"],["anaPoidsPilotage","Pilotage"]]
-    .map(([k,l])=>'<div class="champ"><label>'+l+'</label><input type="number" min="0" data-cfg="'+k+
-      '" value="'+esc(c[k])+'"></div>').join("")+
-  '</div>'+
   '<div class="champ" style="margin-top:10px"><label>Table des photos (évolution)</label>'+
     '<input type="text" data-cfg="tblPhotos" value="'+esc(c.tblPhotos||"Analyse_Photos")+'"></div>'+
   '</div>'+
@@ -11492,7 +11541,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-t — radar du score : libellés complets";
+const VERSION="2026-09-25-v — faits clés et recommandation porteurs";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

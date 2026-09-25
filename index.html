@@ -216,6 +216,13 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .af-lib{font-size:14px;font-weight:bold;color:var(--encre);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .af-date{font-size:12.5px;margin-top:4px;color:var(--encre);}
 .af-extrait{font-size:12.5px;color:var(--encre);font-style:italic;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.af-clic{cursor:pointer;transition:box-shadow .15s;}
+.af-clic:hover{box-shadow:0 2px 8px rgba(0,35,149,.15);}
+.af-clic:focus-visible{outline:2px solid var(--bleu);outline-offset:2px;}
+.af-fleche{font-style:normal;color:var(--bleu);font-weight:bold;margin-left:2px;}
+.dec-item{border:1px solid var(--trait);border-radius:8px;padding:10px 12px;margin-top:10px;}
+.dec-meta{font-size:11.5px;color:var(--gris);}
+.dec-texte{font-size:13px;margin-top:5px;white-space:pre-wrap;line-height:1.5;}
 .af-vide{font-size:12.5px;color:var(--gris);font-style:italic;}
 .af-pastille{font-style:normal;font-size:11px;font-weight:bold;border-radius:10px;padding:1px 8px;margin-left:6px;}
 .af-p-orange{background:var(--orange-pastel);color:#a85a12;}
@@ -5576,11 +5583,13 @@ function anaFaits(p,A){
   const c=S.cfg, auj=aujourdHuiUTC();
   const actives=A.acts.length-A.etatAct.inter.length;
   const tActives=A.taches.length-A.etatT.inter;
-  let decisions=0;
+  const listeDecisions=[];
   if(c.tblJournal && c.colJnlNature) A.jnl.forEach(j=>{
     const nat=txt(lire(c.tblJournal,j,c.colJnlNature)).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-    if(/decision/.test(nat) && !(c.colJnlTraite && j[c.colJnlTraite]===true)) decisions++;
+    if(/decision/.test(nat) && !(c.colJnlTraite && j[c.colJnlTraite]===true)) listeDecisions.push(j);
   });
+  const decisions=listeDecisions.length;
+  S.decisionsAnalyse=listeDecisions;
   const proch=A.frise.ev.filter(e=>e.ts>=auj && e.type!=="Instance")[0]||null;
   /* dernière activité : journal ou historique, la plus récente */
   /* dernière activité : on dit ce qui s'est passé, sur quoi, et on cite le texte */
@@ -5613,7 +5622,9 @@ function anaFaitsHtml(p,A){
     opt=opt||{};
     const barre=opt.ratio!=null
       ? '<div class="af-barre"><i style="width:'+Math.round(opt.ratio*100)+'%"></i></div>' : '';
-    return '<div class="af-k'+(opt.ton?' af-'+opt.ton:'')+'"><span>'+lab+'</span><b>'+val+'</b>'+barre+'</div>';
+    return '<div class="af-k'+(opt.ton?' af-'+opt.ton:'')+(opt.go?' af-clic':'')+'"'+
+      (opt.go?' data-go="'+opt.go+'" role="button" tabindex="0" title="'+esc(opt.titre||"")+'"':'')+
+      '><span>'+lab+(opt.go?' <i class="af-fleche">›</i>':'')+'</span><b>'+val+'</b>'+barre+'</div>';
   };
   const libProch=F.proch?(F.proch.type==="Action"?(decouperLibelleAction(F.proch.lib).num||odpCourt(F.proch.lib,60))
     :odpCourt(F.proch.lib,80)):"";
@@ -5624,8 +5635,10 @@ function anaFaitsHtml(p,A){
     '<div class="af-grille">'+
       (F.actives?k("Actions terminées",F.actT+'<small> / '+F.actives+'</small>',{ratio:F.actT/F.actives}):"")+
       (F.tActives?k("Tâches terminées",F.tT+'<small> / '+F.tActives+'</small>',{ratio:F.tT/F.tActives}):"")+
-      k("Échéances dépassées",F.depassees,{ton:F.depassees>0?"rouge":"vert"})+
-      (S.cfg.colJnlNature?k("Décisions en attente",F.decisions,{ton:F.decisions>0?"orange":""}):"")+
+      k("Échéances dépassées",F.depassees,{ton:F.depassees>0?"rouge":"vert",
+        go:F.depassees?"depassees":"",titre:"Voir les échéances dépassées"})+
+      (S.cfg.colJnlNature?k("Décisions en attente",F.decisions,{ton:F.decisions>0?"orange":"",
+        go:F.decisions?"decisions":"",titre:"Voir les décisions en attente"}):"")+
     '</div>'+
     '<div class="af-duo">'+
       '<div class="af-carte"><div class="af-tete">📅 Prochaine échéance</div>'+(F.proch
@@ -5646,11 +5659,11 @@ function anaFaitsHtml(p,A){
 }
 function anaTableauEcheances(A){
   const ev=A.frise.ev;
-  return '<div class="carte"><h2>Échéances à venir et en retard</h2>'+
+  return '<div class="carte" id="ana-echeances"><h2>Échéances à venir et en retard</h2>'+
     (ev.length
       ? '<div class="ana-defil"><table class="ana-tab"><thead><tr><th>Date</th><th>Type</th>'+
         '<th>Élément</th><th>État</th></tr></thead><tbody>'+
-        ev.map(e=>'<tr><td style="white-space:nowrap">'+esc(dateVersFR(e.ts))+'</td><td>'+esc(e.type)+
+        ev.map(e=>'<tr'+(e.etat==="depasse"?' class="ech-depasse"':'')+'><td style="white-space:nowrap">'+esc(dateVersFR(e.ts))+'</td><td>'+esc(e.type)+
           '</td><td>'+(e.type==="Action"
             ? '<button type="button" class="lien-action lien-fin" data-ech-act="'+e.id+'">'+esc(e.lib)+'</button>'
             : e.type==="Tâche"
@@ -5775,6 +5788,53 @@ function vueAnalyse(p){
       ' jours. Réglables dans les paramètres du widget.</p>';
   brancherLiensEcheances($("#corps"));
   brancherEvolution(p);
+  brancherFaits(p);
+}
+/* vignettes cliquables : on conduit l'utilisateur vers le détail */
+function brancherFaits(p){
+  document.querySelectorAll("#corps [data-go]").forEach(el=>{
+    const aller=()=>{
+      if(el.dataset.go==="depassees"){
+        const bloc=$("#ana-echeances");
+        if(!bloc) return;
+        bloc.scrollIntoView({behavior:"smooth",block:"start"});
+        const lignes=bloc.querySelectorAll("tr.ech-depasse");
+        lignes.forEach(tr=>tr.classList.add("tache-cible"));
+        setTimeout(()=>lignes.forEach(tr=>tr.classList.remove("tache-cible")),2600);
+      }else if(el.dataset.go==="decisions") ouvrirDecisions(p);
+    };
+    el.onclick=aller;
+    el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); aller(); } };
+  });
+}
+function ouvrirDecisions(p){
+  const c=S.cfg, liste=(S.decisionsAnalyse||[]).slice()
+    .sort((a,b)=>(Number(a[c.colJnlDelai])||Infinity)-(Number(b[c.colJnlDelai])||Infinity));
+  let v=document.querySelector(".fa-voile.dec");
+  if(v) v.remove();
+  v=document.createElement("div"); v.className="fa-voile dec"; document.body.appendChild(v);
+  const fermer=()=>{ v.remove(); document.removeEventListener("keydown",echap,true); };
+  const echap=e=>{ if(e.key==="Escape") fermer(); };
+  document.addEventListener("keydown",echap,true);
+  v.onmousedown=e=>{ if(e.target===v) fermer(); };
+  const auj=aujourdHuiUTC();
+  v.innerHTML='<div class="fa-fenetre" style="width:min(820px,100%)"><div class="fa-tete"><div class="fa-titre">'+
+    '<h2 style="margin:0">Décisions en attente <span class="n">'+liste.length+'</span></h2>'+
+    '<div class="ana-note" style="margin:2px 0 0">Entrées du journal de bord de nature « décision », non cochées « Traité ».</div></div>'+
+    '<button type="button" class="fa-fermer" title="Fermer (Échap)">✕</button></div>'+
+    liste.map(j=>{
+      const butoir=c.colJnlDelai?Number(j[c.colJnlDelai])||null:null;
+      const act=c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):"";
+      return '<div class="dec-item">'+
+        '<div class="dec-meta">'+esc(dateVersFR(j[c.colJnlDate])||"")+
+          (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?' · '+esc(lire(c.tblJournal,j,c.colJnlAuteur)):'')+
+          (act?' · <span class="pastille p-action">'+esc(act)+'</span>':'')+
+          (butoir?' · <b'+(butoir<auj?' class="ana-rouge"':'')+'>à décider avant le '+esc(dateVersFR(butoir))+'</b>':'')+'</div>'+
+        '<div class="dec-texte">'+esc(txt(lire(c.tblJournal,j,c.colJnlTexte)))+'</div></div>';
+    }).join("")+
+    '<div style="margin-top:14px"><button type="button" class="btn-2" id="dec-journal">Ouvrir le journal de bord</button></div></div>';
+  v.querySelector(".fa-fermer").onclick=fermer;
+  v.querySelector("#dec-journal").onclick=()=>{ fermer(); S.onglet="journal"; rendreProjet(); };
 }
 
 /* --- PDF --- */
@@ -11589,7 +11649,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-b — dernière activité explicite";
+const VERSION="2026-09-26-c — vignettes cliquables";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

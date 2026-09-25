@@ -183,6 +183,56 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .tab-trace td{vertical-align:top;font-size:12px;}
 /* onglet Analyse */
 .ana-tete p{margin:8px 0 0;line-height:1.6;font-size:13px;}
+/* fenêtre d'action */
+.lien-action{background:none;border:0;padding:0;text-align:left;color:var(--bleu);font:inherit;
+  font-weight:bold;cursor:pointer;line-height:1.4;}
+.lien-action:hover{text-decoration:underline;}
+.nb-taches{display:block;font-size:11px;color:var(--gris);margin-top:2px;}
+.lien-action.lien-fin{font-weight:normal;}
+tr.tache-cible td{background:#fff3c4!important;transition:background .4s;}
+.fa-voile{position:fixed;inset:0;z-index:52;background:rgba(16,24,40,.45);display:flex;
+  align-items:flex-start;justify-content:center;padding:24px 16px 80px;}
+.fa-fenetre{background:#fff;border-radius:10px;width:min(1180px,100%);max-height:calc(100vh - 110px);
+  overflow:auto;padding:18px 22px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+.fa-tete{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
+.fa-titre{flex:1;}
+.fa-titre textarea,.fa-titre input{font-size:16px;font-weight:bold;color:var(--bleu);}
+.fa-fermer{border:0;background:var(--fond);border-radius:6px;width:32px;height:32px;cursor:pointer;
+  font-size:15px;color:var(--gris);}
+.fa-fermer:hover{background:var(--trait);}
+.fa-bloc{margin-top:16px;}
+.fa-bloc h3{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--bleu);margin:0 0 8px;}
+.fa-bloc h3 .n{background:var(--bleu-clair);border-radius:9px;padding:1px 7px;font-size:11px;margin-left:4px;}
+.fa-bloc-tete{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
+.fa-bloc-tete h3{margin:0;}
+/* tâches : poignée, bulle, ordre */
+.col-poignee{width:18px;padding-left:2px!important;padding-right:0!important;}
+.poignee{cursor:grab;color:#aab2c0;font-size:13px;letter-spacing:-2px;user-select:none;}
+.poignee:active{cursor:grabbing;}
+.col-bulle{width:34px;}
+.btn-bulle{border:0;background:transparent;cursor:pointer;font-size:14px;padding:3px;border-radius:5px;}
+.btn-bulle:hover{background:var(--bleu-survol);}
+.fa-bloc-tete .btn-bulle{font-size:12px;padding:6px 10px;border:1px solid var(--trait);background:#fff;}
+tr.glisse-source{opacity:.45;}
+tr.glisse-avant td{box-shadow:inset 0 2px 0 var(--bleu);}
+tr.glisse-apres td{box-shadow:inset 0 -2px 0 var(--bleu);}
+.ordre-manuel{font-size:11.5px;color:var(--gris);margin:0 0 6px;}
+.lien-discret{border:0;background:none;color:var(--bleu);cursor:pointer;text-decoration:underline;font-size:11.5px;padding:0;}
+.bulle-com{position:fixed;z-index:58;background:#fff;border:1px solid var(--trait);border-radius:10px;
+  box-shadow:0 8px 28px rgba(0,0,0,.2);padding:12px;}
+.bc-titre{font-weight:bold;font-size:12.5px;margin-bottom:8px;color:var(--bleu);}
+.bc-titre span{font-weight:normal;color:var(--gris);margin-left:6px;}
+.bulle-com textarea,.bulle-com .bc-nom{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;
+  border:1px solid var(--trait);border-radius:6px;padding:7px;margin-bottom:8px;}
+.bc-boutons{display:flex;justify-content:flex-end;gap:8px;}
+/* ressources : type de fichier */
+.type-fichier{display:inline-block;font-size:10.5px;font-weight:bold;border-radius:4px;padding:2px 6px;
+  background:#eef0f4;color:#4a5264;}
+.type-fichier.t-pdf{background:#fbe3e2;color:#9b2c28;}
+.type-fichier.t-tableur{background:#e3f1e0;color:#2f6b22;}
+.type-fichier.t-texte{background:#e1e9f8;color:#1f4596;}
+.type-fichier.t-diapo{background:#fdebd9;color:#9a5212;}
+.type-fichier.t-image{background:#efe3f5;color:#6b2d86;}
 .ana-meteo{font-size:17px;font-weight:bold;}
 .ana-fond-vert{border-left:5px solid var(--vert);background:var(--vert-pastel);}
 .ana-fond-orange{border-left:5px solid var(--orange);background:var(--orange-pastel);}
@@ -1280,7 +1330,7 @@ const DEF = {
   colHmAncien:"Ancienne_valeur", colHmNouveau:"Nouvelle_valeur",
   tblTache:"", colTacheLien:"", colTacheLibelle:"", colTacheDebut:"", colTacheFin:"",
   colTacheAvancement:"", colTachePorteur:"", colTacheStatut:"", colTacheCommentaire:"",
-  colTachePJ:"", colJnlPJ:"", colInsPJ:"",
+  colTachePJ:"", colTacheOrdre:"", colJnlPJ:"", colInsPJ:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
   colJnlReponse:"Reponse_a", colJnlTraite:"Traité",
@@ -1322,7 +1372,8 @@ const CHAMPS_REGLAGES = [
     ["colTacheLien","Lien vers l'action"],["colTacheLibelle","Libellé de la tâche"],
     ["colTacheDebut","Date de début"],["colTacheFin","Date de fin"],
     ["colTacheAvancement","Avancement"],["colTachePorteur","Porteur"],["colTacheStatut","Statut"],
-    ["colTacheCommentaire","Commentaire"],["colTachePJ","Pièces jointes"]
+    ["colTacheCommentaire","Commentaire"],["colTachePJ","Pièces jointes"],
+    ["colTacheOrdre","Ordre manuel (colonne numérique)"]
   ]},
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
     ["colJnlLien","Lien vers le projet"],["colJnlAction","Lien vers l'action (facultatif)"],
@@ -1838,14 +1889,28 @@ function tachesDe(action){
     .sort(compareTaches);
 }
 
-/* Même principe que pour les actions : les tâches suivaient l'ordre de leur
-   création dans Grist. On les classe sur leur libellé, avec une comparaison
-   numérique pour que « 2. » vienne avant « 10. ». */
+/* Classement des tâches : ordre manuel s'il existe, sinon début puis échéance. */
 function compareTaches(a,b){
   const c=S.cfg;
-  return lire(c.tblTache,a,c.colTacheLibelle)
-    .localeCompare(lire(c.tblTache,b,c.colTacheLibelle),
-                   "fr",{numeric:true,sensitivity:"base"});
+  /* un ordre manuel, s'il existe, prime ; les tâches sans ordre suivent */
+  const oa=ordreTache(a), ob=ordreTache(b);
+  if(oa!==null || ob!==null){
+    if(oa===null) return 1;
+    if(ob===null) return -1;
+    if(oa!==ob) return oa-ob;
+  }
+  /* sinon : date de début, puis échéance ; les tâches sans date en fin */
+  const d=(x,y)=>{
+    x=Number(x)||null; y=Number(y)||null;
+    if(x===y) return 0;
+    if(x===null) return 1;
+    if(y===null) return -1;
+    return x-y;
+  };
+  return d(a[c.colTacheDebut],b[c.colTacheDebut]) ||
+         d(a[c.colTacheFin],b[c.colTacheFin]) ||
+         lire(c.tblTache,a,c.colTacheLibelle)
+           .localeCompare(lire(c.tblTache,b,c.colTacheLibelle),"fr",{numeric:true,sensitivity:"base"});
 }
 /* Identifiant de l'entrée mère, ou null pour une entrée de premier niveau. */
 function mereJnl(j){
@@ -2181,7 +2246,9 @@ async function appliquer(actions,traces){
   const sup=actionsTrace(traces);
   if(!sup.length) return await grist.docApi.applyUserActions(actions);
   try{
-    return await grist.docApi.applyUserActions(actions.concat(sup));
+    const res=await grist.docApi.applyUserActions(actions.concat(sup));
+    if(!S.moi) await apprendreMoi(res,actions.length);
+    return res;
   }catch(e){
     console.warn("Historique non enregistré : "+e.message);
     const r=await grist.docApi.applyUserActions(actions);
@@ -2661,6 +2728,7 @@ function rendreProjet(){
   });
 
   VUES[S.onglet](p);
+  if(S.fenetreAction && document.querySelector(".fa-voile")) rendreFenetreAction();
 }
 
 /* --- éditeur de champ générique --- */
@@ -3744,13 +3812,29 @@ function brancherHistorique(p){
   q.onkeydown=e=>{ if(e.key==="Enter"){ f.q=q.value; f.n=50; re(); } };
 }
 
+/* extension d'une pièce jointe, en majuscules : « rapport.final.PDF » -> « PDF » */
+function extensionPJ(id){
+  const nom=(S.pj[id]&&S.pj[id].nom)||"";
+  const m=nom.match(/\.([a-z0-9]{1,6})$/i);
+  return m?m[1].toUpperCase():"";
+}
+function familleType(x){
+  if(x==="PDF") return "pdf";
+  if(/^(XLSX?|XLSM|ODS|CSV)$/.test(x)) return "tableur";
+  if(/^(DOCX?|ODT|RTF|TXT|MD)$/.test(x)) return "texte";
+  if(/^(PPTX?|ODP)$/.test(x)) return "diapo";
+  if(/^(PNG|JPE?G|GIF|SVG|WEBP|BMP|TIFF?)$/.test(x)) return "image";
+  return "autre";
+}
 function vueRessources(p){
   const c=S.cfg;
   const tout=ressourcesDe(p);
-  const f=S.fRessources=S.fRessources||{origine:"",q:""};
+  const f=S.fRessources=S.fRessources||{origine:"",q:"",type:""};
   const origines=[...new Set(tout.map(r=>r.origine))];
+  const types=[...new Set(tout.map(r=>extensionPJ(r.id)).filter(Boolean))].sort();
   const vus=tout.filter(r=>{
     if(f.origine && r.origine!==f.origine) return false;
+    if(f.type && extensionPJ(r.id)!==f.type) return false;
     if(f.q){
       const q=pliColonne(f.q);
       const nom=pliColonne((S.pj[r.id]&&S.pj[r.id].nom)||"");
@@ -3765,7 +3849,10 @@ function vueRessources(p){
       '>'+esc(o)+'</option>').join("")+'</select>'+
     '<input type="search" id="fr-q" placeholder="Rechercher un fichier…" value="'+
       esc(f.q)+'">'+
-    ((f.origine||f.q)
+    '<select id="fr-type"><option value="">Tous les types</option>'+
+    types.map(x=>'<option value="'+esc(x)+'"'+(f.type===x?" selected":"")+'>'+esc(x)+'</option>').join("")+
+    '</select>'+
+    ((f.origine||f.q||f.type)
       ? '<button class="btn-raz" id="fr-raz">Réinitialiser</button>'+
         '<span class="decompte">'+vus.length+' sur '+tout.length+'</span>'
       : '<span class="decompte">'+tout.length+' au total</span>')+
@@ -3780,9 +3867,11 @@ function vueRessources(p){
       'Modifiez la recherche ou le filtre.</div></div>';
   }else{
     html+='<div class="carte"><table class="tbl"><thead><tr>'+
-      '<th>Fichier</th><th>Origine</th><th>Ligne</th></tr></thead><tbody>'+
+      '<th>Fichier</th><th style="width:70px">Type</th><th>Origine</th><th>Ligne</th></tr></thead><tbody>'+
       vus.map(r=>'<tr><td><button type="button" class="pj-chip" data-pj="'+r.id+
         '">'+esc((S.pj[r.id]&&S.pj[r.id].nom)||("pièce "+r.id))+'</button></td>'+
+        '<td>'+(extensionPJ(r.id)?'<span class="type-fichier t-'+esc(familleType(extensionPJ(r.id)))+'">'+
+          esc(extensionPJ(r.id))+'</span>':'—')+'</td>'+
         '<td>'+esc(r.origine)+'</td>'+
         '<td>'+esc(r.libelle||"(sans libellé)")+'</td></tr>').join("")+
       '</tbody></table></div>';
@@ -3790,7 +3879,8 @@ function vueRessources(p){
   $("#corps").innerHTML=html;
   $("#fr-origine").onchange=e=>{ f.origine=e.target.value; vueRessources(p); };
   const raz=$("#fr-raz");
-  if(raz) raz.onclick=()=>{ f.origine=""; f.q=""; vueRessources(p); };
+  if(raz) raz.onclick=()=>{ f.origine=""; f.q=""; f.type=""; vueRessources(p); };
+  $("#fr-type").onchange=e=>{ f.type=e.target.value; vueRessources(p); };
   const q=$("#fr-q");
   q.oninput=()=>{ f.q=q.value; };
   q.onsearch=q.onchange=()=>{ f.q=q.value; vueRessources(p); };
@@ -3822,9 +3912,7 @@ function vueActions(p){
       '</div></div>';
   }else{
     const avecStatut=!!c.colStatut;
-    const nbCol=avecStatut?8:7;
     html+='<div class="carte"><table><thead><tr>'+
-      '<th class="col-chevron"></th>'+
       '<th>Action</th>'+
       (avecStatut?'<th class="col-statut">Statut</th>':'')+
       '<th class="col-mini-avct">Avct</th><th class="col-etroite">Porteur</th>'+
@@ -3832,33 +3920,25 @@ function vueActions(p){
       '<th style="width:34px"></th></tr></thead><tbody>'+
       acts.map(r=>{
         const a=pct(r[c.colAvancement]);
-        const cle=t+":"+r.id, ouvert=!!S.ouverts[cle];
-        const detail=(c.colCommentaire||c.colPJ);
-        return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
-          (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
-          '<td>'+editeur(t,r,c.colLibelle,{auto:true})+'</td>'+
+        const nbT=(c.tblTache&&c.colTacheLien)?tachesDe(r).length:null;
+        return '<tr>'+
+          '<td><button type="button" class="lien-action" data-ouvrir="'+r.id+'" title="Ouvrir l\'action">'+
+            esc(lire(t,r,c.colLibelle)||"(sans libellé)")+'</button>'+
+            (nbT!==null?'<span class="nb-taches">'+nbT+' tâche'+(nbT>1?'s':'')+'</span>':'')+'</td>'+
           (avecStatut?'<td>'+editeur(t,r,c.colStatut)+'</td>':'')+
           '<td>'+champAvct(t,r,c.colAvancement,a,interrompu(r))+'</td>'+
           '<td>'+editeur(t,r,c.colPorteur)+'</td>'+
           '<td>'+editeur(t,r,c.colDebut)+'</td>'+
           '<td>'+editeur(t,r,c.colEch)+'</td>'+
-          '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>'+
-          (detail
-            ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
-              '><td colspan="'+nbCol+'"><div class="sous-ligne">'+
-              (c.colCommentaire?'<div class="sl-com"><label>Commentaire</label>'+
-                editeur(t,r,c.colCommentaire,{multi:true})+'</div>':'')+
-              (c.colPJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
-                blocPJ(t,r,c.colPJ)+'</div>':'')+
-              '</div></td></tr>'
-            : '');
+          '<td><button class="btn-sup" data-sup="'+r.id+'" title="Supprimer l\'action">✕</button></td></tr>';
+
       }).join("")+'</tbody></table></div>';
   }
   $("#corps").innerHTML=html;
   brancherEditeurs();
   brancherPJ();
-  brancherRepli();
   brancherFiltres("fa",S.fActions,()=>vueActions(p),"m-fa-action");
+  document.querySelectorAll("[data-ouvrir]").forEach(b=>b.onclick=()=>ouvrirFenetreAction(Number(b.dataset.ouvrir)));
   $("#add-action").onclick=async()=>{
     const r=await feuilleAjout({titre:"Nouvelle action",
       sous:lire(t,p,c.colLibelle),libelle:"Libellé de l'action"});
@@ -3913,37 +3993,7 @@ function vueTaches(p){
     if(!ts.length){
       html+='<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>';
     }else{
-      html+='<table><thead><tr><th class="col-chevron"></th>'+
-        '<th>Tâche</th>'+
-        (avecStatutT?'<th class="col-statut">Statut</th>':'')+
-        '<th class="col-mini-avct">Avct</th>'+
-        '<th class="col-etroite">Porteur</th><th class="col-etroite">Début</th>'+
-        '<th class="col-etroite">Échéance</th><th style="width:34px"></th></tr></thead><tbody>'+
-        ts.map(r=>{
-          const a=pct(r[c.colTacheAvancement]);
-          const cle=c.tblTache+":"+r.id, ouvert=!!S.ouverts[cle];
-          const detail=!!(c.colTacheCommentaire||c.colTachePJ);
-          return '<tr class="ligne-repli" data-repli="'+cle+'"><td class="col-chevron">'+
-            (detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
-            '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
-            (avecStatutT?'<td>'+editeur(c.tblTache,r,c.colTacheStatut)+'</td>':'')+
-            '<td>'+(c.colTacheAvancement
-              ? champAvct(c.tblTache,r,c.colTacheAvancement,a,
-                          statutInterrompu(c.tblTache,r,c.colTacheStatut)):'')+'</td>'+
-            '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
-            '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
-            '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+
-            '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>'+
-            (detail
-              ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
-                '><td colspan="'+nbColT+'">'+
-                (c.colTacheCommentaire?'<label>Commentaire</label>'+
-                  editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true}):'')+
-                (c.colTachePJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
-                  blocPJ(c.tblTache,r,c.colTachePJ)+'</div>':'')+
-                '</td></tr>'
-              : '');
-        }).join("")+'</tbody></table>';
+      html+=tableauTachesHtml(act,ts);
     }
     html+='<div style="margin-top:10px"><button class="btn-2" data-addt="'+act.id+'">+ Ajouter une tâche</button></div></div>';
   });
@@ -3956,7 +4006,71 @@ function vueTaches(p){
   brancherRepli();
   brancherPJ();
   brancherFiltres("ft",S.fTaches,()=>vueTaches(p),"m-ft-action");
-  document.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
+  brancherTaches($("#corps"),()=>rendreProjet());
+}
+
+/* =======================================================================
+   Tâches : lignes partagées, ordre manuel, bulle de commentaire
+   ======================================================================= */
+
+/* Ordre manuel d'une tâche (colonne « Ordre »), ou null. */
+function ordreTache(t){
+  const c=S.cfg;
+  if(!c.colTacheOrdre) return null;
+  const v=t[c.colTacheOrdre];
+  return (v===null||v===undefined||v===""||isNaN(Number(v))) ? null : Number(v);
+}
+
+/* Une ligne de tâche : poignée, chevron, champs, bulle, suppression. */
+function ligneTacheHtml(r,act,avecStatutT,nbColT){
+  const c=S.cfg;
+  const a=pct(r[c.colTacheAvancement]);
+  const cle=c.tblTache+":"+r.id, ouvert=!!S.ouverts[cle];
+  const detail=!!(c.colTacheCommentaire||c.colTachePJ);
+  return '<tr class="ligne-repli" data-repli="'+cle+'" data-tache="'+r.id+'" data-act="'+act.id+'">'+
+    '<td class="col-poignee">'+(c.colTacheOrdre?'<span class="poignee" title="Glisser pour déplacer">⋮⋮</span>':'')+'</td>'+
+    '<td class="col-chevron">'+(detail?'<span class="chevron">'+(ouvert?"▾":"▸")+'</span>':'')+'</td>'+
+    '<td>'+editeur(c.tblTache,r,c.colTacheLibelle,{auto:true})+'</td>'+
+    (avecStatutT?'<td>'+editeur(c.tblTache,r,c.colTacheStatut)+'</td>':'')+
+    '<td>'+(c.colTacheAvancement
+      ? champAvct(c.tblTache,r,c.colTacheAvancement,a,statutInterrompu(c.tblTache,r,c.colTacheStatut)):'')+'</td>'+
+    '<td>'+editeur(c.tblTache,r,c.colTachePorteur)+'</td>'+
+    '<td>'+editeur(c.tblTache,r,c.colTacheDebut)+'</td>'+
+    '<td>'+editeur(c.tblTache,r,c.colTacheFin)+'</td>'+
+    '<td class="col-bulle">'+(c.colTacheCommentaire
+      ? '<button type="button" class="btn-bulle" data-bulle-t="'+c.tblTache+'" data-bulle-r="'+r.id+
+        '" data-bulle-c="'+c.colTacheCommentaire+'" title="Ajouter un commentaire">💬</button>':'')+'</td>'+
+    '<td><button class="btn-sup" data-supt="'+r.id+'" title="Supprimer la tâche">✕</button></td></tr>'+
+    (detail
+      ? '<tr class="ligne-com" data-sous="'+cle+'"'+(ouvert?'':' style="display:none"')+
+        '><td colspan="'+nbColT+'">'+
+        (c.colTacheCommentaire?'<label>Commentaire</label>'+
+          editeur(c.tblTache,r,c.colTacheCommentaire,{multi:true}):'')+
+        (c.colTachePJ?'<div class="sl-pj"><label>Pièces jointes</label>'+
+          blocPJ(c.tblTache,r,c.colTachePJ)+'</div>':'')+
+        '</td></tr>'
+      : '');
+}
+
+/* Tableau des tâches d'une action (onglet Tâches et fenêtre d'action). */
+function tableauTachesHtml(act,ts){
+  const c=S.cfg, avecStatutT=!!c.colTacheStatut, nbColT=avecStatutT?10:9;
+  const manuel=!!c.colTacheOrdre && tachesDe(act).some(t=>ordreTache(t)!==null);
+  return (manuel?'<div class="ordre-manuel">Ordre manuel · '+
+      '<button type="button" class="lien-discret" data-ordre-raz="'+act.id+'">Revenir au classement par dates</button></div>':'')+
+    '<table class="tab-taches"><thead><tr><th class="col-poignee"></th><th class="col-chevron"></th>'+
+    '<th>Tâche</th>'+(avecStatutT?'<th class="col-statut">Statut</th>':'')+
+    '<th class="col-mini-avct">Avct</th>'+
+    '<th class="col-etroite">Porteur</th><th class="col-etroite">Début</th>'+
+    '<th class="col-etroite">Échéance</th><th style="width:34px"></th><th style="width:34px"></th></tr></thead>'+
+    '<tbody data-tbody-act="'+act.id+'">'+ts.map(r=>ligneTacheHtml(r,act,avecStatutT,nbColT)).join("")+
+    '</tbody></table>';
+}
+
+/* Branchements communs : ajout, suppression, glisser-déposer, bulles. */
+function brancherTaches(zone,apres){
+  const c=S.cfg;
+  zone.querySelectorAll("[data-addt]").forEach(b=>b.onclick=async()=>{
     const act=S.data.main.find(r=>r.id===Number(b.dataset.addt));
     if(!act){ toast("Porteur introuvable pour cette tâche.",true); return; }
     const rep=await feuilleAjout({titre:"Nouvelle tâche",
@@ -3970,14 +4084,255 @@ function vueTaches(p){
     if(info && info.type.startsWith("Ref:")) champs[c.colTacheLien]=act.id;
     else if(info && info.type.startsWith("RefList:")) champs[c.colTacheLien]=["L",act.id];
     else champs[c.colTacheLien]=txt(act[c.colActKey])||cleProjet(act);
+    /* en ordre manuel, la nouvelle tâche se range en fin de liste */
+    if(c.colTacheOrdre){
+      const ords=tachesDe(act).map(ordreTache).filter(v=>v!==null);
+      if(ords.length) champs[c.colTacheOrdre]=Math.max.apply(null,ords)+1;
+    }
     await ajouter(c.tblTache,champs);
-    await charger(); rendreProjet();
+    await charger(); apres();
   });
-  document.querySelectorAll("[data-supt]").forEach(b=>b.onclick=async()=>{
+  zone.querySelectorAll("[data-supt]").forEach(b=>b.onclick=async()=>{
     if(!await confirmerSuppression("Supprimer définitivement cette tâche du document Grist ?")) return;
     await supprimer(c.tblTache,Number(b.dataset.supt));
-    await charger(); rendreProjet();
+    await charger(); apres();
   });
+  zone.querySelectorAll("[data-ordre-raz]").forEach(b=>b.onclick=async()=>{
+    const act=S.data.main.find(r=>r.id===Number(b.dataset.ordreRaz));
+    if(!act) return;
+    const ids=tachesDe(act).map(t=>t.id);
+    try{
+      await grist.docApi.applyUserActions([["BulkUpdateRecord",c.tblTache,ids,
+        {[c.colTacheOrdre]:ids.map(()=>null)}]]);
+    }catch(e){ toast("Échec : "+e.message,true); return; }
+    await charger(); apres();
+  });
+  zone.querySelectorAll("[data-bulle-t]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    ouvrirBulle(b,b.dataset.bulleT,Number(b.dataset.bulleR),b.dataset.bulleC,apres);
+  });
+  brancherGlisser(zone,apres);
+}
+
+/* Glisser-déposer : la poignée seule rend la ligne déplaçable, pour ne pas
+   gêner la sélection de texte dans les champs. Le dépôt n'est accepté qu'au
+   sein des tâches d'une même action. */
+function brancherGlisser(zone,apres){
+  const c=S.cfg;
+  if(!c.colTacheOrdre) return;
+  let tire=null;
+  const nettoyer=()=>zone.querySelectorAll(".glisse-avant,.glisse-apres")
+    .forEach(x=>x.classList.remove("glisse-avant","glisse-apres"));
+  zone.querySelectorAll("tr[data-tache]").forEach(tr=>{
+    const p=tr.querySelector(".poignee");
+    if(p){
+      p.onmousedown=()=>{ tr.draggable=true; };
+      p.onmouseup=()=>{ tr.draggable=false; };
+    }
+    tr.ondragstart=e=>{
+      tire=tr; tr.classList.add("glisse-source");
+      e.dataTransfer.effectAllowed="move";
+      try{ e.dataTransfer.setData("text/plain",tr.dataset.tache); }catch(x){}
+    };
+    tr.ondragend=()=>{ tr.draggable=false; tr.classList.remove("glisse-source"); nettoyer(); tire=null; };
+    tr.ondragover=e=>{
+      if(!tire || tire===tr || tire.dataset.act!==tr.dataset.act) return;
+      e.preventDefault();
+      const r=tr.getBoundingClientRect(), avant=e.clientY<r.top+r.height/2;
+      nettoyer(); tr.classList.add(avant?"glisse-avant":"glisse-apres");
+    };
+    tr.ondrop=async e=>{
+      if(!tire || tire===tr || tire.dataset.act!==tr.dataset.act) return;
+      e.preventDefault();
+      const r=tr.getBoundingClientRect(), avant=e.clientY<r.top+r.height/2;
+      const act=S.data.main.find(x=>x.id===Number(tr.dataset.act));
+      const source=Number(tire.dataset.tache), cible=Number(tr.dataset.tache);
+      nettoyer();
+      if(!act) return;
+      /* on repart de l'ordre complet de l'action, filtres compris */
+      const ids=tachesDe(act).map(t=>t.id).filter(id=>id!==source);
+      let i=ids.indexOf(cible);
+      if(i<0) return;
+      if(!avant) i++;
+      ids.splice(i,0,source);
+      try{
+        await grist.docApi.applyUserActions([["BulkUpdateRecord",c.tblTache,ids,
+          {[c.colTacheOrdre]:ids.map((x,k)=>k+1)}]]);
+      }catch(err){ toast("Déplacement non enregistré : "+err.message,true); return; }
+      await charger(); apres();
+    };
+  });
+}
+
+/* --- Bulle de commentaire ------------------------------------------------
+   Chaque ajout s'inscrit en tête du commentaire existant, précédé de la date
+   du jour et de l'auteur. L'auteur est le nom du compte Grist, appris dans la
+   table d'historique (colonne Auteur en formule déclenchée sur user.Name). */
+
+const MOI_CLE="consoleProjets.moi";
+function moiMemorise(){ try{ return localStorage.getItem(MOI_CLE)||""; }catch(e){ return ""; } }
+function memoriserMoi(n){ try{ if(n) localStorage.setItem(MOI_CLE,n); }catch(e){} }
+
+/* Après une écriture accompagnée d'historique : on lit l'auteur que Grist a
+   inscrit sur la ligne créée. Une seule lecture par session. */
+async function apprendreMoi(res,nbActions){
+  const c=S.cfg;
+  if(S.moi || !c.tblHm || !c.colHmAuteur || !res) return;
+  const ids=[].concat(...(res.retValues||[]).slice(nbActions).map(v=>Array.isArray(v)?v:[v]))
+    .filter(v=>Number.isInteger(v));
+  if(!ids.length) return;
+  S.derniersHm=ids;
+  try{
+    const tab=await grist.docApi.fetchTable(c.tblHm);
+    const i=tab.id.indexOf(ids[ids.length-1]);
+    const v=i>=0 ? tab[c.colHmAuteur][i] : null;
+    if(typeof v==="string" && v.trim()){ S.moi=v.trim(); memoriserMoi(S.moi); }
+  }catch(e){}
+}
+
+function fermerBulle(){
+  const b=document.querySelector(".bulle-com");
+  if(b) b.remove();
+  document.removeEventListener("mousedown",surClicHorsBulle,true);
+}
+function surClicHorsBulle(e){
+  if(!e.target.closest(".bulle-com") && !e.target.closest(".btn-bulle")) fermerBulle();
+}
+
+function ouvrirBulle(bouton,tableId,rowId,colId,apres){
+  fermerBulle();
+  const connu=S.moi||(!hmPret()?moiMemorise():"");
+  const demanderNom=!S.moi && !hmPret();
+  const b=document.createElement("div");
+  b.className="bulle-com";
+  b.innerHTML='<div class="bc-titre">Nouveau commentaire <span>'+esc(dateDuJourFR())+
+      (S.moi?' — '+esc(S.moi):'')+'</span></div>'+
+    (demanderNom?'<input type="text" class="bc-nom" placeholder="Votre nom" value="'+esc(connu)+'">':'')+
+    '<textarea class="bc-texte" rows="4" placeholder="Votre commentaire…"></textarea>'+
+    '<div class="bc-boutons"><button type="button" class="btn-2 bc-annuler">Annuler</button>'+
+    '<button type="button" class="btn bc-ok">Ajouter</button></div>';
+  document.body.appendChild(b);
+  const r=bouton.getBoundingClientRect();
+  const w=Math.min(380,window.innerWidth-20);
+  b.style.width=w+"px";
+  b.style.left=Math.max(10,Math.min(window.innerWidth-w-10,r.right-w))+"px";
+  const haut=r.bottom+6+200>window.innerHeight;
+  b.style.top=(haut?Math.max(10,r.top-6-b.offsetHeight):r.bottom+6)+"px";
+  const ta=b.querySelector(".bc-texte");
+  ta.focus();
+  b.querySelector(".bc-annuler").onclick=fermerBulle;
+  b.onkeydown=e=>{ if(e.key==="Escape"){ e.stopPropagation(); fermerBulle(); } };
+  setTimeout(()=>document.addEventListener("mousedown",surClicHorsBulle,true),0);
+  b.querySelector(".bc-ok").onclick=async()=>{
+    const texte=ta.value.trim();
+    if(!texte){ toast("Saisissez un commentaire.",true); return; }
+    let nom=S.moi||"";
+    if(demanderNom){
+      nom=(b.querySelector(".bc-nom").value||"").trim();
+      if(!nom){ toast("Indiquez votre nom.",true); return; }
+      memoriserMoi(nom);
+    }
+    b.querySelector(".bc-ok").disabled=true;
+    const ok=await ajouterCommentaire(tableId,rowId,colId,texte,nom);
+    if(!ok){ b.querySelector(".bc-ok").disabled=false; return; }
+    fermerBulle();
+    await charger(); apres();
+  };
+}
+
+async function ajouterCommentaire(tableId,rowId,colId,texte,nom){
+  const c=S.cfg;
+  if(nbModifs() && !await enregistrerBrouillon()) return false;
+  const ligne=ligneDe(tableId,rowId);
+  if(!ligne){ toast("Ligne introuvable.",true); return false; }
+  const ancien=txt(ligne[colId]);
+  const JOKER="\u2063AUTEUR\u2063";           // remplacé dès que le nom est connu
+  const entete=dateDuJourFR()+" — "+(nom||JOKER)+" : ";
+  const ajout=entete+texte;
+  const nouveau=ajout+(ancien.trim()?"\n"+ancien:"");
+  const tr=traceModif(tableId,rowId,colId,nouveau,ancien);
+  if(tr) tr.nouveau=ajout;                    // l'historique retient l'ajout, pas tout le fil
+  try{
+    await appliquer([["UpdateRecord",tableId,rowId,{[colId]:nouveau}]],tr?[tr]:[]);
+  }catch(e){ toast("Échec de l'enregistrement : "+e.message,true); return false; }
+  if(!nom){
+    /* première écriture de la session : le nom vient d'être appris */
+    const vrai=S.moi||"";
+    const fix=s=>s.replace(JOKER+" : ",vrai?vrai+" : ":"").replace(JOKER,vrai);
+    const acts=[["UpdateRecord",tableId,rowId,{[colId]:fix(nouveau)}]];
+    if(tr && S.derniersHm && S.derniersHm.length && c.colHmNouveau)
+      acts.push(["UpdateRecord",c.tblHm,S.derniersHm[S.derniersHm.length-1],{[c.colHmNouveau]:fix(ajout)}]);
+    try{ await grist.docApi.applyUserActions(acts); }catch(e){}
+  }
+  toast("Commentaire ajouté");
+  return true;
+}
+
+/* =======================================================================
+   Fenêtre d'une action
+   ======================================================================= */
+
+function ouvrirFenetreAction(id){
+  S.fenetreAction=id;
+  rendreFenetreAction();
+}
+function fermerFenetreAction(){
+  const v=document.querySelector(".fa-voile");
+  if(v) v.remove();
+  fermerBulle();
+  S.fenetreAction=null;
+  document.removeEventListener("keydown",surEchapFenetre,true);
+  rendreProjet();
+}
+function surEchapFenetre(e){
+  if(e.key!=="Escape" || document.querySelector(".bulle-com") || document.querySelector(".mb-voile")) return;
+  fermerFenetreAction();
+}
+
+function rendreFenetreAction(){
+  const c=S.cfg, t=c.tblMain;
+  const a=S.data.main.find(r=>r.id===S.fenetreAction);
+  let v=document.querySelector(".fa-voile");
+  if(!a){ if(v) v.remove(); S.fenetreAction=null; return; }
+  const defil=v ? v.querySelector(".fa-fenetre").scrollTop : 0;
+  if(!v){
+    v=document.createElement("div");
+    v.className="fa-voile";
+    document.body.appendChild(v);
+    v.onmousedown=e=>{ if(e.target===v) fermerFenetreAction(); };
+    document.addEventListener("keydown",surEchapFenetre,true);
+  }
+  const ch=(lab,html,pleine)=>'<div class="champ'+(pleine?" pleine":"")+'"><label>'+lab+'</label>'+html+'</div>';
+  const av=pct(a[c.colAvancement]);
+  const ts=tachesDe(a);
+  v.innerHTML='<div class="fa-fenetre" role="dialog" aria-modal="true">'+
+    '<div class="fa-tete"><div class="fa-titre">'+editeur(t,a,c.colLibelle,{auto:true})+'</div>'+
+    '<button type="button" class="fa-fermer" title="Fermer (Échap)">✕</button></div>'+
+    '<div class="grille">'+
+      (c.colStatut?ch("Statut",editeur(t,a,c.colStatut)):"")+
+      ch("Avancement",champAvct(t,a,c.colAvancement,av,interrompu(a)))+
+      ch("Porteur",editeur(t,a,c.colPorteur))+
+      ch("Début",editeur(t,a,c.colDebut))+
+      ch("Échéance",editeur(t,a,c.colEch))+
+    '</div>'+
+    (c.colCommentaire
+      ? '<div class="fa-bloc"><div class="fa-bloc-tete"><h3>Commentaire</h3>'+
+        '<button type="button" class="btn-2 btn-bulle" data-bulle-t="'+t+'" data-bulle-r="'+a.id+
+        '" data-bulle-c="'+c.colCommentaire+'">💬 Ajouter un commentaire</button></div>'+
+        editeur(t,a,c.colCommentaire,{multi:true})+'</div>' : "")+
+    (c.colPJ?'<div class="fa-bloc"><h3>Pièces jointes</h3>'+blocPJ(t,a,c.colPJ)+'</div>':"")+
+    (c.tblTache && c.colTacheLien
+      ? '<div class="fa-bloc"><h3>Tâches <span class="n">'+ts.length+'</span></h3>'+
+        (ts.length?tableauTachesHtml(a,ts):'<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>')+
+        '<div style="margin-top:10px"><button class="btn-2" data-addt="'+a.id+'">+ Ajouter une tâche</button></div></div>'
+      : "")+
+    '</div>';
+  v.querySelector(".fa-fenetre").scrollTop=defil;
+  v.querySelector(".fa-fermer").onclick=fermerFenetreAction;
+  brancherEditeurs();
+  brancherPJ();
+  brancherRepli();
+  brancherTaches(v,rendreFenetreAction);
 }
 
 /* --- Instances --- */
@@ -4974,12 +5329,13 @@ function analyseComplete(p){
     ev.push({ts:A.cal.ech,type:"Projet",lib:"Échéance du projet",etat:etat(A.cal.ech)});
   A.feux.forEach(f=>{
     if(f.feu.n==="gris" || f.av>=100 || !dansFenetre(f.ech)) return;
-    ev.push({ts:f.ech,type:"Action",lib:f.lib,etat:etat(f.ech)});
+    ev.push({ts:f.ech,type:"Action",lib:f.lib,etat:etat(f.ech),id:f.a.id});
   });
-  A.taches.forEach(({t})=>{
+  A.taches.forEach(({t,porteur})=>{
     const tn=pct(t[c.colTacheAvancement])||0, tf=Number(t[c.colTacheFin])||0;
     if(tn>=100 || statutInterrompu(c.tblTache,t,c.colTacheStatut) || !dansFenetre(tf)) return;
-    ev.push({ts:tf,type:"Tâche",lib:lire(c.tblTache,t,c.colTacheLibelle),etat:etat(tf)});
+    ev.push({ts:tf,type:"Tâche",lib:lire(c.tblTache,t,c.colTacheLibelle),etat:etat(tf),
+      id:t.id,porteur:porteur?porteur.id:null});
   });
   [...A.echJRetard,...A.echJProches].forEach(e=>{
     if(!dansFenetre(e.ts)) return;
@@ -5078,6 +5434,31 @@ function anaSegTaches(A){
 }
 /* « 2026_08_P_MEO01_… » ou « …_MOE10_… » -> « MEO1 » / « MEO10 » ; à défaut, le libellé */
 const ANA_ETAT_LIB={depasse:"Dépassée",proche:"Sous 7 jours",avenir:"À venir",passe:"Passée"};
+/* Depuis les échéances de l'analyse : ouvrir l'action, ou la tâche dans la
+   fenêtre de son action (onglet Tâches si elle est posée sur le projet). */
+function brancherLiensEcheances(zone){
+  zone.querySelectorAll("[data-ech-act]").forEach(b=>b.onclick=()=>
+    ouvrirFenetreAction(Number(b.dataset.echAct)));
+  zone.querySelectorAll("[data-ech-tache]").forEach(b=>b.onclick=()=>{
+    const id=Number(b.dataset.echTache), porteur=Number(b.dataset.echPorteur)||null;
+    const p=S.projetSel;
+    if(porteur && (!p || porteur!==p.id)){
+      ouvrirFenetreAction(porteur);
+      mettreEnEvidenceTache(document.querySelector(".fa-voile"),id);
+    }else{
+      S.onglet="taches"; rendreProjet();
+      mettreEnEvidenceTache($("#corps"),id);
+    }
+  });
+}
+function mettreEnEvidenceTache(zone,id){
+  if(!zone) return;
+  const tr=zone.querySelector('tr[data-tache="'+id+'"]');
+  if(!tr){ toast("Tâche masquée par un filtre de l'onglet Tâches.",true); return; }
+  tr.scrollIntoView({block:"center",behavior:"smooth"});
+  tr.classList.add("tache-cible");
+  setTimeout(()=>tr.classList.remove("tache-cible"),2600);
+}
 function anaTableauEcheances(A){
   const ev=A.frise.ev;
   return '<div class="carte"><h2>Échéances à venir et en retard</h2>'+
@@ -5085,7 +5466,12 @@ function anaTableauEcheances(A){
       ? '<div class="ana-defil"><table class="ana-tab"><thead><tr><th>Date</th><th>Type</th>'+
         '<th>Élément</th><th>État</th></tr></thead><tbody>'+
         ev.map(e=>'<tr><td style="white-space:nowrap">'+esc(dateVersFR(e.ts))+'</td><td>'+esc(e.type)+
-          '</td><td>'+esc(e.lib)+'</td><td style="color:'+ANA_ETAT_COUL[e.etat]+
+          '</td><td>'+(e.type==="Action"
+            ? '<button type="button" class="lien-action lien-fin" data-ech-act="'+e.id+'">'+esc(e.lib)+'</button>'
+            : e.type==="Tâche"
+            ? '<button type="button" class="lien-action lien-fin" data-ech-tache="'+e.id+
+              '" data-ech-porteur="'+(e.porteur||"")+'">'+esc(e.lib)+'</button>'
+            : esc(e.lib))+'</td><td style="color:'+ANA_ETAT_COUL[e.etat]+
           ';font-weight:bold;white-space:nowrap">'+ANA_ETAT_LIB[e.etat]+'</td></tr>').join("")+
         '</tbody></table></div>'
       : '<div class="ana-note">Rien en retard ni à venir dans les 90 prochains jours.</div>')+'</div>';
@@ -5172,9 +5558,6 @@ function vueAnalyse(p){
     (A.acts.length?anaSvgAnneau("actions",anaSegActions(A),A.acts.length):"")+
     (A.taches.length?anaSvgAnneau("tâches",anaSegTaches(A),A.taches.length):"")+
     '</div>'+
-    '<h3 class="ana-h3">Frise de J−30 à J+90</h3>'+
-    (A.frise.ev.some(e=>e.ts>=A.frise.deb)?anaSvgFrise(A.frise)
-      :'<div class="ana-note">Aucune échéance sur la période.</div>')+
     '</div>';
 
   const feux=A.feux.length
@@ -5199,6 +5582,7 @@ function vueAnalyse(p){
     '<p class="ana-note">Un retard correspond à une échéance dépassée. Alerte journal à '+A.JJ+
       ' jours ; échéances proches à '+A.JP+
       ' jours. Réglables dans les paramètres du widget.</p>';
+  brancherLiensEcheances($("#corps"));
 }
 
 /* --- PDF --- */
@@ -8172,6 +8556,7 @@ function devineDefauts(){
     if(!c.colTacheAvancement) c.colTacheAvancement=ids.find(i=>/avanc/i.test(i))||"";
     if(!c.colTachePorteur) c.colTachePorteur=ids.find(i=>/porteur|responsable/i.test(i))||"";
     if(!c.colTacheCommentaire) c.colTacheCommentaire=ids.find(i=>/comment/i.test(i))||"";
+    if(!c.colTacheOrdre) c.colTacheOrdre=ids.find(i=>/^ordre$/i.test(i))||"";
   }
 }
 
@@ -10203,7 +10588,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-25-e — Analyse : échéances à venir et en retard";
+const VERSION="2026-09-25-h — liens depuis les échéances de l'analyse";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

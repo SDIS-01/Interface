@@ -193,6 +193,32 @@ details.repliable.repliable[open]{display:flex;flex-direction:column;white-space
 .ana-liste li.ana-orange{color:#a85a12;}
 .ana-liste li.ana-vert{color:#3b6d11;}
 .ana-note{color:var(--gris);font-size:11px;margin:4px 2px 14px;}
+.ana-tdb{display:flex;flex-wrap:wrap;gap:22px;align-items:center;}
+.ana-jauges{flex:1 1 360px;min-width:280px;}
+.ana-jauge{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px;}
+.ana-jl{width:110px;font-weight:bold;color:var(--gris);}
+.ana-jb{flex:1;height:14px;background:#eef2f8;border-radius:7px;overflow:hidden;}
+.ana-jb i{display:block;height:100%;border-radius:7px;}
+.ana-jn{color:var(--gris);font-size:11.5px;}
+.ana-ecart{margin:8px 0 0 120px;font-weight:bold;font-size:13px;}
+.ana-ecart.ana-rouge{color:#993333}.ana-ecart.ana-orange{color:#a85a12}.ana-ecart.ana-vert{color:#3b6d11}
+.ana-anneau{display:flex;align-items:center;gap:8px;}
+.ana-anneau ul{list-style:none;margin:0;padding:0;font-size:11.5px;line-height:1.7;}
+.ana-anneau i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;}
+.ana-h3{font-size:12px;color:var(--gris);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.03em;}
+.ana-frise{width:100%;height:auto;max-height:170px;}
+.ana-legende{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--gris);}
+.ana-defil{overflow-x:auto;}
+.ana-tab{width:100%;border-collapse:collapse;font-size:12.5px;}
+.ana-tab th{text-align:left;color:var(--gris);font-size:11px;border-bottom:1px solid var(--trait);padding:5px 6px;}
+.ana-tab td{border-bottom:1px solid var(--trait);padding:5px 6px;vertical-align:top;}
+.ana-tab td.ana-rouge,.ana-tab .ana-rouge{color:#993333;font-weight:bold}
+.ana-tab td.ana-orange{color:#a85a12;font-weight:bold}.ana-tab td.ana-vert{color:#3b6d11}
+.ana-detail summary{cursor:pointer;list-style:none;}
+.ana-detail summary h2{display:inline;}
+.ana-detail summary::before{content:"▸ ";color:var(--gris);}
+.ana-detail[open] summary::before{content:"▾ ";}
+.ana-detail .carte{box-shadow:none;border:none;padding-left:0;padding-right:0;}
 .tab-trace .trace-date{white-space:nowrap;color:var(--gris);}
 .tab-trace .avant{color:var(--gris);text-decoration:line-through;}
 .tab-trace .fleche{color:var(--gris);}
@@ -4912,35 +4938,6 @@ function lignesAnalyse(A){
 
 const ANA_METEO={vert:"🟢",orange:"🟠",rouge:"🔴",gris:"⏸"};
 
-function vueAnalyse(p){
-  const A=analyseProjet(p);
-  const c=S.cfg;
-  const li=(t,g)=>'<li class="ana-'+(g||"neutre")+'">'+esc(t)+'</li>';
-  const bloc=(titre,items)=>items.length
-    ? '<div class="carte"><h2>'+titre+'</h2><ul class="ana-liste">'+items.join("")+'</ul></div>' : "";
-  const L=lignesAnalyse(A);
-  const pris=r=>L.filter(l=>l.r===r||(Array.isArray(r)&&r.includes(l.r)));
-  const items=rubs=>pris(rubs).map(l=>li((["Actions","Tâches","Avancement","Écart",
-    "Délai consommé","Délai","Fin projetée","Clôture","Journal de bord",
-    "Charge par porteur","Sans date de fin","Dernière instance","Prochaine instance"]
-    .includes(l.r)?l.r+" : ":"")+l.t,l.g));
-
-  $("#corps").innerHTML=
-    '<div class="carte ana-tete ana-fond-'+A.meteo.n+'">'+
-      '<div class="ana-meteo">'+ANA_METEO[A.meteo.n]+' '+esc(A.meteo.l)+'</div>'+
-      '<p>'+A.phr.map(esc).join(" ")+'</p></div>'+
-    bloc("Points d'attention",A.alertes.length
-      ? A.alertes.map(a=>li(a.t,a.g)) : [li("Aucun point d'attention","vert")])+
-    bloc("Avancement et délais",items(["Avancement","Clôture","Délai consommé","Écart","Fin projetée","Délai"]))+
-    bloc("Actions MEO",items(["Actions","Action en retard","Action sans tâche","Échéance à "+A.JP+" j"]))+
-    bloc("Tâches",items(["Tâches","Tâche en retard","Sans date de fin","Charge par porteur"]))+
-    bloc("Pilotage et suivi",items(["Journal de bord","À mener — en retard","À mener — sous 7 j",
-      "Dernière instance","Prochaine instance"]))+
-    '<p class="ana-note">Seuils : vert jusqu\'à '+A.SV+' points d\'écart, rouge au-delà de '+A.SR+
-      ' ; alerte journal à '+A.JJ+' jours ; échéances proches à '+A.JP+
-      ' jours. Réglables dans les paramètres du widget.</p>';
-}
-
 /* PDF : un tableau « Rubrique / Constat » */
 function lignesAnalysePdf(p){
   const coul={rouge:"#993333",orange:"#a85a12",vert:"#3b6d11",gris:PDFC.gris};
@@ -4959,8 +4956,488 @@ function odpAnalyse(d,p){
     cel(l.r,{gras:true,couleur:ODP_C.attenue}),
     cel((l.r==="Météo"?"● ":"")+l.t,{gras:l.g==="rouge"||l.r==="Météo",
       couleur:coul[l.g]||ODP_C.encre})]);
-  return odpTableau(d,"Analyse du projet",lire(S.cfg.tblMain,p,S.cfg.colLibelle),
+  return odpTableau(d,"Détail de l'analyse",lire(S.cfg.tblMain,p,S.cfg.colLibelle),
     [{t:"Rubrique",w:z.w*0.22},{t:"Constat",w:z.w*0.78}],lg);
+}
+
+
+/* --- Lot 1 : feux par action, frise des échéances, recommandations --- */
+
+const ANA_COUL={termine:"#7FA23F",encours:"#E8B400",nondem:"#C0504D",inter:"#595959"};
+const ANA_TXT={rouge:"#993333",orange:"#a85a12",vert:"#3b6d11",gris:"#666660"};
+
+function analyseComplete(p){
+  const A=analyseProjet(p);
+  const c=S.cfg, auj=aujourdHuiUTC();
+  const tachesOk=!!(c.tblTache && c.colTacheLien);
+
+  /* feu par action */
+  A.feux=A.acts.map(a=>{
+    const aa=pct(a[c.colAvancement]), av=aa==null?0:aa;
+    const d0=Number(a[c.colDebut])||A.cal.d0||null, ech=Number(a[c.colEch])||null;
+    let consomme=null, ecart=null;
+    if(d0 && ech && ech>d0){
+      consomme=Math.max(0,Math.round((auj-d0)/(ech-d0)*100));
+      ecart=Math.min(100,consomme)-av;
+    }
+    const ts=tachesOk?tachesDe(a):[];
+    const tRet=ts.filter(t=>{
+      const tn=pct(t[c.colTacheAvancement])||0, tf=Number(t[c.colTacheFin])||0;
+      return !statutInterrompu(c.tblTache,t,c.colTacheStatut) && tn<100 && tf && tf<auj;
+    }).length;
+    let feu;
+    if(interrompu(a)) feu={n:"gris",l:"Interrompue"};
+    else if(av>=100) feu={n:"vert",l:"Terminée"};
+    else if(ech && ech<auj) feu={n:"rouge",l:"Échéance dépassée"};
+    else if(ecart!=null && ecart>A.SR) feu={n:"rouge",l:"En retard"};
+    else if((ecart!=null && ecart>A.SV) || tRet || (tachesOk && !ts.length))
+      feu={n:"orange",l:"À surveiller"};
+    else feu={n:"vert",l:"Dans les temps"};
+    return {a,lib:A.lib(a),av,ech,consomme,ecart,nbT:ts.length,tRet,feu};
+  });
+
+  /* frise : de J-30 à J+90 */
+  const deb=auj-30*JOUR, fin=auj+90*JOUR, ev=[];
+  const dansFenetre=ts=>ts && ts>=deb && ts<=fin;
+  const etat=ts=>ts<auj?"depasse":(ts<=auj+7*JOUR?"proche":"avenir");
+  if(!A.cal.fin && dansFenetre(A.cal.ech) && (A.cal.av||0)<100)
+    ev.push({ts:A.cal.ech,type:"Projet",lib:"Échéance du projet",etat:etat(A.cal.ech)});
+  A.feux.forEach(f=>{
+    if(f.feu.n==="gris" || f.av>=100 || !dansFenetre(f.ech)) return;
+    ev.push({ts:f.ech,type:"Action",lib:f.lib,etat:etat(f.ech)});
+  });
+  A.taches.forEach(({t})=>{
+    const tn=pct(t[c.colTacheAvancement])||0, tf=Number(t[c.colTacheFin])||0;
+    if(tn>=100 || statutInterrompu(c.tblTache,t,c.colTacheStatut) || !dansFenetre(tf)) return;
+    ev.push({ts:tf,type:"Tâche",lib:lire(c.tblTache,t,c.colTacheLibelle),etat:etat(tf)});
+  });
+  [...A.echJRetard,...A.echJProches].forEach(e=>{
+    if(!dansFenetre(e.ts)) return;
+    ev.push({ts:e.ts,type:"À mener",
+      lib:txt(lire(c.tblJournal,e.j,c.colJnlTexte)).split("\n")[0].slice(0,90),etat:etat(e.ts)});
+  });
+  instancesDe(p).forEach(j=>{
+    const ts=Number(j.date);
+    if(dansFenetre(ts)) ev.push({ts,type:"Instance",lib:j.libelle||"Instance",
+      etat:ts<auj?"passe":"avenir"});
+  });
+  A.frise={deb,fin,auj,ev:ev.sort((x,y)=>x.ts-y.ts)};
+
+  /* recommandations : une proposition par constat */
+  const R=[], rec=(g,t)=>R.push({g,t});
+  if(A.meteo.n!=="gris" && !A.cal.fin && (A.cal.av||0)<100){
+    if(A.cal.depasse)
+      rec("rouge","Replanifier l'échéance du projet (prévue le "+dateVersFR(A.cal.ech)+
+        ") ou arbitrer son périmètre lors de la prochaine instance.");
+    else if(A.cal.ecart!=null && A.cal.ecart>A.SV)
+      rec(A.cal.ecart>A.SR?"rouge":"orange","Revoir le planning : "+
+        (A.cal.projete?"au rythme actuel la fin est estimée au "+
+          dateVersFR(Math.round(A.cal.projete/JOUR)*JOUR)+". ":"")+
+        "Renforcer les moyens, réduire le périmètre ou décaler l'échéance.");
+    if(!A.cal.d0 || !A.cal.ech)
+      rec("orange","Renseigner la date de début et l'échéance prévue du projet pour suivre les délais.");
+    A.actRetard.forEach(x=>rec("rouge",A.lib(x.a)+
+      " : replanifier l'échéance ou renforcer l'action ("+x.av+" %, "+anaJours(x.jours)+" de retard)."));
+    A.actProches.filter(x=>x.av<=0).forEach(x=>rec("orange",A.lib(x.a)+
+      " : engager l'action, échéance dans "+anaJours(x.jours)+" sans avancement."));
+    A.actSansTache.forEach(a=>rec("orange",A.lib(a)+" : découper l'action en tâches datées et attribuées."));
+    const parPorteur=new Map();
+    A.tRetard.forEach(x=>{
+      const q=(c.colTachePorteur && lire(c.tblTache,x.t,c.colTachePorteur))||"";
+      parPorteur.set(q,(parPorteur.get(q)||0)+1);
+    });
+    parPorteur.forEach((n,q)=>rec("orange",q
+      ? "Faire le point avec "+q+" sur "+anaPluriel(n,"tâche")+" en retard."
+      : "Attribuer et replanifier "+anaPluriel(n,"tâche")+" en retard sans porteur."));
+    if(A.tSansFin.length)
+      rec("orange","Dater "+(A.tSansFin.length>1?"les "+A.tSansFin.length+" tâches ouvertes":"la tâche ouverte")+
+        " sans date de fin.");
+    if(c.tblJournal && (A.derniere===null || A.joursSans>A.JJ)){
+      const porteur=lire(c.tblMain,p,c.colPorteur);
+      rec("orange","Relancer "+(porteur?"le porteur ("+porteur+")":"le porteur")+" : "+
+        (A.derniere===null?"aucune entrée au journal de bord.":
+         "pas d'entrée au journal depuis "+anaJours(A.joursSans)+"."));
+    }
+    if(A.echJRetard.length)
+      rec("orange","Traiter ou clore "+anaPluriel(A.echJRetard.length,"action")+
+        " à mener du journal arrivée"+(A.echJRetard.length>1?"s":"")+" à échéance.");
+    if(!A.insProchaine && c.tblInstance)
+      rec("orange","Planifier la prochaine instance de suivi du projet.");
+  }
+  R.sort((x,y)=>(x.g===y.g)?0:(x.g==="rouge"?-1:1));
+  A.recos=R;
+  return A;
+}
+
+/* --- éléments graphiques de l'écran --- */
+
+function anaSvgAnneau(titre,seg,total){
+  const r=34, ep=12, C=2*Math.PI*r;
+  let cumul=0;
+  const arcs=seg.filter(s=>s.v>0).map(s=>{
+    const l=C*s.v/total;
+    const out='<circle r="'+r+'" cx="50" cy="50" fill="none" stroke="'+s.coul+'" stroke-width="'+ep+
+      '" stroke-dasharray="'+l.toFixed(2)+' '+(C-l).toFixed(2)+'" stroke-dashoffset="'+(-cumul).toFixed(2)+
+      '" transform="rotate(-90 50 50)"><title>'+esc(s.l+" : "+s.v)+'</title></circle>';
+    cumul+=l; return out;
+  }).join("");
+  return '<div class="ana-anneau"><svg viewBox="0 0 100 100" width="104" height="104">'+
+    '<circle r="'+r+'" cx="50" cy="50" fill="none" stroke="#e9edf3" stroke-width="'+ep+'"/>'+arcs+
+    '<text x="50" y="47" text-anchor="middle" font-size="17" font-weight="bold" fill="#1c2330">'+total+'</text>'+
+    '<text x="50" y="62" text-anchor="middle" font-size="9" fill="#6b7484">'+esc(titre)+'</text></svg>'+
+    '<ul>'+seg.map(s=>'<li><i style="background:'+s.coul+'"></i>'+esc(s.l)+' <b>'+s.v+'</b></li>').join("")+
+    '</ul></div>';
+}
+function anaSegActions(A){
+  const e=A.etatAct;
+  return [{l:"Terminées",v:e.terminees.length,coul:ANA_COUL.termine},
+          {l:"En cours",v:e.encours.length,coul:ANA_COUL.encours},
+          {l:"Non démarrées",v:e.nondem.length,coul:ANA_COUL.nondem},
+          {l:"Interrompues",v:e.inter.length,coul:ANA_COUL.inter}];
+}
+function anaSegTaches(A){
+  const e=A.etatT;
+  return [{l:"Terminées",v:e.terminees,coul:ANA_COUL.termine},
+          {l:"En cours",v:e.encours,coul:ANA_COUL.encours},
+          {l:"Non démarrées",v:e.nondem,coul:ANA_COUL.nondem},
+          {l:"Interrompues",v:e.inter,coul:ANA_COUL.inter}];
+}
+function anaJaugeHtml(lib,v,coul,note){
+  const w=Math.max(0,Math.min(100,v==null?0:v));
+  return '<div class="ana-jauge"><span class="ana-jl">'+esc(lib)+'</span>'+
+    '<span class="ana-jb"><i style="width:'+w+'%;background:'+coul+'"></i></span>'+
+    '<b>'+(v==null?"—":v+" %")+'</b>'+(note?'<span class="ana-jn">'+esc(note)+'</span>':'')+'</div>';
+}
+const ANA_FORMES={Projet:"◆",Action:"●",Tâche:"▪",Instance:"▲","À mener":"✚"};
+const ANA_ETAT_COUL={depasse:"#C0504D",proche:"#F79646",avenir:"#002395",passe:"#9aa3b2"};
+
+function anaSvgFrise(F){
+  const W=900, H=150, x0=20, x1=W-20, yL=78;
+  const X=ts=>x0+(ts-F.deb)/(F.fin-F.deb)*(x1-x0);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" class="ana-frise" preserveAspectRatio="xMinYMid meet">'+
+    '<line x1="'+x0+'" y1="'+yL+'" x2="'+x1+'" y2="'+yL+'" stroke="#b9c6dc" stroke-width="2"/>';
+  /* graduations mensuelles */
+  const d=new Date(F.deb*1000); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()+1);
+  const MOIS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+  while(d.getTime()/1000<F.fin){
+    const x=X(d.getTime()/1000);
+    s+='<line x1="'+x+'" y1="'+(yL-5)+'" x2="'+x+'" y2="'+(yL+5)+'" stroke="#b9c6dc"/>'+
+       '<text x="'+x+'" y="'+(H-6)+'" font-size="11" text-anchor="middle" fill="#6b7484">'+
+       MOIS[d.getUTCMonth()]+'</text>';
+    d.setUTCMonth(d.getUTCMonth()+1);
+  }
+  const xa=X(F.auj);
+  s+='<line x1="'+xa+'" y1="10" x2="'+xa+'" y2="'+(H-22)+'" stroke="#C0504D" stroke-dasharray="4 3"/>'+
+     '<text x="'+xa+'" y="9" font-size="10" text-anchor="middle" fill="#C0504D">aujourd\'hui</text>';
+  /* les marques d'un même jour s'empilent, au-dessus puis au-dessous de l'axe */
+  const pile=new Map();
+  F.ev.forEach(e=>{
+    const k=Math.round(X(e.ts)/8), n=pile.get(k)||0; pile.set(k,n+1);
+    const dy=(n%2?1:-1)*(14+Math.floor(n/2)*14);
+    const x=X(e.ts), y=yL+dy;
+    s+='<g><title>'+esc(dateVersFR(e.ts)+" — "+e.type+" : "+e.lib)+'</title>'+
+       '<line x1="'+x+'" y1="'+yL+'" x2="'+x+'" y2="'+y+'" stroke="#dde2ea"/>'+
+       '<text x="'+x+'" y="'+(y+5)+'" font-size="'+(e.type==="Tâche"?13:15)+'" text-anchor="middle" fill="'+
+       ANA_ETAT_COUL[e.etat]+'">'+ANA_FORMES[e.type]+'</text></g>';
+  });
+  return s+'</svg>'+
+    '<div class="ana-legende">'+Object.entries(ANA_FORMES).map(([k,v])=>'<span>'+v+' '+k+'</span>').join("")+
+    '<span style="color:#C0504D">■ dépassée</span><span style="color:#F79646">■ sous 7 j</span>'+
+    '<span style="color:#002395">■ à venir</span></div>';
+}
+
+function vueAnalyse(p){
+  const A=analyseComplete(p);
+  const li=(t,g)=>'<li class="ana-'+(g||"neutre")+'">'+esc(t)+'</li>';
+  const L=lignesAnalyse(A);
+  const pris=r=>L.filter(l=>l.r===r||(Array.isArray(r)&&r.includes(l.r)));
+  const items=rubs=>pris(rubs).map(l=>li((["Actions","Tâches","Avancement","Écart",
+    "Délai consommé","Délai","Fin projetée","Clôture","Journal de bord",
+    "Charge par porteur","Sans date de fin","Dernière instance","Prochaine instance"]
+    .includes(l.r)?l.r+" : ":"")+l.t,l.g));
+  const bloc=(titre,its)=>its.length
+    ? '<div class="carte"><h2>'+titre+'</h2><ul class="ana-liste">'+its.join("")+'</ul></div>' : "";
+  const cal=A.cal;
+  const bConso=bandesImpr(cal.ecart>A.SR?0:cal.ecart>A.SV?30:100,false);
+
+  const tdb='<div class="carte"><h2>Tableau de bord</h2><div class="ana-tdb">'+
+    '<div class="ana-jauges">'+
+      anaJaugeHtml("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill)+
+      (cal.consomme!=null
+        ? anaJaugeHtml("Délai consommé",Math.min(cal.consomme,100),"#8aa0c8",
+            cal.depasse?"échéance dépassée":(cal.joursRestants!=null?anaJours(cal.joursRestants)+" restants":""))
+        : '<div class="ana-jauge"><span class="ana-jl">Délai consommé</span><span class="ana-jn">'+
+          (cal.fin?"projet clôturé le "+esc(dateVersFR(cal.fin)):"dates incomplètes")+'</span></div>')+
+      (cal.ecart!=null?'<div class="ana-ecart ana-'+(cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert")+'">'+
+        (cal.ecart>0?"Retard de "+cal.ecart+" points":cal.ecart<0?"Avance de "+(-cal.ecart)+" points":"Dans les temps")+
+        '</div>':'')+
+    '</div>'+
+    (A.acts.length?anaSvgAnneau("actions",anaSegActions(A),A.acts.length):"")+
+    (A.taches.length?anaSvgAnneau("tâches",anaSegTaches(A),A.taches.length):"")+
+    '</div>'+
+    '<h3 class="ana-h3">Échéances de J−30 à J+90</h3>'+
+    (A.frise.ev.length?anaSvgFrise(A.frise):'<div class="ana-note">Aucune échéance sur la période.</div>')+
+    '</div>';
+
+  const feux=A.feux.length
+    ? '<div class="carte"><h2>Feu par action</h2><div class="ana-defil"><table class="ana-tab"><thead><tr>'+
+      '<th></th><th>Action</th><th>Avct</th><th>Délai conso.</th><th>Écart</th><th>Échéance</th>'+
+      '<th>Tâches</th><th>État</th></tr></thead><tbody>'+
+      A.feux.map(f=>'<tr><td>'+ANA_METEO[f.feu.n]+'</td><td>'+esc(f.lib)+'</td>'+
+        '<td>'+f.av+' %</td><td>'+(f.consomme==null?"—":Math.min(f.consomme,100)+" %")+'</td>'+
+        '<td class="ana-'+(f.ecart>A.SR?"rouge":f.ecart>A.SV?"orange":"vert")+'">'+
+          (f.ecart==null?"—":(f.ecart>0?"+":"")+f.ecart)+'</td>'+
+        '<td>'+esc(dateVersFR(f.ech)||"—")+'</td>'+
+        '<td>'+f.nbT+(f.tRet?' <span class="ana-rouge">('+f.tRet+' en retard)</span>':'')+'</td>'+
+        '<td style="color:'+ANA_TXT[f.feu.n]+';font-weight:bold">'+esc(f.feu.l)+'</td></tr>').join("")+
+      '</tbody></table></div></div>' : "";
+
+  $("#corps").innerHTML=
+    '<div class="carte ana-tete ana-fond-'+A.meteo.n+'">'+
+      '<div class="ana-meteo">'+ANA_METEO[A.meteo.n]+' '+esc(A.meteo.l)+'</div>'+
+      '<p>'+A.phr.map(esc).join(" ")+'</p></div>'+
+    tdb+feux+
+    bloc("Recommandations",A.recos.length?A.recos.map(r=>li(r.t,r.g)):[li("Aucune action à proposer","vert")])+
+    bloc("Points d'attention",A.alertes.length
+      ? A.alertes.map(a=>li(a.t,a.g)) : [li("Aucun point d'attention","vert")])+
+    '<details class="carte ana-detail"><summary><h2>Détail de l\'analyse</h2></summary>'+
+      bloc("Avancement et délais",items(["Avancement","Clôture","Délai consommé","Écart","Fin projetée","Délai"]))+
+      bloc("Actions MEO",items(["Actions","Action en retard","Action sans tâche","Échéance à "+A.JP+" j"]))+
+      bloc("Tâches",items(["Tâches","Tâche en retard","Sans date de fin","Charge par porteur"]))+
+      bloc("Pilotage et suivi",items(["Journal de bord","À mener — en retard","À mener — sous 7 j",
+        "Dernière instance","Prochaine instance"]))+
+    '</details>'+
+    '<p class="ana-note">Seuils : vert jusqu\'à '+A.SV+' points d\'écart, rouge au-delà de '+A.SR+
+      ' ; alerte journal à '+A.JJ+' jours ; échéances proches à '+A.JP+
+      ' jours. Réglables dans les paramètres du widget.</p>';
+}
+
+/* --- PDF --- */
+
+function pAnneau(pdf,cx,cy,rayon,ep,seg,total,libelle){
+  pdf.setLineCap("butt"); pdf.setLineWidth(ep);
+  const arc=(deb,fin,coul)=>{
+    if(fin<=deb) return;
+    pdf.setDrawColor(coul);
+    let x0=cx+rayon*Math.cos(deb*Math.PI/180), y0=cy+rayon*Math.sin(deb*Math.PI/180);
+    for(let d=deb+2; d<=fin+2; d+=2){
+      const b=Math.min(d,fin);
+      const x1=cx+rayon*Math.cos(b*Math.PI/180), y1=cy+rayon*Math.sin(b*Math.PI/180);
+      pdf.line(x0,y0,x1,y1); x0=x1; y0=y1;
+      if(b>=fin) break;
+    }
+  };
+  arc(-90,270,"#e6e6e6");
+  let a=-90;
+  seg.forEach(s=>{ if(!s.v) return; const b=a+360*s.v/total; arc(a,b,s.coul); a=b; });
+  pdf.setLineWidth(0.6);
+  pTexte(pdf,cx,cy-2,String(total),{taille:16,style:"bold",align:"center",baseline:"middle"});
+  pTexte(pdf,cx,cy+fz(13),libelle,{taille:9,couleur:PDFC.gris,align:"center",baseline:"middle"});
+  let y=cy-rayon+4;
+  seg.forEach(s=>{
+    pAplat(pdf,cx+rayon+22,y-fz(7),fz(8),fz(8),s.coul);
+    pTexte(pdf,cx+rayon+22+fz(12),y,s.l+" : "+s.v,{taille:10});
+    y+=fz(15);
+  });
+}
+
+function pdfAnalyseTdb(ctx,A){
+  const pdf=ctx.pdf, lw=PW-2*MX;
+  docPage(ctx);
+  pTexte(pdf,MX,ctx.y+fz(10),"Analyse du projet — tableau de bord",{taille:12,style:"bold",couleur:PDFC.bleu});
+  ctx.y+=fz(14)+10;
+  /* météo et synthèse */
+  const fonds={vert:"#edf5e0",orange:"#fdeee1",rouge:"#fbebeb",gris:"#f1efe8"};
+  const lignes=pDecoupe(pdf,A.phr.join(" "),lw-40,11,"normal");
+  const h=fz(20)+lignes.length*fz(15)+16;
+  pAplat(pdf,MX,ctx.y,lw,h,fonds[A.meteo.n],4);
+  pAplat(pdf,MX,ctx.y,5,h,ANA_TXT[A.meteo.n]);
+  pTexte(pdf,MX+18,ctx.y+fz(16),"● "+A.meteo.l,{taille:13,style:"bold",couleur:ANA_TXT[A.meteo.n]});
+  lignes.forEach((l,k)=>pTexte(pdf,MX+18,ctx.y+fz(20)+8+(k+1)*fz(15)-fz(4),l,{taille:11}));
+  ctx.y+=h+18;
+  /* jauges */
+  const cal=A.cal, jw=380, jx=MX+140;
+  const jauge=(lib,v,coul,note)=>{
+    pTexte(pdf,MX,ctx.y+fz(11),lib,{taille:11,style:"bold",couleur:PDFC.gris});
+    pAplat(pdf,jx,ctx.y,jw,fz(14),"#eef2f8",fz(7));
+    if(v) pAplat(pdf,jx,ctx.y,Math.max(fz(14),jw*Math.min(100,v)/100),fz(14),coul,fz(7));
+    pTexte(pdf,jx+jw+10,ctx.y+fz(11),(v==null?"—":v+" %")+(note?"   "+note:""),{taille:11,style:"bold"});
+    ctx.y+=fz(14)+12;
+  };
+  const yJ=ctx.y;
+  jauge("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill);
+  if(cal.consomme!=null) jauge("Délai consommé",Math.min(cal.consomme,100),"#8aa0c8",
+    cal.depasse?"échéance dépassée":(cal.joursRestants!=null?anaJours(cal.joursRestants)+" restants":""));
+  if(cal.ecart!=null){
+    const g=cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert";
+    pTexte(pdf,jx,ctx.y+fz(11),cal.ecart>0?"Retard de "+cal.ecart+" points":
+      cal.ecart<0?"Avance de "+(-cal.ecart)+" points":"Dans les temps",
+      {taille:12,style:"bold",couleur:ANA_TXT[g]});
+    ctx.y+=fz(16)+8;
+  }
+  if(cal.projete) { pTexte(pdf,jx,ctx.y+fz(10),"Fin projetée au rythme actuel : "+
+    dateVersFR(Math.round(cal.projete/JOUR)*JOUR),{taille:10,couleur:PDFC.gris}); ctx.y+=fz(14)+6; }
+  /* anneaux à droite des jauges */
+  const r=46;
+  if(A.acts.length) pAnneau(pdf,PW-MX-420,yJ+r+4,r,16,anaSegActions(A),A.acts.length,"actions");
+  if(A.taches.length) pAnneau(pdf,PW-MX-170,yJ+r+4,r,16,anaSegTaches(A),A.taches.length,"tâches");
+  ctx.y=Math.max(ctx.y,yJ+2*r+24);
+}
+
+function lignesFeuxPdf(A){
+  return A.feux.map(f=>({cellules:{
+    feu:{type:"texte",t:"●",couleur:ANA_TXT[f.feu.n],style:"bold"},
+    lib:{type:"texte",t:f.lib},
+    av:{type:"texte",t:f.av+" %"},
+    conso:{type:"texte",t:f.consomme==null?"—":Math.min(f.consomme,100)+" %"},
+    ecart:{type:"texte",t:f.ecart==null?"—":(f.ecart>0?"+":"")+f.ecart,
+      couleur:ANA_TXT[f.ecart>A.SR?"rouge":f.ecart>A.SV?"orange":"vert"],style:"bold"},
+    ech:{type:"texte",t:dateVersFR(f.ech)||"—"},
+    taches:{type:"texte",t:f.nbT+(f.tRet?" ("+f.tRet+" en retard)":""),couleur:f.tRet?ANA_TXT.rouge:PDFC.encre},
+    etat:{type:"texte",t:f.feu.l,couleur:ANA_TXT[f.feu.n],style:"bold"}}}));
+}
+function lignesRecosPdf(A){
+  const L=[];
+  A.recos.forEach(r=>L.push({cellules:{type:{type:"texte",t:"Recommandation",style:"bold",couleur:PDFC.gris},
+    t:{type:"texte",t:r.t,couleur:ANA_TXT[r.g],style:r.g==="rouge"?"bold":undefined}}}));
+  A.alertes.forEach(a=>L.push({cellules:{type:{type:"texte",t:"Point d'attention",style:"bold",couleur:PDFC.gris},
+    t:{type:"texte",t:a.t,couleur:ANA_TXT[a.g]}}}));
+  if(!L.length) L.push({cellules:{type:{type:"texte",t:"—"},t:{type:"texte",t:"Aucun point d'attention",couleur:ANA_TXT.vert}}});
+  return L;
+}
+function lignesEchPdf(A){
+  return A.frise.ev.map(e=>({cellules:{
+    date:{type:"texte",t:dateVersFR(e.ts)},type:{type:"texte",t:e.type},
+    lib:{type:"texte",t:e.lib},
+    etat:{type:"texte",t:{depasse:"Dépassée",proche:"Sous 7 jours",avenir:"À venir",passe:"Passée"}[e.etat],
+      couleur:ANA_ETAT_COUL[e.etat],style:"bold"}}}));
+}
+
+function dessinerAnalysePdf(ctx,p){
+  const A=analyseComplete(p), sec=IMPR.sections, lw=PW-2*MX;
+  if(sec.anaTdb) pdfAnalyseTdb(ctx,A);
+  if(sec.anaFeux && A.feux.length) dessinerTableau(ctx,"Feu par action",
+    [{cle:"feu",titre:"",w:26},{cle:"lib",titre:"Action",w:lw-26-70-90-70-95-150-140},
+     {cle:"av",titre:"Avct",w:70},{cle:"conso",titre:"Délai conso.",w:90},{cle:"ecart",titre:"Écart",w:70},
+     {cle:"ech",titre:"Échéance",w:95},{cle:"taches",titre:"Tâches",w:150},{cle:"etat",titre:"État",w:140}],
+    lignesFeuxPdf(A),MX,lw,!sec.anaTdb);
+  if(sec.anaReco) dessinerTableau(ctx,"Recommandations et points d'attention",
+    [{cle:"type",titre:"Type",w:160},{cle:"t",titre:"Constat / proposition",w:lw-160}],
+    lignesRecosPdf(A),MX,lw,false);
+  if(sec.anaEch && A.frise.ev.length) dessinerTableau(ctx,"Échéances de J−30 à J+90",
+    [{cle:"date",titre:"Date",w:100},{cle:"type",titre:"Type",w:110},{cle:"lib",titre:"Élément",w:lw-100-110-130},
+     {cle:"etat",titre:"État",w:130}],lignesEchPdf(A),MX,lw,false);
+  if(sec.anaDetail) dessinerTableau(ctx,"Détail de l'analyse",
+    [{cle:"rub",titre:"Rubrique",w:190},{cle:"constat",titre:"Constat",w:lw-190}],
+    lignesAnalysePdf(p),MX,lw,true);
+}
+
+/* --- Diaporama --- */
+
+function odpAnneau(pg,cx,cy,r,ep,seg,total,libelle){
+  const d=pg.d;
+  const cercle=(rayon,fond,a1,a2)=>{
+    const g=d.gr({fond});
+    const ang=a1!=null?' draw:kind="section" draw:start-angle="'+a1+'" draw:end-angle="'+a2+'"':'';
+    pg.push('<draw:circle draw:style-name="'+g+'" draw:layer="layout"'+ang+
+      ' svg:x="'+cm(cx-rayon)+'" svg:y="'+cm(cy-rayon)+'" svg:width="'+cm(rayon*2)+
+      '" svg:height="'+cm(rayon*2)+'"><text:p/></draw:circle>');
+  };
+  cercle(r,"#e9edf3");
+  let f=0;
+  seg.forEach(s=>{
+    if(!s.v) return;
+    const f1=f+s.v/total;
+    if(s.v===total) cercle(r,s.coul);
+    else cercle(r,s.coul,Math.round(90-360*f1),Math.round(90-360*f));
+    f=f1;
+  });
+  cercle(r-ep,"#ffffff");
+  pg.texte(cx-r,cy-0.45,2*r,0.6,String(total),{taille:16,gras:true,couleur:ODP_C.encre,align:"center",valign:"middle",pad:0});
+  pg.texte(cx-r,cy+0.1,2*r,0.45,libelle,{taille:9,couleur:ODP_C.attenue,align:"center",valign:"middle",pad:0});
+  let y=cy-r+0.1;
+  seg.forEach(s=>{
+    pg.rect(cx+r+0.3,y+0.12,0.25,0.25,{fond:s.coul});
+    pg.texte(cx+r+0.65,y,3.6,0.5,s.l+" : "+s.v,{taille:10,couleur:ODP_C.encre,valign:"middle",pad:0});
+    y+=0.52;
+  });
+}
+
+function odpAnalyseTdb(d,p,A){
+  const pg=odpPage(d,"pied"), z=odpZone("pied");
+  let y=odpTitre(pg,"Analyse du projet — tableau de bord",null,z.x);
+  const fonds={vert:"#edf5e0",orange:"#fdeee1",rouge:"#fbebeb",gris:"#f1efe8"};
+  const txtS=A.phr.join(" ");
+  const nb=odpLignes(txtS,z.w-0.9,11,false,30);
+  const h=Math.min(6,0.75+nb*odpHautLigne(11)+0.3);
+  pg.rect(z.x,y,z.w,h,{fond:fonds[A.meteo.n],rayon:0.12});
+  pg.rect(z.x,y,0.12,h,{fond:ANA_TXT[A.meteo.n]});
+  pg.texte(z.x+0.35,y+0.1,z.w-0.6,0.6,"● "+A.meteo.l,{taille:13,gras:true,couleur:ANA_TXT[A.meteo.n]});
+  pg.texte(z.x+0.35,y+0.7,z.w-0.6,h-0.75,txtS,{taille:11,couleur:ODP_C.encre});
+  y+=h+0.5;
+  const cal=A.cal, jx=z.x+3.4, jw=7.5, jh=0.5;
+  const yJ=y;
+  const jauge=(lib,v,coul,note)=>{
+    pg.texte(z.x,y,3.3,jh,lib,{taille:11,gras:true,couleur:ODP_C.attenue,valign:"middle",pad:0});
+    pg.rect(jx,y,jw,jh,{fond:"#eef2f8",rayon:jh/2});
+    if(v) pg.rect(jx,y,Math.max(jh,jw*Math.min(100,v)/100),jh,{fond:coul,rayon:jh/2});
+    pg.texte(jx+jw+0.2,y,4.5,jh,(v==null?"—":v+" %")+(note?"  "+note:""),
+      {taille:11,gras:true,couleur:ODP_C.encre,valign:"middle",pad:0});
+    y+=jh+0.35;
+  };
+  jauge("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill);
+  if(cal.consomme!=null) jauge("Délai consommé",Math.min(cal.consomme,100),"#8aa0c8",
+    cal.depasse?"échéance dépassée":(cal.joursRestants!=null?anaJours(cal.joursRestants)+" restants":""));
+  if(cal.ecart!=null){
+    const g=cal.ecart>A.SR?"rouge":cal.ecart>A.SV?"orange":"vert";
+    pg.texte(jx,y,jw+4,0.55,cal.ecart>0?"Retard de "+cal.ecart+" points":
+      cal.ecart<0?"Avance de "+(-cal.ecart)+" points":"Dans les temps",
+      {taille:12,gras:true,couleur:ANA_TXT[g],valign:"middle",pad:0});
+    y+=0.65;
+  }
+  if(cal.projete) pg.texte(jx,y,jw+4,0.5,"Fin projetée au rythme actuel : "+
+    dateVersFR(Math.round(cal.projete/JOUR)*JOUR),{taille:10,couleur:ODP_C.attenue,valign:"middle",pad:0});
+  /* anneaux sous les jauges, côte à côte */
+  const r=1.35, ya=Math.max(y+0.8,yJ+3.2)+r;
+  if(ya+r<=z.y+z.h){
+    if(A.acts.length) odpAnneau(pg,z.x+r+0.3,ya,r,0.45,anaSegActions(A),A.acts.length,"actions");
+    if(A.taches.length) odpAnneau(pg,z.x+z.w/2+r,ya,r,0.45,anaSegTaches(A),A.taches.length,"tâches");
+  }
+  return pg;
+}
+
+function odpAnalyseComplete(d,p){
+  const A=analyseComplete(p), sec=IMPR.sectionsPptx, z=odpZone("pied");
+  const titre=lire(S.cfg.tblMain,p,S.cfg.colLibelle);
+  if(sec.anaTdb!==false) odpAnalyseTdb(d,p,A);
+  if(sec.anaFeux!==false && A.feux.length) odpTableau(d,"Feu par action",titre,
+    [{t:"",w:z.w*0.04},{t:"Action",w:z.w*0.34},{t:"Avct",w:z.w*0.08},{t:"Délai conso.",w:z.w*0.1},
+     {t:"Écart",w:z.w*0.08},{t:"Échéance",w:z.w*0.11},{t:"Tâches",w:z.w*0.11},{t:"État",w:z.w*0.14}],
+    A.feux.map(f=>[cel("●",{gras:true,couleur:ANA_TXT[f.feu.n],align:"center"}),cel(f.lib),
+      cel(f.av+" %",{align:"center"}),
+      cel(f.consomme==null?"—":Math.min(f.consomme,100)+" %",{align:"center"}),
+      cel(f.ecart==null?"—":(f.ecart>0?"+":"")+f.ecart,{align:"center",gras:true,
+        couleur:ANA_TXT[f.ecart>A.SR?"rouge":f.ecart>A.SV?"orange":"vert"]}),
+      cel(dateVersFR(f.ech)||"—",{align:"center"}),
+      cel(f.nbT+(f.tRet?" ("+f.tRet+" en retard)":""),{couleur:f.tRet?ODP_C.alerte:ODP_C.encre}),
+      cel(f.feu.l,{gras:true,couleur:ANA_TXT[f.feu.n]})]));
+  if(sec.anaReco!==false){
+    const lg=[];
+    A.recos.forEach(r=>lg.push([cel("Recommandation",{gras:true,couleur:ODP_C.attenue}),
+      cel(r.t,{gras:r.g==="rouge",couleur:ANA_TXT[r.g]})]));
+    A.alertes.forEach(a=>lg.push([cel("Point d'attention",{gras:true,couleur:ODP_C.attenue}),
+      cel(a.t,{couleur:ANA_TXT[a.g]})]));
+    if(!lg.length) lg.push([cel("—"),cel("Aucun point d'attention",{couleur:ANA_TXT.vert})]);
+    odpTableau(d,"Recommandations et points d'attention",titre,
+      [{t:"Type",w:z.w*0.2},{t:"Constat / proposition",w:z.w*0.8}],lg);
+  }
+  if(sec.anaEch!==false && A.frise.ev.length) odpTableau(d,"Échéances de J−30 à J+90",titre,
+    [{t:"Date",w:z.w*0.13},{t:"Type",w:z.w*0.13},{t:"Élément",w:z.w*0.56},{t:"État",w:z.w*0.18}],
+    A.frise.ev.map(e=>[cel(dateVersFR(e.ts),{align:"center"}),cel(e.type),cel(e.lib),
+      cel({depasse:"Dépassée",proche:"Sous 7 jours",avenir:"À venir",passe:"Passée"}[e.etat],
+        {gras:true,couleur:ANA_ETAT_COUL[e.etat]})]));
+  if(sec.anaDetail) odpAnalyse(d,p);
+  return true;
 }
 
 /* on renseigne la table des vues une fois toutes les fonctions déclarées */
@@ -5679,7 +6156,9 @@ const BLOCS_IMPR=[
      ["planning","Planning"]]],
   ["detail","Actions MEO et tâches"],
   ["journal","Journal de bord"],
-  ["analyse","Analyse du projet"],
+  ["analyse","Analyse du projet",
+    [["anaTdb","Tableau de bord"],["anaFeux","Feu par action"],["anaReco","Recommandations"],
+     ["anaEch","Échéances J−30 / J+90"],["anaDetail","Détail de l'analyse"]]],
   ["sup","Pages additionnelles"]
 ];
 const ORDRE_DEFAUT=BLOCS_IMPR.map(b=>b[0]);
@@ -5692,7 +6171,9 @@ const BLOCS_PPTX=[
   ["actions","Actions & tâches"],
   ["commentaire","Commentaire du projet"],
   ["journal","Journal de bord"],
-  ["analyse","Analyse du projet"]
+  ["analyse","Analyse du projet",
+    [["anaTdb","Tableau de bord"],["anaFeux","Feu par action"],["anaReco","Recommandations"],
+     ["anaEch","Échéances J−30 / J+90"],["anaDetail","Détail de l'analyse"]]]
 ];
 const ORDRE_PPTX=BLOCS_PPTX.map(b=>b[0]);
 /* ordre enregistré : clés inconnues écartées, nouvelles clés ajoutées en fin */
@@ -5707,14 +6188,14 @@ const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.4
 
 const IMPR={
   sections:{synthese:true,identite:true,descriptif:true,planning:true,actions:true,
-            detail:true,journal:true,analyse:false,sup:true},
+            detail:true,journal:true,analyse:false,anaTdb:true,anaFeux:true,anaReco:true,anaEch:true,anaDetail:false,sup:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
   lisible:true,          // corps du texte à 16 pt
   planningTaches:false,  // le planning imprimé s'en tient au projet et aux actions
   taches:true,           // détailler les tâches sous les actions (PDF et diaporama)
   sectionsPptx:{synthese:true,identite:true,planning:true,actions:true,
-                commentaire:true,journal:true,analyse:false},
+                commentaire:true,journal:true,analyse:false,anaTdb:true,anaFeux:true,anaReco:true,anaEch:true,anaDetail:false},
   ordrePptx:ORDRE_PPTX.slice(),
   prioritesPptx:null,    // priorités retenues pour la revue de portefeuille
   groupementsPptx:null,  // groupements retenus, null = tous
@@ -5811,6 +6292,8 @@ function blocsRetenus(){
       return IMPR.sections.identite||IMPR.sections.descriptif||
              IMPR.sections.planning||IMPR.taches===false;
     if(k==="sup") return pagesSup.length>0;
+    if(k==="analyse")
+      return ["anaTdb","anaFeux","anaReco","anaEch","anaDetail"].some(x=>IMPR.sections[x]);
     return true;
   });
 }
@@ -6827,9 +7310,7 @@ function construireDoc(p){
         });
         dessinerTableau(ctx,"Journal de bord",cols,lignesJournalPdf(p),MX,PW-2*MX,true);
       },
-      analyse:()=>dessinerTableau(ctx,"Analyse du projet",
-        [{cle:"rub",titre:"Rubrique",w:190},{cle:"constat",titre:"Constat",w:PW-2*MX-190}],
-        lignesAnalysePdf(p),MX,PW-2*MX,true),
+      analyse:()=>dessinerAnalysePdf(ctx,p),
       sup:()=>dessinerPagesSup(ctx)
     };
 
@@ -8977,7 +9458,7 @@ async function genererODP(mode){
       odpGarde(d,titre,p);
       const r=odpSynthese(d,p,titre);
       if(r.reste) odpPlanningSuite(d,p,r.reste,titre,r.tous);
-      if(IMPR.sectionsPptx.analyse) odpAnalyse(d,p);
+      if(IMPR.sectionsPptx.analyse) odpAnalyseComplete(d,p);
       acts.forEach((a,i)=>odpActionDiapo(d,a,i+1));
       if(IMPR.sectionsPptx.commentaire) odpCommentaireProjet(d,p);
       if(IMPR.sectionsPptx.journal) odpJournal(d,p);
@@ -8995,7 +9476,7 @@ async function genererODP(mode){
                 actions:()=>odpActionsTaches(d,p),
                 commentaire:()=>odpCommentaireProjet(d,p),
                 journal:()=>odpJournal(d,p),
-                analyse:()=>odpAnalyse(d,p) };
+                analyse:()=>odpAnalyseComplete(d,p) };
       IMPR.ordrePptx.forEach(cle=>{ if(sec[cle] && f[cle]) f[cle](); });
       await odpEcrire(d,titre.replace(/[\\/:*?"<>|]/g,"-").slice(0,80)+".odp");
       toast("Diaporama Impress exporté");
@@ -9754,7 +10235,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-24-a — onglet Analyse, rattachement des MEO, planning du dossier";
+const VERSION="2026-09-25-a — Analyse : tableau de bord, feux, recommandations";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -10082,7 +10563,7 @@ $("#pptx-annuler").onclick=()=>$("#voile-pptx").classList.remove("ouvert");
    pas — vous pouvez donc annuler juste après si vous changez d'avis. */
 $("#pptx-raz").onclick=()=>{
   IMPR.sectionsPptx={synthese:true,identite:true,planning:true,actions:true,
-                     commentaire:true,journal:true,analyse:false};
+                     commentaire:true,journal:true,analyse:false,anaTdb:true,anaFeux:true,anaReco:true,anaEch:true,anaDetail:false};
   IMPR.ordrePptx=ORDRE_PPTX.slice();
   IMPR.taches=true;
   IMPR.planningTaches=false;

@@ -71,6 +71,10 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
 .btn-top.btn-pdf:hover{background:#c40510;border-color:#c40510;}
 .btn-top.btn-diapo{background:#FBD9A8;color:#7A4A10;border-color:#FBD9A8;}
 .btn-top.btn-diapo:hover{background:#F7C87F;border-color:#F7C87F;}
+.btn-top.btn-pf{background:#C0504D;color:#fff;border-color:#C0504D;font-weight:bold;}
+.btn-top.btn-pf:hover{background:#A33F3C;border-color:#A33F3C;}
+.btn-top.btn-xlsx{background:#2E7D32;color:#fff;border-color:#2E7D32;font-weight:bold;}
+.btn-top.btn-xlsx:hover{background:#246428;border-color:#246428;}
 
 /* ---------- Structure ---------- */
 .layout{flex:1;display:flex;min-height:0;}
@@ -1098,9 +1102,9 @@ tbody tr.ligne-com:hover{background:transparent;}
     aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg> PDF</button>
   <button class="btn-top btn-impr btn-diapo" id="btn-pptx"
     title="Exporter en diaporama Impress">Diaporama</button>
-  <button class="btn-top" id="btn-ana-pf"
+  <button class="btn-top btn-pf" id="btn-ana-pf"
     title="Analyse de tous les projets affichés : météo, score, retards, charge">Analyse portefeuille</button>
-  <button class="btn-top" id="btn-xlsx-ech"
+  <button class="btn-top btn-xlsx" id="btn-xlsx-ech"
     title="Exporter en Excel les échéances en retard et à venir des projets affichés">Échéances (Excel)</button>
   <button class="btn-top" id="btn-vue-mobile" hidden
     title="Revenir à l'affichage adapté au téléphone">📱 Vue mobile</button>
@@ -1208,8 +1212,8 @@ tbody tr.ligne-com:hover{background:transparent;}
           Dossier du projet sélectionné, restreint aux actions retenues par les
           filtres en cours</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="revue-actions">
-          Revue détaillée du projet sélectionné — planning, « En un coup d'œil »,
-          puis une diapositive par action avec ses tâches</label>
+          Revue détaillée du projet sélectionné — planning du projet et « En un coup
+          d'œil » sur une page, puis une diapositive par action avec ses tâches</label>
         <label class="impr-radio"><input type="radio" name="pptx-mode" value="portefeuille">
           Revue de portefeuille — le tableau des projets de la liste, puis
           « En un coup d'œil » pour chacun</label>
@@ -6350,8 +6354,22 @@ function odpApercu(d,p,A,titreProjet){
      dossier, la page de garde et le planning le portent déjà */
   let y=odpTitre(pg,null,titreProjet||null)+0.1;
   const gap=0.35;
-  const RA=odpRealiseAVenir(p,A), auj=aujourdHuiUTC();
-  const wc=(z.w-2*gap)/3, hc=z.y+z.h-y-0.1;
+  odpColonnesApercu(pg,p,A,z.x,y,z.w,z.y+z.h-y-0.1);
+  pg.notes=odpNotesApercu(A);
+  return pg;
+}
+function odpNotesApercu(A){
+  return [
+    "Météo : "+A.meteo.l+".",
+    A.phr.join(" "),
+    A.recos.length?"Recommandations : "+A.recos.slice(0,5).map(r=>r.t).join(" / "):""
+  ].filter(Boolean);
+}
+/* réalisé / prochaines étapes / points d'attention, dans le cadre donné */
+function odpColonnesApercu(pg,p,A,x0,y,w,hc){
+  const gap=0.35, RA=odpRealiseAVenir(p,A), auj=aujourdHuiUTC();
+  const z={x:x0,w};
+  const wc=(z.w-2*gap)/3;
   const faits=RA.faits.map(f=>({date:odpJM(f.ts),texte:f.lib,type:f.t}));
   const suite=(RA.avenir.length?RA.avenir:A.frise.ev.filter(e=>e.ts>=auj))
     .map(e=>({date:odpJM(e.ts),texte:e.lib,type:e.type}));
@@ -6359,11 +6377,24 @@ function odpApercu(d,p,A,titreProjet){
   odpColonne(pg,z.x,y,wc,hc,"Réalisé (30 jours)",faits,"Rien de terminé sur la période.");
   odpColonne(pg,z.x+wc+gap,y,wc,hc,"Prochaines étapes",suite,"Aucune échéance à venir.","#F3F6FC");
   odpColonne(pg,z.x+2*(wc+gap),y,wc,hc,"Points d'attention",att,"Aucune demande d'arbitrage ou d'exécution en attente.");
-  pg.notes=[
-    "Météo : "+A.meteo.l+".",
-    A.phr.join(" "),
-    A.recos.length?"Recommandations : "+A.recos.slice(0,5).map(r=>r.t).join(" / "):""
-  ].filter(Boolean);
+}
+
+/* Revue détaillée, première page : identité, planning du seul projet (ni
+   actions ni tâches), puis les trois colonnes du coup d'œil dessous */
+function odpRevueTete(d,p,titre){
+  const pg=odpPage(d,"entete"), z=odpZone("entete"), bas=z.y+z.h;
+  const xi=0.7, wi=ODP_W-2*xi;
+  let y=odpTitre(pg,null,titre,xi);
+  if(IMPR.sectionsPptx.identite!==false) y=odpIdentite(pg,p,xi,y,wi);
+  const avant=IMPR.planningTaches;
+  IMPR.planningTaches=false;
+  const hPl=Math.min(3.6,Math.max(2.4,(bas-y)*0.3));
+  try{ odpPlanning(pg,p,[],xi,y,wi,hPl); }
+  finally{ IMPR.planningTaches=avant; }
+  y+=hPl+0.3;
+  const A=analyseComplete(p);
+  odpColonnesApercu(pg,p,A,xi,y,wi,bas-y-0.05);
+  pg.notes=odpNotesApercu(A);
   return pg;
 }
 /* Points d'attention du diaporama : uniquement les demandes du journal de
@@ -6431,7 +6462,7 @@ function odpFinitions(d){
   d.pages.forEach((pg,i)=>{
     if(i===0) return;
     pg.rect(ODP_W-ODP_M-3.2,ODP_H-0.72,3.4,0.6,{fond:"#FFFFFF",rayon:0.1});
-    pg.texte(ODP_W-ODP_M-3,ODP_H-0.62,3,0.45,(i+1)+" / "+tot,
+    pg.texte(ODP_W-ODP_M-3,ODP_H-0.62,3,0.45,i+" / "+(tot-1),
       {taille:8,couleur:ODP_C.attenue,valign:"middle",align:"end",pad:0});
   });
 }
@@ -10904,10 +10935,12 @@ async function genererODP(mode){
       const acts=actionsRevue(p);
       if(!acts.length){ toast("Aucune action ne correspond aux filtres.",true); return; }
       odpGarde(d,titre,p);
-      const r=odpSynthese(d,p,titre);
-      if(r.reste) odpPlanningSuite(d,p,r.reste,titre,r.tous);
       const nouveau=IMPR.stylePptx!=="classique";
-      if(nouveau) odpApercu(d,p,analyseComplete(p),null);
+      if(nouveau) odpRevueTete(d,p,titre);
+      else{
+        const r=odpSynthese(d,p,titre);
+        if(r.reste) odpPlanningSuite(d,p,r.reste,titre,r.tous);
+      }
       if(!nouveau && IMPR.sectionsPptx.analyse) odpAnalyseComplete(d,p);
       acts.forEach((a,i)=>odpActionDiapo(d,a,i+1));
       if(!nouveau && IMPR.sectionsPptx.commentaire) odpCommentaireProjet(d,p);
@@ -11694,7 +11727,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-09-26-e — activités à faire défiler, synthèse allégée";
+const VERSION="2026-09-26-i — export diaporama sans revue de portefeuille";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -11961,12 +11994,14 @@ function simplifierFenetrePptx(){
   v.querySelectorAll(".bloc-reglage").forEach(b=>{
     b.style.display = b.querySelector('input[name=pptx-mode]') ? "" : "none";
   });
-  const filtre=v.querySelector('input[name=pptx-mode][value=projet-filtre]');
-  if(filtre){
-    const lab=filtre.closest("label");
+  /* modes retirés de la fenêtre (code conservé) : dossier filtré, portefeuille */
+  ["projet-filtre","portefeuille"].forEach(val=>{
+    const r=v.querySelector('input[name=pptx-mode][value='+val+']');
+    if(!r) return;
+    const lab=r.closest("label");
     if(lab) lab.style.display="none";
-    if(filtre.checked){ const r=v.querySelector('input[name=pptx-mode][value=projet]'); if(r) r.checked=true; }
-  }
+    if(r.checked){ const d=v.querySelector('input[name=pptx-mode][value=projet]'); if(d){ d.checked=true; majFormulairePptx(); } }
+  });
   const intro=v.querySelector(".corps-modale > p");
   if(intro) intro.textContent="Choisissez le type d'export. Le fichier produit est un diaporama "+
     "LibreOffice Impress (.odp) bâti sur le modèle du SDIS.";

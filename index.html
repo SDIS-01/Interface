@@ -2537,7 +2537,7 @@ const MENUS={
   "m-groupement":{tous:"Tous groupements", sel:[], opts:[]},
   "m-porteur":{tous:"Tous porteurs", sel:[], opts:[]},
   "m-priorite":{tous:"Toutes priorités", sel:[], opts:[]},
-  "m-millesime":{tous:"Tous millésimes P2A", sel:[], opts:[]},
+  "m-millesime":{tous:"Millésimes P2A", sel:[], opts:[]},
   "m-etat":{tous:"Tous états", sel:[], opts:[
     ["encours","En cours"],["termine","Terminés"],["afaire","À engager"],["interrompu","Interrompus"]]},
   "m-avct":{tous:"Tout avancement", sel:[], opts:[
@@ -2697,17 +2697,17 @@ function pastillesP2AProjet(p){
   if(!tous.length) return "";
   return '<span class="p2a-groupe">'+tous.map(v=>{
     if(propres.has(v))
-      return '<span class="pastille p-P2A" title="Projet inscrit au P2A '+esc(v)+'">P2A '+esc(v)+'</span>';
+      return '<span class="pastille p-P2A" title="Projet inscrit : '+esc(v)+'">'+esc(v)+'</span>';
     const libs=viaActions.get(v);
     const bulle="Via "+(libs.length>1?"les actions":"l'action")+" :\n"+libs.map(l=>"• "+l).join("\n");
-    return '<span class="pastille p-P2A via" title="'+esc(bulle)+'">P2A '+esc(v)+'</span>';
+    return '<span class="pastille p-P2A via" title="'+esc(bulle)+'">'+esc(v)+'</span>';
   }).join("")+'</span>';
 }
 /* Pastilles P2A d'une action (onglet Actions) */
 function pastillesP2AAction(a){
   const vals=trierMillesimes(millesimesDe(a));
   return vals.length
-    ? '<span class="p2a-action">'+vals.map(v=>'<span class="pastille p-P2A">P2A '+esc(v)+'</span>').join("")+'</span>'
+    ? '<span class="p2a-action">'+vals.map(v=>'<span class="pastille p-P2A">'+esc(v)+'</span>').join("")+'</span>'
     : "";
 }
 

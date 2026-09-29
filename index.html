@@ -424,6 +424,39 @@ tr.glisse-apres td{box-shadow:inset 0 -2px 0 var(--bleu);}
 .ech-avenir .ech-clore{background:var(--bleu);}
 .ech-note{color:var(--gris);font-size:11px;margin:9px 0 0;}
 .jnl-vise{background:#fff8e1;box-shadow:inset 3px 0 0 var(--orange);}
+tr.jnl-vise td{background:#fff3c4!important;}
+/* ---------- Instances à programmer ---------- */
+.seg-ins{display:flex;border:1px solid var(--trait);border-radius:var(--rayon);overflow:hidden;margin-bottom:12px;}
+.seg-ins button{flex:1;border:0;background:#fff;color:var(--gris);padding:7px 6px;font-weight:bold;font-size:11.5px;}
+.seg-ins button+button{border-left:1px solid var(--trait);}
+.seg-ins button:hover{color:var(--encre);}
+.seg-ins button.on{background:var(--bleu);color:#fff;}
+.seg-ins button.prog.on{background:#b4611f;}
+.aide-per{margin-top:4px;font-size:11px;color:var(--gris);line-height:1.45;background:var(--bleu-survol);
+  border-left:3px solid var(--bleu);border-radius:4px;padding:6px 8px;}
+.aide-per:empty{display:none;}
+.champ label em{font-weight:normal;font-style:normal;}
+.p-prog{background:#fdeadb;color:#b4611f;}
+.tab-histo tr.ins-prog td{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(247,150,70,.08) 8px 16px);}
+.ins-per{display:block;color:#b4611f;font-style:italic;font-weight:bold;}
+.ins-etat,.ins-prevue{display:block;font-weight:normal;font-size:10.5px;color:var(--gris);margin-top:2px;white-space:normal;}
+.ins-etat.ins-depasse{color:#c62828;font-weight:bold;}
+.ins-etat.ins-proche{color:#a85a12;font-weight:bold;}
+.btn-prog{background:#fdeadb;color:#9a4f12;border:1px solid #f3c9a4;border-radius:14px;
+  padding:4px 11px;font-weight:bold;font-size:11px;white-space:nowrap;}
+.btn-prog:hover{background:#b4611f;color:#fff;border-color:#b4611f;}
+.tab-histo tr.ins-edition td{background:var(--bleu-survol);vertical-align:top;}
+.ins-edition input,.ins-edition select{width:100%;padding:5px 6px;border:1px solid var(--trait);border-radius:4px;background:#fff;}
+.ins-edition .ins-per{margin-bottom:4px;}
+.ins-boutons{display:flex;flex-direction:column;gap:5px;}
+.ech-ins{cursor:pointer;}
+.pl-rep.pl-rep-periode{top:3px;height:16px;margin-left:0;border:1px solid #d9822b;border-radius:3px;
+  background:repeating-linear-gradient(135deg,rgba(198,40,40,.22) 0 5px,transparent 5px 10px);z-index:2;}
+.pl-rep.pl-rep-periode::before{display:none;}
+.pl-rep.pl-rep-periode.actif{outline:2px solid var(--bleu);outline-offset:1px;}
+.pl-legende-per{display:inline-flex;align-items:center;gap:4px;}
+.pl-legende-per i{display:inline-block;width:14px;height:9px;border:1px solid #d9822b;
+  background:repeating-linear-gradient(135deg,rgba(198,40,40,.3) 0 3px,transparent 3px 6px);}
 .diag-repli{margin-top:14px;}
 .diag-btn{color:var(--gris);font-size:11.5px;background:#fff;
   display:inline-flex;align-items:center;gap:6px;
@@ -1458,7 +1491,9 @@ const DEF = {
   colJnlReponse:"Reponse_a", colJnlTraite:"Traité", colJnlSaisie:"Date_Saisie",
   colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
-  colInsType:"", colInsRapporteur:"", colInsAction:"",
+  colInsType:"", colInsRapporteur:"", colInsAction:"", colInsPeriode:"Periode_Prevue",
+  /* périodes d'instances, saisies dans Grist (instances « à programmer ») */
+  tblPeriode:"Periodes_Instances", colPerLibelle:"Libelle", colPerDebut:"Debut", colPerFin:"Fin",
   tblNote:"", colNoteLien:"Projet", colNoteAction:"Action_MEO", colNoteAuteur:"Auteur",
   colNoteDate:"Date", colNoteTexte:"Texte", colNoteStatut:"Statut",
   colNoteDestination:"Destination", colNoteLigne:"Ligne_creee", colNoteTraitee:"Traite_le",
@@ -1515,7 +1550,11 @@ const CHAMPS_REGLAGES = [
     ["colInsLibelle","Libellé saisi à l'ajout"],
     ["colInsHisto","Colonne affichée dans l'historique"],
     ["colInsType","Type"],["colInsRapporteur","Rapporteur"],
-    ["colInsPJ","Pièces jointes"]
+    ["colInsPJ","Pièces jointes"],
+    ["colInsPeriode","Période prévue (référence, instance à programmer)"]
+  ]},
+  {bloc:"Table des périodes d'instances", tableKey:"tblPeriode", champs:[
+    ["colPerLibelle","Libellé de la période"],["colPerDebut","Début"],["colPerFin","Fin"]
   ]},
   {bloc:"Table des notes de réunion", tableKey:"tblNote", champs:[
     ["colNoteLien","Lien vers le projet"],["colNoteAction","Lien vers l'action (facultatif)"],
@@ -1540,7 +1579,7 @@ const CHAMPS_REGLAGES = [
 const S = {
   cfg:Object.assign({},DEF),
   meta:{tables:[],cols:{}},   // cols[tableId] = [{colId,label,type,choices,refTable,refDisplay}]
-  data:{main:[],taches:[],journal:[],instances:[],notes:[],agents:[],hm:[]},
+  data:{main:[],taches:[],journal:[],instances:[],notes:[],agents:[],hm:[],periodes:[]},
   fTrace:{element:"",op:"",q:"",n:50},   // filtres de l'historique des modifications
   refLabels:{},               // "Table.colId" -> {rowId:libellé}
   projetSel:null,
@@ -1844,6 +1883,9 @@ async function charger(){
   S.data.taches   = await lireTable(c.tblTache);
   S.data.journal  = await lireTable(c.tblJournal);
   S.data.instances= await lireTable(c.tblInstance);
+  /* lue seulement si elle existe : pas de bandeau d'alerte tant qu'elle n'est pas créée */
+  S.data.periodes = (c.tblPeriode && (S.meta.tables||[]).includes(c.tblPeriode))
+    ? await lireTable(c.tblPeriode) : [];
   S.data.notes    = await lireTable(c.tblNote);
   S.data.agents   = await lireTable(c.tblAgent);
   S.data.hm       = await lireTable(c.tblHm);
@@ -2133,22 +2175,80 @@ function dateDepuisTexte(s){
   return m ? Date.UTC(+m[3],+m[2]-1,+m[1])/1000 : null;
 }
 
+/* --- Instances à programmer ---
+   Les périodes d'instances (novembre–décembre…) sont saisies dans Grist, table
+   des périodes. Une instance sans date mais rattachée à une période est « à
+   programmer » : elle compte comme échéance du projet, avec pour butoir la fin
+   de la période. Dès qu'une date est saisie, c'est une instance ordinaire ; la
+   période reste dans Grist comme trace. Aucun contrôle entre la date réelle et
+   la période prévue (choix arrêté). */
+function periodeObj(r){
+  const c=S.cfg;
+  if(!r) return null;
+  return {id:r.id, libelle:txt(lire(c.tblPeriode,r,c.colPerLibelle)).trim()||"Période "+r.id,
+          debut:Number(r[c.colPerDebut])||null, fin:Number(r[c.colPerFin])||null};
+}
+function periodeDe(ligne){
+  const c=S.cfg;
+  if(!ligne || !c.colInsPeriode) return null;
+  const id=Number(ligne[c.colInsPeriode]);
+  if(!id) return null;
+  return periodeObj((S.data.periodes||[]).find(x=>x.id===id));
+}
+function periodesActives(){
+  const c=S.cfg;
+  return !!(c.tblInstance && c.colInsPeriode && infoCol(c.tblInstance,c.colInsPeriode) &&
+            (S.data.periodes||[]).length);
+}
+/* périodes proposées à la saisie : celles qui ne sont pas terminées */
+function periodesProposees(){
+  const auj=aujourdHuiUTC();
+  return (S.data.periodes||[]).map(periodeObj)
+    .filter(x=>(x.fin||x.debut||auj)>=auj)
+    .sort((a,b)=>(a.debut||a.fin||0)-(b.debut||b.fin||0));
+}
+/* retard : période terminée ; proche : période entamée ou fin sous 15 jours */
+function etatPeriode(per){
+  const auj=aujourdHuiUTC(), b=per.fin||per.debut;
+  if(!b) return {ts:null,jours:null,etat:"avenir"};
+  const jours=Math.round((b-auj)/86400);
+  return {ts:b,jours,
+    etat: jours<0 ? "depasse" : ((per.debut && per.debut<=auj) || jours<=15 ? "proche" : "avenir")};
+}
+function instancesAProgrammer(p){
+  return instancesDe(p).filter(j=>j.aProgrammer)
+    .map(j=>Object.assign({},j,etatPeriode(j.periode)))
+    .sort((a,b)=>(a.ts||0)-(b.ts||0));
+}
+function joursEcheance(e){
+  if(e.jours==null) return "";
+  return e.jours<0 ? "en retard de "+(-e.jours)+" j"
+       : (e.jours===0 ? "aujourd'hui" : "dans "+e.jours+" j");
+}
+
 function instancesDe(p){
   const c=S.cfg, out=[];
   if(c.tblInstance && c.colInsLien)
     S.data.instances.filter(j=>lienProjet(c.tblInstance,j,c.colInsLien,p)).forEach(j=>{
       const lib=lire(c.tblInstance,j,c.colInsHisto||c.colInsLibelle);
+      const date=Number(j[c.colInsDate])||dateDepuisTexte(lib);
+      const periode=periodeDe(j);
+      /* sans date mais avec une période : instance « à programmer » */
+      const aProgrammer=!date && !!periode;
       out.push({
         id:j.id, table:c.tblInstance, genre:"Instance", ligne:j,
-        date:Number(j[c.colInsDate])||dateDepuisTexte(lib),
-        libelle:lib,
+        date,
+        libelle: lib || (aProgrammer ? "À programmer — "+periode.libelle : lib),
+        libelleSaisi:lib, periode, aProgrammer,
         action:actionUtile(c.tblInstance,j,c.colInsAction,p),
         type:c.colInsType?lire(c.tblInstance,j,c.colInsType):"",
         rapporteur:c.colInsRapporteur?lire(c.tblInstance,j,c.colInsRapporteur):""
       });
     });
+  /* une instance à programmer se range au début de sa période */
+  const cle=x=>Number(x.date)||(x.periode&&(x.periode.debut||x.periode.fin))||null;
   return out.sort((a,b)=>{
-    const da=Number(a.date)||null, db=Number(b.date)||null;
+    const da=cle(a), db=cle(b);
     if(da===null && db===null) return 0;
     if(da===null) return 1;          // sans date : en fin de liste
     if(db===null) return -1;
@@ -4547,28 +4647,62 @@ function carteAjout(p,prefixe,titre,cles,extras,libelleChamp,bouton){
   const action = c[cles.action]
     ? '<div class="champ"><label>Action concernée</label>'+
       champAction(p,prefixe+"-action",null)+'</div>' : "";
-  return '<div class="carte"><h2>'+titre+'</h2><div class="grille colonne">'+
-    '<div class="champ"><label>Date</label>'+
-      champDateFR('id="'+prefixe+'-date"','',dateDuJourFR())+'</div>'+
-    '<div class="champ"><label>'+libelleChamp+'</label>'+
-      champVierge(c[cles.table],c[cles.lib],prefixe+"-libelle")+'</div>'+
-    action+sup+
-    '</div><div style="margin-top:10px"><button class="btn" id="'+prefixe+'-ajouter">'+bouton+'</button></div></div>';
+  /* instance à programmer : la date et le libellé cèdent la place à la période */
+  const avecPer=!!(cles.periode && periodesActives());
+  const prog=avecPer && S.insMode==="prog";
+  const bascule = avecPer
+    ? '<div class="seg-ins" role="group" aria-label="Mode de saisie">'+
+      '<button type="button" data-insmode="date" class="'+(prog?"":"on")+'" aria-pressed="'+!prog+'">Date connue</button>'+
+      '<button type="button" data-insmode="prog" class="prog'+(prog?" on":"")+'" aria-pressed="'+prog+'">À programmer</button></div>'
+    : '';
+  const pers=prog?periodesProposees():[];
+  const haut = prog
+    ? '<div class="champ"><label>Période prévue</label>'+
+      '<select id="'+prefixe+'-periode"><option value="">Choisir une période…</option>'+
+      pers.map(x=>'<option value="'+x.id+'">'+esc(x.libelle)+'</option>').join("")+'</select>'+
+      '<div class="aide-per" id="'+prefixe+'-aide">'+
+        (pers.length?'':'Aucune période à venir : ajoutez-en dans la table des périodes.')+'</div></div>'
+    : '<div class="champ"><label>Date</label>'+
+        champDateFR('id="'+prefixe+'-date"','',dateDuJourFR())+'</div>'+
+      '<div class="champ"><label>'+libelleChamp+'</label>'+
+        champVierge(c[cles.table],c[cles.lib],prefixe+"-libelle")+'</div>';
+  const sup2 = prog ? sup.replace(/<\/label>/g,' <em>(facultatif)</em></label>') : sup;
+  return '<div class="carte"><h2>'+titre+'</h2>'+bascule+'<div class="grille colonne">'+
+    haut+action+sup2+
+    '</div><div style="margin-top:10px"><button class="btn" id="'+prefixe+'-ajouter">'+
+    (prog?"Ajouter à programmer":bouton)+'</button></div></div>';
 }
 
 function brancherAjout(p,prefixe,cles,extras,alerte){
   const c=S.cfg;
   const b=$("#"+prefixe+"-ajouter");
   if(!b) return;
+  document.querySelectorAll("[data-insmode]").forEach(x=>x.onclick=()=>{
+    S.insMode=x.dataset.insmode; vueInstances(p);
+  });
+  const selPer=$("#"+prefixe+"-periode");
+  if(selPer) selPer.onchange=()=>{
+    const x=periodeObj((S.data.periodes||[]).find(r=>r.id===Number(selPer.value)));
+    const aide=$("#"+prefixe+"-aide");
+    if(aide) aide.innerHTML = x
+      ? 'Du <b>'+esc(dateVersFR(x.debut)||"?")+'</b> au <b>'+esc(dateVersFR(x.fin)||"?")+'</b>' : '';
+  };
   b.onclick=async()=>{
-    const lib=valeurChamp(prefixe+"-libelle",c[cles.table],c[cles.lib]);
-    if(!lib){ toast(alerte,true); return; }
     const info=infoCol(c[cles.table],c[cles.lien]);
-    const champs={[c[cles.lib]]:lib};
-    if(c[cles.date]){
-      const d=frVersDate($("#"+prefixe+"-date").value);
-      if(d===undefined){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
-      champs[c[cles.date]]=d;
+    let champs;
+    if(selPer){
+      const per=Number(selPer.value);
+      if(!per){ toast("Choisissez la période prévue.",true); return; }
+      champs={[c[cles.periode]]:per};
+    }else{
+      const lib=valeurChamp(prefixe+"-libelle",c[cles.table],c[cles.lib]);
+      if(!lib){ toast(alerte,true); return; }
+      champs={[c[cles.lib]]:lib};
+      if(c[cles.date]){
+        const d=frVersDate($("#"+prefixe+"-date").value);
+        if(d===undefined){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
+        champs[c[cles.date]]=d;
+      }
     }
     extras.forEach(e=>{
       if(!c[e.cle] || !$("#"+prefixe+"-"+e.id)) return;
@@ -4588,7 +4722,7 @@ function brancherAjout(p,prefixe,cles,extras,alerte){
 }
 
 const CLES_INSTANCE={table:"tblInstance",lien:"colInsLien",date:"colInsDate",
-                     lib:"colInsLibelle",action:"colInsAction"};
+                     lib:"colInsLibelle",action:"colInsAction",periode:"colInsPeriode"};
 const EXTRAS_INSTANCE=[{cle:"colInsType",id:"type",libelle:"Type"},
                        {cle:"colInsRapporteur",id:"rapporteur",libelle:"Rapporteur"}];
 
@@ -4631,11 +4765,15 @@ function tableauInstances(instances){
         (avecRap?'<th class="col-etroite">Rapporteur</th>':'')+
         (avecAction?'<th class="col-etroite">Action</th>':'')+
         (avecPJ?'<th>Pièces jointes</th>':'')+
-        '<th style="width:34px"></th></tr></thead><tbody>'+
+        '<th style="width:'+(instances.some(j=>j.aProgrammer)?"118px":"34px")+'"></th></tr></thead><tbody>'+
         instances.map(j=>
-          '<tr class="ligne-histo" data-act="'+esc(j.action||"")+'">'+
+          S.insProg===j.id ? ligneProgrammation(j,avecType,avecRap,avecAction,avecPJ) :
+          (j.aProgrammer && !ouvert) ? ligneAProgrammer(j,avecType,avecRap,avecAction,avecPJ) :
+          '<tr class="ligne-histo'+(j.aProgrammer?" ins-prog":"")+'" id="ins-'+j.id+'" data-act="'+esc(j.action||"")+'">'+
           '<td class="col-date cel-date">'+
-            (ed(j,c.colInsDate)||esc(dateVersFR(j.date)||"—"))+'</td>'+
+            (ed(j,c.colInsDate)||esc(dateVersFR(j.date)||"—"))+
+            (j.periode?'<span class="ins-prevue">'+(j.aProgrammer?"à programmer : ":"prévue : ")+
+              esc(j.periode.libelle)+'</span>':'')+'</td>'+
           '<td class="cel-texte">'+
             (ed(j,c.colInsHisto||c.colInsLibelle,{auto:true})||esc(j.libelle))+'</td>'+
           (avecType?'<td>'+(ed(j,c.colInsType)||(j.type
@@ -4651,6 +4789,70 @@ function tableauInstances(instances){
   return barreVerrou("Les instances sont en consultation.")+
     '<div class="carte">'+teteHisto("Historique des instances",filtre)+
     '<div class="histo-liste" id="'+id+'-liste">'+corps+'</div></div>';
+}
+
+/* ligne d'une instance à programmer, en consultation */
+function ligneAProgrammer(j,avecType,avecRap,avecAction,avecPJ){
+  const c=S.cfg, e=etatPeriode(j.periode);
+  const vide='<span class="cel-vide">—</span>';
+  return '<tr class="ligne-histo ins-prog" id="ins-'+j.id+'" data-act="'+esc(j.action||"")+'">'+
+    '<td class="col-date cel-date"><span class="ins-per">'+esc(j.periode.libelle)+'</span>'+
+      '<span class="ins-etat ins-'+e.etat+'">'+esc(joursEcheance(e))+'</span></td>'+
+    '<td class="cel-texte"><span class="pastille p-prog">À programmer</span>'+
+      (j.libelleSaisi?' '+esc(j.libelleSaisi):'')+'</td>'+
+    (avecType?'<td>'+(j.type?'<span class="pastille p-nature">'+esc(j.type)+'</span>':vide)+'</td>':'')+
+    (avecRap?'<td>'+(j.rapporteur?esc(j.rapporteur):vide)+'</td>':'')+
+    (avecAction?'<td>'+(j.action
+      ? '<span class="pastille p-action" title="'+esc(j.action)+'">'+esc(j.action)+'</span>':vide)+'</td>':'')+
+    (avecPJ?'<td>'+blocPJ(c.tblInstance,j.ligne,c.colInsPJ)+'</td>':'')+
+    '<td style="white-space:nowrap"><button type="button" class="btn-prog" data-insprog="'+j.id+'" '+
+      'title="Saisir la date, le libellé, le type et le rapporteur">Programmer</button>'+btnSupHisto(j)+'</td></tr>';
+}
+/* même ligne, ouverte pour la programmer : date, libellé, type, rapporteur */
+function ligneProgrammation(j,avecType,avecRap,avecAction,avecPJ){
+  const c=S.cfg;
+  return '<tr class="ins-edition" id="ins-'+j.id+'" data-act="'+esc(j.action||"")+'">'+
+    '<td class="col-date"><span class="ins-per">'+esc(j.periode?j.periode.libelle:"")+'</span>'+
+      champDateFR('id="ip-date" aria-label="Date de l\'instance"','','')+'</td>'+
+    '<td>'+champVierge(c.tblInstance,c.colInsLibelle,"ip-lib")+'</td>'+
+    (avecType?'<td>'+champVierge(c.tblInstance,c.colInsType,"ip-type")+'</td>':'')+
+    (avecRap?'<td>'+champVierge(c.tblInstance,c.colInsRapporteur,"ip-rap")+'</td>':'')+
+    (avecAction?'<td>'+(j.action?'<span class="pastille p-action">'+esc(j.action)+'</span>':'')+'</td>':'')+
+    (avecPJ?'<td></td>':'')+
+    '<td><div class="ins-boutons"><button type="button" class="btn" id="ip-ok">Enregistrer</button>'+
+      '<button type="button" class="btn-2" id="ip-ko">Annuler</button></div></td></tr>';
+}
+function brancherProgrammation(p){
+  const c=S.cfg;
+  document.querySelectorAll("[data-insprog]").forEach(b=>b.onclick=()=>{
+    S.insProg=Number(b.dataset.insprog); vueInstances(p);
+    const d=$("#ip-date"); if(d) d.focus();
+  });
+  const ok=$("#ip-ok");
+  if(!ok) return;
+  const j=instancesDe(p).find(x=>x.id===S.insProg);
+  /* le type et le rapporteur éventuellement saisis à l'ajout sont repris */
+  [["ip-type",c.colInsType],["ip-rap",c.colInsRapporteur]].forEach(([id,col])=>{
+    const el=$("#"+id), v=j&&col?j.ligne[col]:null;
+    if(el && v!=null && v!=="") el.value=String(v);
+  });
+  $("#ip-ko").onclick=()=>{ S.insProg=null; vueInstances(p); };
+  ok.onclick=async()=>{
+    const d=frVersDate($("#ip-date").value);
+    if(d===undefined || d===null){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
+    const lib=valeurChamp("ip-lib",c.tblInstance,c.colInsLibelle);
+    if(!lib){ toast("Indiquez le libellé de l'instance.",true); return; }
+    const champs={[c.colInsDate]:d,[c.colInsLibelle]:lib};
+    if(c.colInsType && $("#ip-type")){
+      const v=valeurChamp("ip-type",c.tblInstance,c.colInsType); if(v!==null && v!=="") champs[c.colInsType]=v; }
+    if(c.colInsRapporteur && $("#ip-rap")){
+      const v=valeurChamp("ip-rap",c.tblInstance,c.colInsRapporteur); if(v!==null && v!=="") champs[c.colInsRapporteur]=v; }
+    try{ await appliquer([["UpdateRecord",c.tblInstance,S.insProg,champs]],[]); }
+    catch(err){ toast("Enregistrement impossible : "+err.message,true); console.error(err); return; }
+    S.insProg=null;
+    toast("Instance programmée");
+    await charger(); rendreProjet();
+  };
 }
 
 function brancherSuppressionHisto(){
@@ -4677,6 +4879,7 @@ function vueInstances(p){
     '</div>';
 
   brancherAjout(p,"in",CLES_INSTANCE,EXTRAS_INSTANCE,"Indiquez le libellé de l'instance avant d'ajouter.");
+  brancherProgrammation(p);
   brancherFiltresHisto();
   brancherSuppressionHisto();
   brancherPJ();
@@ -4726,6 +4929,19 @@ function reperesPlanning(p){
     out.push({ts,genre:"instance",
       titre:dateVersFR(ts),
       detail:j.libelle||"(instance sans libellé)",
+      meta:[j.type?txt(j.type).trim():"",
+            j.rapporteur?"Rapporteur : "+j.rapporteur:"",
+            j.action?"Action : "+j.action:""].filter(Boolean).join(" — ")});
+  });
+
+  /* Instance à programmer : une bande hachurée couvrant sa période. */
+  instancesDe(p).forEach(j=>{
+    if(!j.aProgrammer) return;
+    const deb=j.periode.debut||j.periode.fin, fin=j.periode.fin||j.periode.debut;
+    if(!deb) return;
+    out.push({ts:deb,fin,genre:"periode",
+      titre:j.periode.libelle+" — instance à programmer",
+      detail:"Du "+dateVersFR(deb)+" au "+dateVersFR(fin),
       meta:[j.type?txt(j.type).trim():"",
             j.rapporteur?"Rapporteur : "+j.rapporteur:"",
             j.action?"Action : "+j.action:""].filter(Boolean).join(" — ")});
@@ -4802,7 +5018,8 @@ function vuePlanning(p){
 
   const reperes=reperesPlanning(p);
   const anCourante=new Date().getUTCFullYear();
-  const dates=toutes.map(b=>b.d||b.f).concat(toutes.map(b=>b.f||b.d), reperes.map(r=>r.ts));
+  const dates=toutes.map(b=>b.d||b.f).concat(toutes.map(b=>b.f||b.d), reperes.map(r=>r.ts),
+    reperes.filter(r=>r.fin).map(r=>r.fin));
   const min=Math.min.apply(null,dates), max=Math.max.apply(null,dates);
   const minAn=Math.min(new Date(min*1000).getUTCFullYear(),anCourante);
   const maxAn=Math.max(new Date(max*1000).getUTCFullYear(),anCourante+1);
@@ -4817,7 +5034,7 @@ function vuePlanning(p){
   /* aujourd'hui, ramené à minuit UTC pour rester dans le même repère que les périodes */
   const n0=new Date();
   const auj=Date.UTC(n0.getFullYear(),n0.getMonth(),n0.getDate())/1000;
-  const dedans=r=>r.ts>=per[0].debut && r.ts<per[per.length-1].fin;
+  const dedans=r=>(r.fin||r.ts)>=per[0].debut && r.ts<per[per.length-1].fin;
   const visibles=reperes.filter(dedans);
   /* Deux repères quasi superposés se masquent l'un l'autre. Quand une instance
      tombe sur un délai, elle descend d'un cran, sur la barre d'avancement du
@@ -4826,12 +5043,13 @@ function vuePlanning(p){
   const ECART=1.2;                                   // en % de la largeur de piste
   const basse=visibles.map((r,i)=>
     r.genre==="instance" &&
-    visibles.some((o,k)=>k!==i && o.genre!=="instance" &&
+    visibles.some((o,k)=>k!==i && o.genre==="delai" &&
                          Math.abs(abscisses[k]-abscisses[i])<ECART));
   const bande = visibles.length
     ? '<div class="pl-reperes">'+visibles.map((r,i)=>
         '<button type="button" class="pl-rep pl-rep-'+r.genre+(basse[i]?" pl-rep-bas":"")+'"'+
-        ' data-rep="'+i+'" style="left:'+abscisses[i]+'%"'+
+        ' data-rep="'+i+'" style="left:'+abscisses[i]+'%'+
+        (r.genre==="periode"?';width:'+Math.max(pos(r.fin)-abscisses[i],0.6)+'%':'')+'"'+
         ' title="'+esc(r.titre+" — "+r.detail)+'"></button>').join("")+'</div>'
     : '';
 
@@ -4869,7 +5087,9 @@ function vuePlanning(p){
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     (visibles.length
       ? '<span class="pl-legende-rep"><i style="background:#c62828"></i> Instance</span>'+
-        '<span class="pl-legende-rep"><i style="background:#0e9594"></i> Journal de bord</span>'
+        '<span class="pl-legende-rep"><i style="background:#0e9594"></i> Journal de bord</span>'+
+        (visibles.some(r=>r.genre==="periode")
+          ? '<span class="pl-legende-per"><i></i> Instance à programmer</span>':'')
       : '')+
     '</div></div>';
   S.reperesVus=visibles;
@@ -4966,8 +5186,9 @@ function echeancesDe(p){
 function blocEcheances(p){
   const c=S.cfg;
   const ech=echeancesDe(p);
-  if(!ech.length) return "";
-  const nbD=ech.filter(e=>e.etat==="depasse").length;
+  const insP=instancesAProgrammer(p);
+  if(!ech.length && !insP.length) return "";
+  const nbD=ech.filter(e=>e.etat==="depasse").length+insP.filter(e=>e.etat==="depasse").length;
   const jrs=e=>e.jours<0
     ? "en retard de "+(-e.jours)+" j"
     : (e.jours===0 ? "aujourd'hui" : "dans "+e.jours+" j");
@@ -4975,7 +5196,7 @@ function blocEcheances(p){
     '<h2>Échéances'+
       (nbD?'<span class="ech-alerte">'+nbD+' dépassée'+(nbD>1?"s":"")+'</span>':'')+
     '</h2>'+
-    '<div class="ech-liste">'+ech.map(e=>
+    '<div class="ech-liste">'+ech.map(e=>({ts:e.ts,html:
       '<div class="ech ech-'+e.etat+'" role="button" tabindex="0" data-echj="'+e.j.id+'">'+
         '<span class="ech-date">'+esc(dateVersFR(e.ts))+'</span>'+
         '<span class="ech-delta">'+esc(jrs(e))+'</span>'+
@@ -4986,13 +5207,31 @@ function blocEcheances(p){
           ? '<button type="button" class="ech-clore" data-clorej="'+e.j.id+
             '" title="Marquer cette échéance comme traitée">Traité</button>'
           : '')+
-      '</div>').join("")+'</div>'+
+      '</div>'})).concat(insP.map(e=>({ts:e.ts||0,html:
+      '<div class="ech ech-'+e.etat+' ech-ins" role="button" tabindex="0" data-echins="'+e.id+'" '+
+        'title="Voir l\'instance dans l\'onglet Instances">'+
+        '<span class="ech-date">'+esc(dateVersFR(e.ts)||"—")+'</span>'+
+        '<span class="ech-delta">'+esc(joursEcheance(e))+'</span>'+
+        '<span class="pastille p-prog">Instance à programmer</span>'+
+        '<span class="ech-txt">'+esc(e.periode.libelle+(e.action?" — "+e.action:""))+'</span>'+
+      '</div>'}))).sort((a,b)=>a.ts-b.ts).map(x=>x.html).join("")+'</div>'+
     (c.colJnlTraite?'':'<p class="ech-note">Paramétrez la colonne « Échéance traitée » '+
       'pour pouvoir clore une échéance.</p>')+
     '</div>';
 }
 
 function brancherEcheances(p){
+  /* instance à programmer : on bascule sur l'onglet Instances, ligne mise en évidence */
+  document.querySelectorAll("[data-echins]").forEach(b=>{
+    b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); b.click(); } };
+    b.onclick=()=>{
+      const id=b.dataset.echins;
+      S.onglet="instances"; reverrouiller(); rendreProjet();
+      const l=document.getElementById("ins-"+id);
+      if(l){ l.scrollIntoView({behavior:"smooth",block:"center"});
+             l.classList.add("jnl-vise"); setTimeout(()=>l.classList.remove("jnl-vise"),1600); }
+    };
+  });
   document.querySelectorAll("[data-echj]").forEach(b=>{
     b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); b.click(); } };
     b.onclick=async(e)=>{
@@ -5390,6 +5629,12 @@ function analyseProjet(p){
   const ins=instancesDe(p).filter(j=>Number(j.date));
   const insPassee=ins.filter(j=>j.date<auj).slice(-1)[0]||null;
   const insProchaine=ins.filter(j=>j.date>=auj)[0]||null;
+  if(!inter) instancesAProgrammer(p).forEach(x=>{
+    if(x.etat==="depasse")
+      alerte("rouge","Instance à programmer non datée : la période « "+x.periode.libelle+" » est terminée");
+    else if(x.etat==="proche")
+      alerte("orange","Instance à programmer sur la période « "+x.periode.libelle+" » : date à fixer");
+  });
 
   /* --- météo --- */
   let meteo;
@@ -5605,6 +5850,10 @@ function analyseComplete(p){
   instancesDe(p).forEach(j=>{
     const ts=Number(j.date);
     if(ts && ts>=auj && ts<=fin) ev.push({ts,type:"Instance",lib:j.libelle||"Instance",etat:"avenir"});
+  });
+  instancesAProgrammer(p).forEach(x=>{
+    if(x.ts && dansFenetre(x.ts))
+      ev.push({ts:x.ts,type:"Instance",lib:"À programmer — "+x.periode.libelle,etat:etat(x.ts)});
   });
   A.frise={deb,fin,auj,ev:ev.sort((x,y)=>x.ts-y.ts)};
 
@@ -8607,7 +8856,7 @@ function rangsGantt(p,acts,numeros){
 /* Repères du planning imprimé : même source qu'à l'écran, pour que les deux
    rendus portent exactement les mêmes losanges aux mêmes dates. */
 function reperesGantt(p){
-  return reperesPlanning(p).map(r=>({
+  return reperesPlanning(p).filter(r=>r.genre!=="periode").map(r=>({
     ts:r.ts, txt:r.titre,
     contenu:[r.titre,r.detail,r.meta].filter(Boolean).join("\n"),
     coul:r.genre==="delai"?"#0e9594":"#c62828",
@@ -11334,8 +11583,9 @@ function alerteProjet(p){
   const proch=instancesDe(p)
     .filter(j=>Number(j.date)>=auj)
     .sort((a,b)=>a.date-b.date)[0]||null;
-  return {retard:ech.filter(e=>e.etat==="depasse").length,
-          proche:ech.filter(e=>e.etat==="proche").length,
+  const insP=instancesAProgrammer(p);
+  return {retard:ech.filter(e=>e.etat==="depasse").length+insP.filter(e=>e.etat==="depasse").length,
+          proche:ech.filter(e=>e.etat==="proche").length+insP.filter(e=>e.etat==="proche").length,
           instance:proch};
 }
 

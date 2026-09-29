@@ -485,6 +485,26 @@ tr.jnl-vise td{background:#fff3c4!important;}
 .notif-ident p{margin:0 0 10px;line-height:1.5;}
 .notif-ident label{display:block;font-size:11px;font-weight:bold;color:var(--gris);margin-bottom:4px;}
 .notif-ident select{width:100%;padding:7px 9px;border:1px solid var(--trait);border-radius:6px;margin-bottom:10px;}
+.notif-fermer{border:0;background:var(--fond);border-radius:6px;width:28px;height:28px;color:var(--gris);
+  font-size:13px;margin-left:6px;cursor:pointer;flex:0 0 auto;}
+.notif-fermer:hover{background:var(--trait);}
+.mb-cloche{position:relative;flex:0 0 auto;width:38px;height:38px;border:0;border-radius:50%;
+  background:rgba(255,255,255,.16);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+.mb-cloche[hidden]{display:none;}
+.mb-cloche .notif-badge{top:-2px;right:-3px;}
+body.mob .notif-pan{top:0;left:0;right:0;bottom:0;width:auto;max-height:none;border:0;border-radius:0;
+  z-index:75;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+body.mob .notif-tete{padding:14px 13px 10px;}
+body.mob .notif-tete h2{font-size:14px;}
+body.mob .notif-fermer{width:38px;height:38px;font-size:16px;}
+body.mob .notif-lien{font-size:13px;}
+body.mob .notif-chip{padding:7px 14px;font-size:13px;}
+body.mob .notif{padding:12px 13px 12px 11px;font-size:14px;}
+body.mob .notif.non-lue{padding-bottom:44px;}
+body.mob .notif-ctx{font-size:12px;}
+body.mob .notif-marquer{opacity:1;padding:6px 13px;font-size:12px;}
+body.mob .notif-pied{font-size:12px;padding:10px 13px;}
+body.mob .mb-projet .notif-pt{margin-top:0;}
 /* ---------- Instances à programmer ---------- */
 .seg-ins{display:flex;border:1px solid var(--trait);border-radius:var(--rayon);overflow:hidden;margin-bottom:12px;}
 .seg-ins button{flex:1;border:0;background:#fff;color:var(--gris);padding:7px 6px;font-weight:bold;font-size:11.5px;}
@@ -3179,6 +3199,7 @@ async function marquerLues(ns){
   try{ loc=JSON.parse(lsLire(cleLuesLocales())||"[]"); }catch(e){}
   lsEcrire(cleLuesLocales(),JSON.stringify(Array.from(new Set(loc.concat(cles))).slice(-3000)));
   rendreListe();
+  if(enMobile() && S.mob.ecran!=="fiche" && $("#mb-liste")) mbListe();
   if(notifTableOk()){
     try{
       await grist.docApi.applyUserActions([["BulkAddRecord",c.tblNotif,cles.map(()=>null),
@@ -3197,6 +3218,13 @@ function majCloche(){
   b.setAttribute("aria-label","Notifications"+(n?" : "+n+" non lue"+(n>1?"s":""):""));
   b.title=S.notifAgent ? "Notifications de "+nomAgent(S.notifAgent) : "Notifications : indiquez qui vous êtes";
   b.classList.toggle("sans-agent",!S.notifAgent);
+  const mb=$("#mb-cloche");
+  if(mb){
+    mb.hidden=!notifsPossibles();
+    const mbd=$("#mb-notif-badge");
+    mbd.hidden=!n; mbd.textContent=n>99?"99+":String(n);
+    mb.setAttribute("aria-label",b.getAttribute("aria-label"));
+  }
   if(!$("#notif-pan").hidden) rendreNotifs();
 }
 
@@ -3216,7 +3244,8 @@ function rendreNotifs(){
   const c=S.cfg, pan=$("#notif-pan");
   if(!S.notifAgent){
     const agents=(S.data.agents||[]).slice().sort((a,b)=>nomAgent(a).localeCompare(nomAgent(b),"fr"));
-    pan.innerHTML='<div class="notif-tete"><h2>Notifications</h2></div>'+
+    pan.innerHTML='<div class="notif-tete"><h2>Notifications</h2>'+
+      '<button type="button" class="notif-fermer" id="notif-fermer" aria-label="Fermer" style="margin-left:auto">✕</button></div>'+
       '<div class="notif-ident"><p>'+(S.moiEmail
         ? 'Votre compte (<b>'+esc(S.moiEmail)+'</b>) n\'est rattaché à aucun agent. Renseignez-le dans la '+
           'colonne « '+esc(c.colAgentCompte||"Compte_Grist")+' » de la table des agents, ou indiquez qui vous êtes :'
@@ -3224,6 +3253,7 @@ function rendreNotifs(){
       '<label for="notif-moi">Je suis</label><select id="notif-moi"><option value="">Choisir…</option>'+
       agents.map(a=>'<option value="'+a.id+'">'+esc(nomAgent(a)||"(sans nom)")+'</option>').join("")+'</select>'+
       '<button type="button" class="btn" id="notif-moi-ok">Valider</button></div>';
+    $("#notif-fermer").onclick=fermerNotifs;
     $("#notif-moi-ok").onclick=()=>{
       const v=$("#notif-moi").value;
       if(!v){ toast("Choisissez votre nom.",true); return; }
@@ -3259,13 +3289,15 @@ function rendreNotifs(){
         return gx.length ? '<div class="notif-groupe">'+NT_GENRES[g].lib+' ('+gx.length+')</div>'+gx.map(item).join("") : "";
       }).join("");
   pan.innerHTML='<div class="notif-tete"><h2>Notifications</h2>'+
-      '<button type="button" class="notif-lien" id="notif-tout"'+(nl.length?"":" disabled")+'>Tout marquer comme lu</button></div>'+
+      '<button type="button" class="notif-lien" id="notif-tout"'+(nl.length?"":" disabled")+'>Tout marquer comme lu</button>'+
+      '<button type="button" class="notif-fermer" id="notif-fermer" aria-label="Fermer">✕</button></div>'+
     '<div class="notif-filtres">'+[["nonlues","Non lues",nl.length],["toutes","Toutes",(S.notifs||[]).length]]
       .map(([k,l,n])=>'<button type="button" class="notif-chip'+(filtre===k?" on":"")+'" data-nf="'+k+'">'+l+' <b>'+n+'</b></button>').join("")+'</div>'+
     '<div class="notif-liste">'+corps+'</div>'+
     '<div class="notif-pied">'+esc(nomAgent(S.notifAgent))+
       (S.agentParCompte?'':' — <button type="button" class="notif-lien" id="notif-changer">Ce n\'est pas vous ?</button>')+'</div>';
 
+  $("#notif-fermer").onclick=fermerNotifs;
   pan.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>{ S.notifFiltre=b.dataset.nf; rendreNotifs(); });
   const tout=$("#notif-tout");
   if(tout) tout.onclick=()=>{ const k=nl.length; marquerLues(nl);
@@ -3282,8 +3314,46 @@ function rendreNotifs(){
   });
 }
 
+/* cloche de l'en-tête mobile : même panneau, affiché en plein écran */
+function clocheMobile(){
+  return '<button type="button" class="mb-cloche" id="mb-cloche" aria-label="Notifications"'+
+    (notifsPossibles()?'':' hidden')+'>'+
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>'+
+    '<span class="notif-badge" id="mb-notif-badge" hidden></span></button>';
+}
+function brancherClocheMobile(){
+  const b=$("#mb-cloche");
+  if(b) b.onclick=()=>ouvrirNotifs();
+  majCloche();
+}
+
 function ouvrirNotifs(){ $("#notif-pan").hidden=false; $("#btn-notif").setAttribute("aria-expanded","true"); rendreNotifs(); }
 function fermerNotifs(){ $("#notif-pan").hidden=true; $("#btn-notif").setAttribute("aria-expanded","false"); }
+
+/* mobile : fiche du projet, onglet Actions (accordéon de l'action déplié) ou Journal */
+function ouvrirNotifMobile(n){
+  const m=S.mob;
+  m.ecran="fiche";
+  let cible=null;
+  if(n.genre==="journal"){
+    m.onglet="journal";
+    rendreMobile(); window.scrollTo(0,0);
+    const b=document.querySelector('#mb-corps [data-mbrep="'+n.j.id+'"], #mb-corps [data-mbclore="'+n.j.id+'"]');
+    cible=b?(b.closest(".mb-item")||b):null;
+  }else{
+    const porteur=n.genre==="action"?n.a:(n.a||n.p);
+    m.onglet="travaux";
+    m.acc[String(porteur.id)]=true;
+    rendreMobile(); window.scrollTo(0,0);
+    const acc=document.querySelector('#mb-corps details[data-acc="'+porteur.id+'"]');
+    const t=n.genre==="tache"?document.querySelector('#mb-corps [data-comt="'+n.t.id+'"]'):null;
+    cible=t?(t.closest(".mb-tache")||t):acc;
+  }
+  if(!cible) return;
+  cible.scrollIntoView({behavior:"smooth",block:"center"});
+  cible.classList.add("jnl-vise");
+  setTimeout(()=>cible.classList.remove("jnl-vise"),1800);
+}
 
 /* ouvre le projet sur l'élément concerné, et la notification passe en lue */
 function ouvrirNotif(n){
@@ -3291,6 +3361,7 @@ function ouvrirNotif(n){
   if(!notifsLues().has(n.cle)) marquerLues([n]);
   fermerNotifs();
   S.projetSel=n.p; reverrouiller();
+  if(enMobile()){ ouvrirNotifMobile(n); return; }
   const aller=o=>{ S.onglet=o; rendreListe(); rendreProjet(); };
   if(n.genre==="action"){ aller("actions"); ouvrirFenetreAction(n.a.id); return; }
   if(n.genre==="tache"){
@@ -12047,7 +12118,7 @@ function mbAccueil(){
 
   $("#mobile").innerHTML=
     '<div class="mb-haut">'+
-      '<div class="mb-tete"><b>Vos projets</b></div>'+
+      '<div class="mb-tete"><b>Vos projets</b>'+clocheMobile()+'</div>'+
       '<div class="mb-rech"><input id="mb-q" type="search" placeholder="Projet, action, tâche, porteur…" '+
         'value="'+esc(m.q||"")+'" autocomplete="off" enterkeyhint="search"></div>'+
       (puces?'<div class="mb-outils">'+puces+'</div>':'')+
@@ -12056,6 +12127,7 @@ function mbAccueil(){
     '<div id="mb-liste"></div>';
 
   mbListe();
+  brancherClocheMobile();
 
   const q=$("#mb-q");
   q.oninput=()=>{ m.q=q.value; mbListe(); };
@@ -12075,6 +12147,8 @@ function mbAccueil(){
 function mbListe(){
   const c=S.cfg, m=S.mob;
   const liste=projetsMobile();
+  const nlParProjet=new Map();
+  nonLues().forEach(n=>nlParProjet.set(n.p.id,(nlParProjet.get(n.p.id)||0)+1));
   const lignes = liste.length
     ? '<div class="mb-compte">'+liste.length+' projet'+(liste.length>1?'s':'')+'</div>'+
       liste.map(p=>{
@@ -12088,6 +12162,9 @@ function mbListe(){
           donut(a,34,interrompu(p))+
           '<span class="titre"><b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
           '<span>'+sous+'</span></span>'+
+          (nlParProjet.get(p.id)
+            ? '<span class="notif-pt" aria-label="'+nlParProjet.get(p.id)+' notification(s) non lue(s)">'+
+              nlParProjet.get(p.id)+'</span>' : '')+
           '<span class="mb-fleche">›</span></button>';
       }).join("")
     : '<div class="mb-corps"><div class="mb-rien">Aucun projet ne correspond.</div></div>';
@@ -12118,6 +12195,7 @@ function mbFiche(){
       '<div class="mb-tete">'+
         '<button type="button" class="mb-retour" id="mb-retour" aria-label="Retour">‹</button>'+
         '<b>'+esc(lire(c.tblMain,p,c.colLibelle)||"(sans libellé)")+'</b>'+
+        clocheMobile()+
       '</div>'+
       '<div class="mb-onglets">'+MB_ONGLETS.map(([k,l])=>
         '<button type="button" data-mbo="'+k+'"'+(m.onglet===k?' class="on"':'')+'>'+l+'</button>').join("")+
@@ -12132,6 +12210,7 @@ function mbFiche(){
     m.onglet=b.dataset.mbo; reverrouiller(); mbFiche(); window.scrollTo(0,0);
   });
   $("#mb-note").onclick=()=>mbFeuilleNote(p);
+  brancherClocheMobile();
 
   ({synthese:mbSynthese,travaux:mbTravaux,instances:mbInstances,journal:mbJournal}
     [m.onglet]||mbSynthese)(p);

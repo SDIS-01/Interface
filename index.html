@@ -425,6 +425,100 @@ tr.glisse-apres td{box-shadow:inset 0 -2px 0 var(--bleu);}
 .ech-note{color:var(--gris);font-size:11px;margin:9px 0 0;}
 .jnl-vise{background:#fff8e1;box-shadow:inset 3px 0 0 var(--orange);}
 tr.jnl-vise td{background:#fff3c4!important;}
+/* ---------- Journal de bord : chronologie ---------- */
+.jb-tete{padding-bottom:12px;}
+.jb-l1{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.jb-l1 h2{margin:0;}
+.jb-l1 #jb-nouv{margin-left:auto;}
+#jb-nouv[aria-expanded="true"]{background:#fff;color:var(--bleu);box-shadow:inset 0 0 0 1px var(--bleu);}
+.jb-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.jb-pill{display:inline-flex;align-items:center;gap:6px;border-radius:14px;padding:4px 11px 4px 9px;
+  font-size:11.5px;font-weight:bold;border:1px solid transparent;background:#eef1f5;color:var(--gris);}
+.jb-pill b{font-size:13px;}
+.jb-pill i{width:8px;height:8px;border-radius:50%;background:currentColor;}
+.jb-p-retard{background:#fbe6e6;color:#c62828;}
+.jb-p-proche{background:#fdeee1;color:#a85a12;}
+.jb-p-suivre{background:var(--bleu-clair);color:var(--bleu);}
+.jb-pill:hover:not([disabled]){border-color:currentColor;}
+.jb-pill.on{background:currentColor;}
+.jb-pill.on b,.jb-pill.on{color:inherit;}
+.jb-p-retard.on{background:#c62828;color:#fff;} .jb-p-proche.on{background:#b4611f;color:#fff;}
+.jb-p-suivre.on{background:var(--bleu);color:#fff;}
+.jb-pill.on i{background:#fff;}
+.jb-pill[disabled]{opacity:.45;cursor:default;}
+.jb-form{margin-top:14px;padding:14px;border:1px solid var(--bleu);border-radius:var(--rayon);background:var(--bleu-survol);}
+.jb-form[hidden]{display:none;}
+.jb-form .grille{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
+.jb-form-pied{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+.jb-filtres{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;
+  border-top:1px solid #eef1f5;}
+.jb-seg{display:inline-flex;border:1px solid var(--trait);border-radius:var(--rayon);overflow:hidden;}
+.jb-seg button{border:0;background:#fff;color:var(--gris);padding:6px 11px;font-weight:bold;font-size:11.5px;
+  border-right:1px solid var(--trait);}
+.jb-seg button:last-child{border-right:0;}
+.jb-seg button:hover{color:var(--encre);background:var(--bleu-survol);}
+.jb-seg button.on{background:var(--bleu);color:#fff;}
+.jb-seg button.demi{background:var(--bleu-clair);color:var(--bleu);}
+.jb-filtres select,.jb-filtres input{padding:6px 8px;border:1px solid var(--trait);border-radius:var(--rayon);
+  background:#fff;font-size:12px;max-width:230px;}
+.jb-filtres .actif{border-color:var(--bleu);background:var(--bleu-clair);color:var(--bleu);font-weight:bold;}
+.jb-filtres input.jb-rech{flex:1 1 180px;min-width:150px;max-width:none;}
+.jb-decompte{color:var(--gris);font-size:11.5px;white-space:nowrap;}
+.jc-legende{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--gris);margin-top:10px;}
+.jc-legende i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;}
+.jc-mois{margin-top:18px;}
+.jc-mois:first-child{margin-top:2px;}
+.jc-mois-tete{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;position:sticky;top:-16px;z-index:2;
+  background:var(--fond);padding:6px 0;}
+.jc-mois-tete h3{margin:0;font-size:14px;color:var(--encre);}
+.jc-mois-tete span{font-size:11px;color:var(--gris);}
+.jc-mois-tete::after{content:"";flex:1;border-top:1px solid var(--trait);transform:translateY(-3px);}
+.jc-mois .ech{margin-bottom:6px;}
+.jc{position:relative;background:#fff;border:1px solid var(--trait);border-left:4px solid var(--lis,#8a95a6);
+  border-radius:var(--rayon);padding:10px 12px 10px 13px;margin-bottom:8px;}
+.jc.jc-en-retard{background:linear-gradient(90deg,#fdf4f4,#fff 45%);}
+.jc.jc-edition{border-color:var(--bleu);border-left-color:var(--lis,#8a95a6);box-shadow:0 0 0 1px var(--bleu-clair);}
+.jc-tete,.jc-rep-tete{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.jc-date{font-weight:bold;color:var(--bleu);font-size:11.5px;min-width:74px;}
+.jc-nat{background:color-mix(in srgb,var(--lis) 14%,#fff);color:var(--lis);}
+.jc-ech{display:inline-flex;align-items:center;gap:5px;}
+.jc-ech em{font-style:normal;font-weight:normal;}
+.jc-retard{background:#fbe6e6;color:#c62828;}
+.jc-proche{background:#fdeee1;color:#a85a12;}
+.jc-avenir{background:var(--bleu-clair);color:var(--bleu);}
+.jc-solde{background:#eaf2dc;color:#5f7a2a;text-decoration:line-through;}
+.jc-outils{margin-left:auto;display:flex;align-items:center;gap:4px;}
+label.jc-solde{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:bold;color:var(--gris);
+  border:1px solid var(--trait);border-radius:12px;padding:3px 9px 3px 7px;cursor:pointer;background:#fff;
+  text-decoration:none;user-select:none;}
+label.jc-solde input{margin:0;width:13px;height:13px;accent-color:#5f7a2a;cursor:pointer;}
+label.jc-solde:hover{border-color:#5f7a2a;color:#5f7a2a;}
+label.jc-solde.coche{background:#eaf2dc;border-color:#c9dcaa;color:#5f7a2a;}
+.jc-crayon{width:28px;height:26px;border:1px solid transparent;border-radius:5px;background:none;color:var(--gris);
+  display:inline-flex;align-items:center;justify-content:center;padding:0;}
+.jc-crayon:hover{background:var(--bleu-clair);color:var(--bleu);}
+.jc-edition>.jc-tete .jc-crayon,.jc-rep .jc-crayon[aria-pressed="true"]{background:var(--bleu-clair);color:var(--bleu);}
+.jc-texte{margin:7px 0 0;white-space:pre-wrap;line-height:1.55;overflow-wrap:anywhere;}
+.jc.jc-est-solde .jc-texte{color:var(--gris);}
+.jc-pj{margin-top:6px;}
+.jc-pied{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:11px;color:var(--gris);}
+.jc-lien{background:none;border:0;padding:0;color:var(--bleu);font-size:11px;font-weight:bold;}
+.jc-lien:hover{text-decoration:underline;}
+.jc-rep{margin:8px 0 0 12px;padding:4px 0 4px 11px;border-left:2px solid var(--bleu-clair);}
+.jc-rep-tete{font-size:11px;color:var(--gris);}
+.jc-rep-tete b{color:var(--encre);}
+.jc-rep p{margin:2px 0 0;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;}
+.jc-edit{margin-top:10px;}
+.jc-edit .grille{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));}
+.jc-edit-pied{display:flex;gap:8px;align-items:center;margin-top:10px;}
+.jc-sup{margin-left:auto;background:none;border:0;color:var(--gris);font-size:11.5px;text-decoration:underline;}
+.jc-sup:hover{color:#c62828;}
+#jb-chrono mark{background:#FFE88A;color:inherit;border-radius:2px;padding:0 1px;}
+.jc.jnl-vise,.jc-rep.jnl-vise{background:#fff8e1;}
+@media (max-width:760px){
+  .jb-l1 #jb-nouv{margin-left:0;width:100%;}
+  .jc-outils{margin-left:0;width:100%;justify-content:flex-end;}
+}
 /* ---------- Notifications ---------- */
 .btn-top.btn-notif{position:relative;display:inline-flex;align-items:center;justify-content:center;
   padding:3px 9px;line-height:0;}
@@ -2677,6 +2771,7 @@ function majBarreBrouillon(){
    La laisser ouverte exposait l'identité et le calendrier à la fausse manœuvre
    longtemps après que l'on eut oublié l'avoir demandée. */
 function reverrouiller(){
+  S.jnlEdition=null;
   if(!S.deverrouille) return;
   S.deverrouille=false;
 }
@@ -3370,9 +3465,9 @@ function ouvrirNotif(n){
     else { aller("taches"); mettreEnEvidenceTache($("#corps"),n.t.id); }
     return;
   }
+  S.fJnl=null;
   aller("journal");
-  const b=document.querySelector('#corps [data-echj="'+n.j.id+'"], #corps [data-supj="'+n.j.id+'"]');
-  const cible=b ? (b.closest(".ech")||b.closest(".jnl")||b) : null;
+  const cible=document.getElementById("jc-"+n.j.id);
   if(!cible){ toast("Entrée masquée par un filtre du journal.",true); return; }
   cible.scrollIntoView({behavior:"smooth",block:"center"});
   cible.classList.add("jnl-vise");
@@ -5100,7 +5195,9 @@ function carteAjout(p,prefixe,titre,cles,extras,libelleChamp,bouton){
         champDateFR('id="'+prefixe+'-date"','',dateDuJourFR())+'</div>'+
       '<div class="champ"><label>'+libelleChamp+'</label>'+
         champVierge(c[cles.table],c[cles.lib],prefixe+"-libelle")+'</div>';
-  const sup2 = prog ? sup.replace(/<\/label>/g,' <em>(facultatif)</em></label>') : sup;
+  /* à programmer : type et rapporteur ne sont pas encore connus, ils se
+     saisissent au moment de « Programmer » */
+  const sup2 = prog ? "" : sup;
   return '<div class="carte"><h2>'+titre+'</h2>'+bascule+'<div class="grille colonne">'+
     haut+action+sup2+
     '</div><div style="margin-top:10px"><button class="btn" id="'+prefixe+'-ajouter">'+
@@ -5755,6 +5852,37 @@ function mentionSaisie(j){
   return "saisi le "+dateVersFR(j[c.colJnlSaisie]);
 }
 
+/* --- Journal de bord : chronologie unique ---
+   Une seule chronologie, groupée par mois sur la date de l'événement. Les
+   échéances (délai d'exécution non soldé) y restent à leur place ; des
+   pastilles en tête les comptent et servent de filtres. Le formulaire est
+   replié derrière « + Nouvelle entrée ». Chaque carte porte un liseré de la
+   couleur de sa nature, un crayon d'édition et, si elle a un délai, une case
+   « Soldé » (colonne « Échéance traitée »). */
+function couleurNature(n){
+  const k=pliColonne(n);
+  if(!k) return "#8a95a6";
+  if(/reunion|comite|copil|cotech|seminaire/.test(k)) return "#002395";
+  if(/decision/.test(k))  return "#C0504D";
+  if(/arbitrage/.test(k)) return "#6B3FA0";
+  if(/relance/.test(k))   return "#F79646";
+  if(/etape|avancement/.test(k)) return "#7d9a3f";
+  if(/info/.test(k))      return "#8a95a6";
+  const pal=["#0e9594","#b4611f","#4a5d9e","#8a6d00","#2f6b41","#9b2c28"];
+  let h=0; for(const ch of k) h=(h*31+ch.charCodeAt(0))>>>0;
+  return pal[h%pal.length];
+}
+/* état d'une échéance du journal : null sans délai ; solde ; retard ; proche (≤ 15 j) ; avenir */
+function etatJnl(j){
+  const c=S.cfg, ts=c.colJnlDelai?Number(j[c.colJnlDelai]):0;
+  if(!ts) return null;
+  if(c.colJnlTraite && j[c.colJnlTraite]===true) return {k:"solde",ts,jours:null};
+  const jours=Math.round((ts-aujourdHuiUTC())/86400);
+  return {k:jours<0?"retard":(jours<=15?"proche":"avenir"),ts,jours};
+}
+const JNL_MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août",
+                "Septembre","Octobre","Novembre","Décembre"];
+
 function vueJournal(p){
   const c=S.cfg;
   if(!c.tblJournal||!c.colJnlLien){
@@ -5768,56 +5896,181 @@ function vueJournal(p){
     return;
   }
   const js=journalDe(p);
-  /* les échéances non closes sont dans le bandeau du haut, pas ici */
-  const fils=filsJournal(p).filter(f=>!echeanceOuverte(f.j));
+  const fils=filsJournal(p);
   const actJnl=j=>(c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):"");
+  const natJnl=j=>(c.colJnlNature?txt(lire(c.tblJournal,j,c.colJnlNature)).trim():"");
+  const F=S.fJnl=S.fJnl||{etat:"tout",nature:"",action:"",q:""};
+  if(S.reponseA) S.jnlForm=true;
 
-  /* une ligne du journal ; reponse=true la décale sous sa mère.
-     Déverrouillée, chacune de ses valeurs devient modifiable sur place. */
-  const ouvert=S.deverrouille;
-  const edJ=(j,col,opt)=>ouvert&&col?editeur(c.tblJournal,j,col,opt):null;
-  const ligneJnl=(j,reponse)=>
-    '<div class="jnl'+(reponse?" jnl-rep":"")+(ouvert?" jnl-ouvert":"")+'">'+
-      '<span class="date">'+
-        (edJ(j,c.colJnlDate)||esc(dateVersFR(j[c.colJnlDate])))+'</span>'+
-      (!reponse&&actJnl(j)
-        ? '<span class="pastille p-action" title="'+esc(actJnl(j))+'">'+
-          esc(actJnl(j))+'</span>':'')+
-      (c.colJnlNature&&(ouvert||lire(c.tblJournal,j,c.colJnlNature))
-        ? (edJ(j,c.colJnlNature)||
-           '<span class="pastille p-nature">'+esc(lire(c.tblJournal,j,c.colJnlNature))+'</span>'):'')+
-      (c.colJnlCollab&&(ouvert||lire(c.tblJournal,j,c.colJnlCollab))
-        ? (edJ(j,c.colJnlCollab)||
-           '<span class="pastille p-collab">'+esc(lire(c.tblJournal,j,c.colJnlCollab))+'</span>'):'')+
-      (c.colJnlDelai&&(ouvert||j[c.colJnlDelai])
-        ? (edJ(j,c.colJnlDelai)||
-           '<span class="pastille p-delai" title="Délai d\'exécution">⏱ '+
-           esc(dateVersFR(j[c.colJnlDelai]))+'</span>'):'')+
-      '<span class="texte">'+
-      (edJ(j,c.colJnlTexte,{multi:true})||esc(lire(c.tblJournal,j,c.colJnlTexte)))+
-      (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
-        esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+
-      (mentionSaisie(j)?'<span class="auteur"> ('+esc(mentionSaisie(j))+')</span>':'')+'</span>'+
-      (c.colJnlReponse
-        ? '<button class="btn-rep" data-repj="'+j.id+'" title="Répondre à cette entrée">'+
-          '<span>↩</span> Répondre</button>':'')+
-      '<button class="btn-sup" data-supj="'+j.id+'" title="Supprimer l\'entrée">✕</button>'+
-      (c.colJnlPJ?'<div class="sl-pj">'+blocPJ(c.tblJournal,j,c.colJnlPJ)+'</div>':'')+
-    '</div>';
-  const fJnl=filtreHisto("fh-journal",
-    actionsPresentes(js.map(j=>({action:actJnl(j)}))),
-    js.some(j=>!actJnl(j)));
-  $("#corps").innerHTML=
-    barreVerrou("Les entrées du journal sont en consultation.")+
-    blocEcheances(p)+
-    '<div class="duo"><div class="duo-ajout">'+
-    '<div class="carte"><h2>'+(S.reponseA?"Répondre à une entrée":"Ajouter une entrée")+'</h2>'+
+  /* --- échéances ouvertes : entrées du journal et instances à programmer --- */
+  const ouvertes=js.map(etatJnl).filter(e=>e && e.k!=="solde");
+  const insP=instancesAProgrammer(p).map(x=>Object.assign(x,
+    {k:x.etat==="depasse"?"retard":(x.etat==="proche"?"proche":"avenir")}));
+  const nb=k=>ouvertes.filter(e=>e.k===k).length+insP.filter(x=>x.k===k).length;
+  const pills=[["retard","en retard",nb("retard")],["proche","sous 15 jours",nb("proche")],
+               ["suivre","à suivre",ouvertes.length+insP.length]];
+
+  /* --- filtres --- */
+  const q=pliColonne(F.q);
+  const textesFil=f=>[f.j].concat(f.reponses).map(j=>[lire(c.tblJournal,j,c.colJnlTexte),
+    c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",
+    c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):"",natJnl(j),actJnl(j)].join(" ")).join(" ");
+  const etatsFil=f=>[f.j].concat(f.reponses).map(etatJnl).filter(Boolean).map(e=>e.k);
+  const passe=f=>{
+    const ks=etatsFil(f);
+    if(F.etat==="suivre" && !ks.some(k=>k!=="solde")) return false;
+    if((F.etat==="retard"||F.etat==="proche") && !ks.includes(F.etat)) return false;
+    if(F.etat==="sans" && etatJnl(f.j)) return false;
+    if(F.nature && natJnl(f.j)!==F.nature) return false;
+    if(F.action==="__projet" && actJnl(f.j)) return false;
+    if(F.action && F.action!=="__projet" && actJnl(f.j)!==F.action) return false;
+    if(q && !pliColonne(textesFil(f)).includes(q)) return false;
+    return true;
+  };
+  const insVisibles=insP.filter(x=>{
+    if(F.etat==="sans") return false;
+    if((F.etat==="retard"||F.etat==="proche") && x.k!==F.etat) return false;
+    if(F.nature) return false;
+    if(F.action==="__projet" && x.action) return false;
+    if(F.action && F.action!=="__projet" && x.action!==F.action) return false;
+    if(q && !pliColonne(x.periode.libelle+" "+(x.action||"")).includes(q)) return false;
+    return true;
+  });
+  const visibles=fils.filter(passe);
+  const filtreActif=F.etat!=="tout"||F.nature||F.action||F.q;
+
+  const natures=[...new Set(js.map(natJnl).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+  const actions=[...new Set(js.map(actJnl).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"fr"));
+
+  /* surlignage de la recherche, insensible aux accents */
+  const marque=t=>{
+    const s=String(t==null?"":t);
+    if(!q) return esc(s);
+    const plie=s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    const brut=F.q.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+    if(!brut) return esc(s);
+    let out="", i=0, k;
+    while((k=plie.indexOf(brut,i))>=0){
+      out+=esc(s.slice(i,k))+"<mark>"+esc(s.slice(k,k+brut.length))+"</mark>"; i=k+brut.length;
+    }
+    return out+esc(s.slice(i));
+  };
+
+  const CRAYON='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/>'+
+    '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  const libEch=e=>e.k==="solde"?"soldé":(e.jours<0?"en retard de "+(-e.jours)+" j"
+    :(e.jours===0?"aujourd'hui":"dans "+e.jours+" j"));
+  const pastEch=j=>{
+    const e=etatJnl(j);
+    return e?'<span class="pastille jc-ech jc-'+e.k+'" title="Délai d\'exécution">⏱ '+
+      esc(dateVersFR(e.ts))+(e.k==="solde"?'':' <em>'+libEch(e)+'</em>')+'</span>':'';
+  };
+  const caseSolde=j=>(c.colJnlTraite && c.colJnlDelai && Number(j[c.colJnlDelai]))
+    ? '<label class="jc-solde'+(j[c.colJnlTraite]===true?" coche":"")+'" title="Marquer l\'échéance comme soldée">'+
+      '<input type="checkbox" data-soldej="'+j.id+'"'+(j[c.colJnlTraite]===true?" checked":"")+'> Soldé</label>'
+    : '';
+  const crayon=j=>'<button type="button" class="jc-crayon" data-edj="'+j.id+'" title="Modifier l\'entrée" '+
+    'aria-label="Modifier l\'entrée">'+CRAYON+'</button>';
+  const auteurSaisie=j=>{
+    const a=c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"", ms=mentionSaisie(j);
+    return (a?'— '+marque(a):'')+(ms?' ('+esc(ms)+')':'');
+  };
+  const pjLecture=j=>(c.colJnlPJ && valListe(j[c.colJnlPJ]).length)
+    ? '<div class="jc-pj">'+blocPJ(c.tblJournal,j,c.colJnlPJ)+'</div>' : '';
+
+  /* édition sur place d'une entrée (mère ou réponse) */
+  const edition=(j,reponse)=>{
+    const ch=(lab,col,opt)=>col?'<div class="champ"><label>'+lab+'</label>'+
+      editeur(c.tblJournal,j,col,opt)+'</div>':'';
+    return '<div class="jc-edit"><div class="grille">'+
+      ch("Date de l'événement",c.colJnlDate)+
+      (reponse?'':ch("Nature / origine",c.colJnlNature))+
+      (reponse?'':ch("Collaborateur concerné",c.colJnlCollab))+
+      ch("Délai d'exécution",c.colJnlDelai)+
+      (c.colJnlTexte?'<div class="champ pleine"><label>Commentaire</label>'+
+        editeur(c.tblJournal,j,c.colJnlTexte,{multi:true})+'</div>':'')+
+      (c.colJnlPJ?'<div class="champ pleine"><label>Pièces jointes</label>'+
+        blocPJ(c.tblJournal,j,c.colJnlPJ)+'</div>':'')+
+      '</div><div class="jc-edit-pied">'+
+        '<button type="button" class="btn" data-finj="1">Terminer</button>'+
+        '<button type="button" class="jc-sup" data-supj="'+j.id+'">Supprimer l\'entrée</button>'+
+      '</div></div>';
+  };
+
+  const carte=f=>{
+    const j=f.j, nat=natJnl(j), coul=couleurNature(nat), e=etatJnl(j), act=actJnl(j);
+    const collab=c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):"";
+    const ed=S.jnlEdition===j.id;
+    return '<article class="jc'+(e&&e.k==="retard"?" jc-en-retard":"")+(e&&e.k==="solde"?" jc-est-solde":"")+
+        (ed?" jc-edition":"")+'" id="jc-'+j.id+'" style="--lis:'+coul+'">'+
+      '<div class="jc-tete">'+
+        '<span class="jc-date">'+esc(dateVersFR(j[c.colJnlDate])||"—")+'</span>'+
+        (nat?'<span class="pastille jc-nat">'+marque(nat)+'</span>':'')+
+        (act?'<span class="pastille p-action" title="'+esc(act)+'">'+marque(act)+'</span>':'')+
+        (collab?'<span class="pastille p-collab">'+marque(collab)+'</span>':'')+
+        pastEch(j)+
+        '<span class="jc-outils">'+caseSolde(j)+crayon(j)+'</span>'+
+      '</div>'+
+      (ed ? edition(j,false)
+          : '<p class="jc-texte">'+(marque(lire(c.tblJournal,j,c.colJnlTexte))||
+              '<span class="cel-vide">(entrée sans commentaire)</span>')+'</p>'+pjLecture(j))+
+      f.reponses.map(r=>{
+        const er=S.jnlEdition===r.id;
+        return '<div class="jc-rep" id="jc-'+r.id+'">'+
+          '<div class="jc-rep-tete"><b>'+esc(dateVersFR(r[c.colJnlDate])||"—")+'</b> '+auteurSaisie(r)+
+            pastEch(r)+'<span class="jc-outils">'+caseSolde(r)+crayon(r)+'</span></div>'+
+          (er?edition(r,true):'<p>'+marque(lire(c.tblJournal,r,c.colJnlTexte))+'</p>'+pjLecture(r))+
+        '</div>';
+      }).join("")+
+      '<div class="jc-pied"><span>'+auteurSaisie(j)+'</span>'+
+        (c.colJnlReponse?'<button type="button" class="jc-lien" data-repj="'+j.id+'">↩ Répondre</button>':'')+
+      '</div>'+
+    '</article>';
+  };
+
+  /* chronologie : mois de la date de l'événement, du plus récent au plus ancien */
+  const groupes=new Map();
+  visibles.slice().sort((a,b)=>(Number(b.j[c.colJnlDate])||0)-(Number(a.j[c.colJnlDate])||0))
+    .forEach(f=>{
+      const ts=Number(f.j[c.colJnlDate]);
+      const k=ts?dateVersISO(ts).slice(0,7):"sans-date";
+      if(!groupes.has(k)) groupes.set(k,[]);
+      groupes.get(k).push(f);
+    });
+  const titreMois=k=>{ if(k==="sans-date") return "Sans date";
+    const [a,m]=k.split("-").map(Number); return JNL_MOIS[m-1]+" "+a; };
+  const blocIns = insVisibles.length
+    ? '<section class="jc-mois"><div class="jc-mois-tete"><h3>Instances à programmer</h3>'+
+      '<span>'+insVisibles.length+'</span></div>'+
+      insVisibles.map(x=>
+        '<div class="ech ech-'+(x.k==="retard"?"depasse":x.k)+' ech-ins" role="button" tabindex="0" data-echins="'+x.id+'" '+
+          'title="Voir l\'instance dans l\'onglet Instances">'+
+          '<span class="ech-date">'+esc(dateVersFR(x.ts)||"—")+'</span>'+
+          '<span class="ech-delta">'+esc(joursEcheance(x))+'</span>'+
+          '<span class="pastille p-prog">Instance à programmer</span>'+
+          '<span class="ech-txt">'+esc(x.periode.libelle+(x.action?" — "+x.action:""))+'</span></div>').join("")+
+      '</section>' : '';
+  const chrono = (visibles.length||insVisibles.length)
+    ? blocIns+[...groupes].map(([k,fs])=>
+        '<section class="jc-mois"><div class="jc-mois-tete"><h3>'+titreMois(k)+'</h3>'+
+        '<span>'+fs.length+' entrée'+(fs.length>1?"s":"")+'</span></div>'+fs.map(carte).join("")+'</section>').join("")
+    : (fils.length
+        ? '<div class="vide"><b>Aucune entrée ne correspond aux filtres</b>Élargissez la recherche ou réinitialisez les filtres.</div>'
+        : '<div class="vide"><b>Journal vide</b>Ajoutez la première entrée avec « + Nouvelle entrée ».</div>');
+
+  const legende=natures.length
+    ? '<div class="jc-legende">'+natures.map(n=>'<span><i style="background:'+couleurNature(n)+'"></i>'+
+        esc(n)+'</span>').join("")+'</div>' : '';
+
+  const formulaire=
+    '<div class="jb-form"'+(S.jnlForm?'':' hidden')+' id="jb-form">'+
       (S.reponseA
         ? '<div class="rep-cible">En réponse à <b>'+esc(dateVersFR(S.reponseA[c.colJnlDate]))+'</b> — '+
           esc((lire(c.tblJournal,S.reponseA,c.colJnlTexte)||"").slice(0,120))+
           '<button type="button" class="btn-2" id="j-annuler-rep">Annuler</button></div>'
         : '')+
-      '<div class="grille colonne">'+
+      '<div class="grille">'+
       (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
         champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
       '<div class="champ"><label id="j-date-lib" for="j-date">Date de l\'événement</label>'+
@@ -5828,26 +6081,113 @@ function vueJournal(p){
         champOuvert(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
       (c.colJnlCollab?'<div class="champ"><label>Collaborateur concerné</label>'+
         champOuvert(c.tblJournal,c.colJnlCollab,"j-collab")+'</div>':'')+
-      (c.colJnlDelai?'<div class="champ"><label>Délai d\'exécution</label>'+
+      (c.colJnlDelai?'<div class="champ"><label>Délai d\'exécution <em>(facultatif)</em></label>'+
         champDateFR('id="j-delai"','','')+'</div>':'')+
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
-    '</div><div style="margin-top:10px"><button class="btn" id="j-ajouter">Ajouter au journal</button></div></div>'+
-    '</div><div class="duo-histo">'+
-    '<div class="carte">'+teteHisto("Journal de bord",fJnl)+'<div class="histo-liste" id="fh-journal-liste">'+
-      (fils.length? fils.map(f=>
-        '<div class="jnl-fil" data-act="'+esc(actJnl(f.j))+'">'+
-          ligneJnl(f.j,false)+f.reponses.map(r=>ligneJnl(r,true)).join("")+
-        '</div>').join("")+
-        '<div class="histo-rien" style="display:none">Aucune entrée pour cette action.</div>'
-      : '<div class="vide"><b>Journal vide</b>La première entrée s\'ajoute ci-dessus.</div>')+
-    '</div></div></div></div>';
+      '</div><div class="jb-form-pied">'+
+        '<button type="button" class="btn-2" id="j-fermer">Annuler</button>'+
+        '<button class="btn" id="j-ajouter">'+(S.reponseA?"Répondre":"Ajouter au journal")+'</button>'+
+      '</div></div>';
+
+  $("#corps").innerHTML=
+    '<div class="carte jb-tete">'+
+      '<div class="jb-l1"><h2>Journal de bord</h2>'+
+        '<div class="jb-pills">'+pills.map(([k,l,v])=>
+          '<button type="button" class="jb-pill jb-p-'+k+(F.etat===k?" on":"")+'" data-jpill="'+k+'"'+
+          (v?'':' disabled')+' aria-pressed="'+(F.etat===k)+'"><i></i><b>'+v+'</b> '+l+'</button>').join("")+
+        '</div>'+
+        '<button type="button" class="btn" id="jb-nouv" aria-expanded="'+!!S.jnlForm+'">'+
+          (S.jnlForm?"Fermer le formulaire":"+ Nouvelle entrée")+'</button>'+
+      '</div>'+
+      formulaire+
+      '<div class="jb-filtres">'+
+        '<div class="jb-seg" role="group" aria-label="Échéances">'+
+          [["tout","Tout"],["suivre","À suivre"],["sans","Sans échéance"]].map(([k,l])=>
+            '<button type="button" data-jseg="'+k+'" class="'+(F.etat===k?"on":"")+
+            ((k==="suivre"&&(F.etat==="retard"||F.etat==="proche"))?" demi":"")+'">'+l+'</button>').join("")+
+        '</div>'+
+        (natures.length?'<select id="jf-nature" class="'+(F.nature?"actif":"")+'" aria-label="Filtrer par nature">'+
+          '<option value="">Toutes les natures</option>'+natures.map(n=>'<option'+(F.nature===n?" selected":"")+'>'+
+          esc(n)+'</option>').join("")+'</select>':'')+
+        (c.colJnlAction?'<select id="jf-action" class="'+(F.action?"actif":"")+'" aria-label="Filtrer par action">'+
+          '<option value="">Toutes les actions</option>'+
+          '<option value="__projet"'+(F.action==="__projet"?" selected":"")+'>Projet (sans action)</option>'+
+          actions.map(a=>'<option'+(F.action===a?" selected":"")+'>'+esc(a)+'</option>').join("")+'</select>':'')+
+        '<input id="jf-q" type="search" class="jb-rech'+(F.q?" actif":"")+'" placeholder="Rechercher dans le journal…" '+
+          'value="'+esc(F.q)+'" aria-label="Rechercher dans le journal">'+
+        '<span class="jb-decompte">'+visibles.length+' entrée'+(visibles.length>1?"s":"")+
+          (visibles.length!==fils.length?" sur "+fils.length:"")+'</span>'+
+        (filtreActif?'<button type="button" class="btn-raz" id="jf-raz">Réinitialiser</button>':'')+
+      '</div>'+legende+
+    '</div>'+
+    '<div id="jb-chrono">'+chrono+'</div>';
+
   brancherAutoHauteur();
-  brancherFiltresHisto();
   brancherEcheances(p);
   brancherPJ();
   brancherEditeurs();
   brancherLibelleDate("j-nature","j-date-lib");
-  $("#verrou").onclick=()=>basculerVerrou(p);
+
+  /* --- filtres --- */
+  document.querySelectorAll("[data-jpill]").forEach(b=>b.onclick=()=>{
+    F.etat=F.etat===b.dataset.jpill?"tout":b.dataset.jpill; vueJournal(p);
+  });
+  document.querySelectorAll("[data-jseg]").forEach(b=>b.onclick=()=>{ F.etat=b.dataset.jseg; vueJournal(p); });
+  const fn=$("#jf-nature"); if(fn) fn.onchange=()=>{ F.nature=fn.value; vueJournal(p); };
+  const fa=$("#jf-action"); if(fa) fa.onchange=()=>{ F.action=fa.value; vueJournal(p); };
+  const fq=$("#jf-q");
+  if(fq) fq.oninput=()=>{
+    F.q=fq.value; const pos=fq.selectionStart;
+    vueJournal(p);
+    const n=$("#jf-q"); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} }
+  };
+  const fr0=$("#jf-raz"); if(fr0) fr0.onclick=()=>{ S.fJnl=null; vueJournal(p); };
+
+  /* --- formulaire replié --- */
+  $("#jb-nouv").onclick=()=>{
+    S.jnlForm=!S.jnlForm; if(!S.jnlForm) S.reponseA=null;
+    vueJournal(p);
+    if(S.jnlForm){ const t=$("#j-texte"); if(t) t.focus(); }
+  };
+  $("#j-fermer").onclick=()=>{ S.jnlForm=false; S.reponseA=null; vueJournal(p); };
+
+  /* --- case Soldé --- */
+  document.querySelectorAll("[data-soldej]").forEach(cb=>cb.onchange=async()=>{
+    const id=Number(cb.dataset.soldej), val=cb.checked;
+    try{
+      await appliquer([["UpdateRecord",c.tblJournal,id,{[c.colJnlTraite]:val}]],
+        [traceModif(c.tblJournal,id,c.colJnlTraite,val)]);
+    }catch(err){
+      toast("Impossible d'enregistrer : "+err.message,true); console.error(err);
+      cb.checked=!val; return;
+    }
+    const l=ligneDe(c.tblJournal,id); if(l) l[c.colJnlTraite]=val;
+    toast(val?"Échéance soldée":"Échéance rouverte");
+    vueJournal(p);
+    charger().then(()=>{ if(S.onglet==="journal") rendreProjet(); }).catch(e=>console.warn(e.message));
+  });
+
+  /* --- crayon : édition sur place, protégée par le mot de passe des champs --- */
+  document.querySelectorAll("[data-edj]").forEach(b=>b.onclick=async()=>{
+    const id=Number(b.dataset.edj);
+    if(S.jnlEdition===id){
+      if(nbModifs()){ toast("Enregistrez ou annulez d'abord vos modifications en cours.",true); return; }
+      S.jnlEdition=null; vueJournal(p); return;
+    }
+    if(nbModifs()){ toast("Enregistrez ou annulez d'abord vos modifications en cours.",true); return; }
+    if(!S.deverrouille){
+      if(!await motDePasseValide("Mot de passe pour modifier cette entrée :")) return;
+      S.deverrouille=true;
+    }
+    S.jnlEdition=id; vueJournal(p);
+    const el=document.getElementById("jc-"+id);
+    if(el) el.scrollIntoView({behavior:"smooth",block:"nearest"});
+  });
+  document.querySelectorAll("[data-finj]").forEach(b=>b.onclick=()=>{
+    if(nbModifs()){ toast("Enregistrez ou annulez d'abord vos modifications en cours.",true); return; }
+    S.jnlEdition=null; vueJournal(p);
+  });
+
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire avant d'ajouter.",true); return; }
@@ -5895,7 +6235,7 @@ function vueJournal(p){
       }
     }
     await ajouter(c.tblJournal,champs);
-    S.reponseA=null;
+    S.reponseA=null; S.jnlForm=false;
     await charger(); rendreProjet();
   };
   const ann=$("#j-annuler-rep");
@@ -5905,7 +6245,9 @@ function vueJournal(p){
     const parId=new Map(js.map(x=>[x.id,x]));
     const cible=parId.get(Number(b.dataset.repj));
     S.reponseA=cible?racineJnl(cible,parId):null;
+    S.jnlForm=true;
     vueJournal(p);
+    const f=$("#jb-form"); if(f) f.scrollIntoView({behavior:"smooth",block:"nearest"});
     const t=$("#j-texte"); if(t) t.focus();
   });
   document.querySelectorAll("[data-supj]").forEach(b=>b.onclick=async()=>{
@@ -5916,13 +6258,14 @@ function vueJournal(p){
             (f.reponses.length>1?"s":"")+" : supprimez-les d'abord.",true);
       return;
     }
+    if(nbModifs()){ toast("Enregistrez ou annulez d'abord vos modifications en cours.",true); return; }
     if(!await confirmerSuppression("Supprimer définitivement cette entrée du journal ?")) return;
     if(S.reponseA && S.reponseA.id===id) S.reponseA=null;
+    S.jnlEdition=null;
     await supprimer(c.tblJournal,id);
     await charger(); rendreProjet();
   });
 }
-
 /* =======================================================================
    Analyse du projet
    =======================================================================

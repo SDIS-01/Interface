@@ -1455,7 +1455,7 @@ const DEF = {
   colTachePJ:"", colTacheOrdre:"", colJnlPJ:"", colInsPJ:"",
   tblJournal:"", colJnlLien:"", colJnlDate:"", colJnlTexte:"", colJnlAuteur:"", colJnlNature:"",
   colJnlAction:"", colJnlCollab:"Collaborateur_Concerné", colJnlDelai:"Délai_Exécution",
-  colJnlReponse:"Reponse_a", colJnlTraite:"Traité",
+  colJnlReponse:"Reponse_a", colJnlTraite:"Traité", colJnlSaisie:"Date_Saisie",
   colJalCommentaire:"",
   tblInstance:"", colInsLien:"", colInsDate:"", colInsLibelle:"", colInsHisto:"",
   colInsType:"", colInsRapporteur:"", colInsAction:"",
@@ -1502,11 +1502,12 @@ const CHAMPS_REGLAGES = [
   ]},
   {bloc:"Table du journal de bord", tableKey:"tblJournal", champs:[
     ["colJnlLien","Lien vers le projet"],["colJnlAction","Lien vers l'action (facultatif)"],
-    ["colJnlDate","Date"],["colJnlTexte","Commentaire"],
+    ["colJnlDate","Date de l'événement (réunion, décision…)"],["colJnlTexte","Commentaire"],
     ["colJnlAuteur","Auteur de la saisie"],["colJnlNature","Nature / origine"],
     ["colJnlCollab","Collaborateur concerné"],["colJnlDelai","Délai d'exécution"],
     ["colJnlReponse","Réponse à (même table)"],
-    ["colJnlTraite","Échéance traitée (case à cocher)"],["colJnlPJ","Pièces jointes"]
+    ["colJnlTraite","Échéance traitée (case à cocher)"],["colJnlPJ","Pièces jointes"],
+    ["colJnlSaisie","Date de saisie (formule d'initialisation TODAY(), lue seulement)"]
   ]},
   {bloc:"Table des instances", tableKey:"tblInstance", champs:[
     ["colInsLien","Lien vers le projet"],["colInsAction","Lien vers l'action (facultatif)"],
@@ -5031,6 +5032,56 @@ function brancherEcheances(p){
   });
 }
 
+/* --- Date du journal ---
+   La colonne colJnlDate porte la date de l'événement (réunion, décision…),
+   saisie par l'utilisateur. La date de saisie réelle est posée par Grist
+   (colonne colJnlSaisie, formule d'initialisation TODAY() sur les nouveaux
+   enregistrements) : le widget ne l'écrit jamais, il la lit seulement pour
+   signaler une entrée consignée après coup. */
+function libelleDateJnl(nature){
+  const n=pliColonne(nature);
+  if(/reunion|comite|copil|cotech|seminaire/.test(n)) return "Date de la réunion";
+  if(/decision/.test(n))  return "Date de la décision";
+  if(/arbitrage/.test(n)) return "Date de l'arbitrage";
+  if(/relance/.test(n))   return "Date de la relance";
+  if(/etape/.test(n))     return "Date du point d'étape";
+  if(/echange|appel|telephon|entretien/.test(n)) return "Date de l'échange";
+  if(/courrier|mail/.test(n)) return "Date du courrier";
+  return "Date de l'événement";
+}
+/* texte affiché du champ Nature, qu'il soit liste, référence ou saisie libre */
+function texteNature(id){
+  const el=$("#"+id);
+  if(!el) return "";
+  if(el.tagName==="SELECT"){ const o=el.options[el.selectedIndex]; return o?o.text:""; }
+  return el.value;
+}
+/* le libellé du champ date suit la nature choisie */
+function brancherLibelleDate(idNature,idLibelle){
+  const lib=$("#"+idLibelle);
+  if(!lib) return;
+  const el=$("#"+idNature);
+  const maj=()=>{ lib.textContent=libelleDateJnl(texteNature(idNature)); };
+  if(el){ el.addEventListener("change",maj); el.addEventListener("input",maj); }
+  maj();
+}
+/* une date d'événement future relève plutôt du délai d'exécution */
+function dateJnlFutureAcceptee(d){
+  if(d==null || d<=aujourdHuiUTC()) return true;
+  return confirm("La date de l'événement ("+dateVersFR(d)+") est dans le futur.\n\n"+
+    (S.cfg.colJnlDelai
+      ? "Pour une chose à faire ou à suivre, utilisez plutôt le champ « Délai d'exécution ».\n\n":"")+
+    "Enregistrer quand même avec cette date ?");
+}
+/* « saisi le … », seulement si l'entrée a été consignée un autre jour que l'événement */
+function mentionSaisie(j){
+  const c=S.cfg;
+  if(!j || !c.colJnlSaisie || !infoCol(c.tblJournal,c.colJnlSaisie)) return "";
+  const s=dateVersISO(j[c.colJnlSaisie]);
+  if(!s || s===dateVersISO(j[c.colJnlDate])) return "";
+  return "saisi le "+dateVersFR(j[c.colJnlSaisie]);
+}
+
 function vueJournal(p){
   const c=S.cfg;
   if(!c.tblJournal||!c.colJnlLien){
@@ -5072,7 +5123,8 @@ function vueJournal(p){
       '<span class="texte">'+
       (edJ(j,c.colJnlTexte,{multi:true})||esc(lire(c.tblJournal,j,c.colJnlTexte)))+
       (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)?'<span class="auteur"> — '+
-        esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+'</span>'+
+        esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</span>':'')+
+      (mentionSaisie(j)?'<span class="auteur"> ('+esc(mentionSaisie(j))+')</span>':'')+'</span>'+
       (c.colJnlReponse
         ? '<button class="btn-rep" data-repj="'+j.id+'" title="Répondre à cette entrée">'+
           '<span>↩</span> Répondre</button>':'')+
@@ -5093,7 +5145,9 @@ function vueJournal(p){
           '<button type="button" class="btn-2" id="j-annuler-rep">Annuler</button></div>'
         : '')+
       '<div class="grille colonne">'+
-      '<div class="champ"><label>Date de saisie</label>'+
+      (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
+        champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
+      '<div class="champ"><label id="j-date-lib" for="j-date">Date de l\'événement</label>'+
         champDateFR('id="j-date"','',dateDuJourFR())+'</div>'+
       (c.colJnlAction&&!S.reponseA?'<div class="champ"><label>Action concernée</label>'+
         champAction(p,"j-action",null)+'</div>':'')+
@@ -5101,8 +5155,6 @@ function vueJournal(p){
         champOuvert(c.tblJournal,c.colJnlAuteur,"j-auteur")+'</div>':'')+
       (c.colJnlCollab?'<div class="champ"><label>Collaborateur concerné</label>'+
         champOuvert(c.tblJournal,c.colJnlCollab,"j-collab")+'</div>':'')+
-      (c.colJnlNature?'<div class="champ"><label>Nature / origine</label>'+
-        champVierge(c.tblJournal,c.colJnlNature,"j-nature")+'</div>':'')+
       (c.colJnlDelai?'<div class="champ"><label>Délai d\'exécution</label>'+
         champDateFR('id="j-delai"','','')+'</div>':'')+
       '<div class="champ pleine"><label>Commentaire</label><textarea id="j-texte" class="auto-h"></textarea></div>'+
@@ -5121,6 +5173,7 @@ function vueJournal(p){
   brancherEcheances(p);
   brancherPJ();
   brancherEditeurs();
+  brancherLibelleDate("j-nature","j-date-lib");
   $("#verrou").onclick=()=>basculerVerrou(p);
   $("#j-ajouter").onclick=async()=>{
     const texte=$("#j-texte").value.trim();
@@ -5130,6 +5183,7 @@ function vueJournal(p){
     if(c.colJnlDate){
       const d=frVersDate($("#j-date").value);
       if(d===undefined){ toast("Date invalide : saisissez-la au format jj/mm/aaaa.",true); return; }
+      if(!dateJnlFutureAcceptee(d)) return;
       champs[c.colJnlDate]=d;
     }
     if(c.colJnlAuteur && $("#j-auteur")){
@@ -9008,7 +9062,7 @@ function construireDoc(p){
       },
       journal:()=>{
         /* les deux dernières colonnes n'apparaissent que si elles sont paramétrées */
-        const fixes=[["date","Date de saisie",100],["action","Action",140],
+        const fixes=[["date","Date",100],["action","Action",140],
                      ["nature","Nature",105],["auteur","Auteur",115]];
         if(c.colJnlCollab) fixes.push(["collab","Collaborateur concerné",155]);
         if(c.colJnlDelai)  fixes.push(["delai","Délai d'exécution",120]);
@@ -10872,7 +10926,7 @@ function odpJournal(d,p){
     f.reponses.forEach(r=>pousse(r,true));
   });
   return odpTableau(d,"Journal de bord",lire(c.tblMain,p,c.colLibelle),
-    [{t:"Date de saisie",w:z.w*0.15},{t:"Action",w:z.w*0.15},
+    [{t:"Date",w:z.w*0.15},{t:"Action",w:z.w*0.15},
      {t:"Commentaire",w:z.w*0.29},{t:"Auteur",w:z.w*0.13},
      {t:"Collaborateur concerné",w:z.w*0.13},{t:"Délai d'exécution",w:z.w*0.15}],lg);
 }
@@ -11731,6 +11785,7 @@ function mbJournal(p){
       '<div class="h"><b>'+esc(dateVersFR(j[c.colJnlDate])||"—")+'</b>'+
       (c.colJnlAuteur&&lire(c.tblJournal,j,c.colJnlAuteur)
         ? '<i>'+esc(lire(c.tblJournal,j,c.colJnlAuteur))+'</i>':'')+
+      (mentionSaisie(j)?'<i>'+esc(mentionSaisie(j))+'</i>':'')+
       (c.colJnlDelai&&j[c.colJnlDelai]
         ? '<i>⏱ '+esc(dateVersFR(j[c.colJnlDelai]))+'</i>':'')+
       (c.colJnlCollab&&lire(c.tblJournal,j,c.colJnlCollab)
@@ -11771,7 +11826,8 @@ function mbJournal(p){
         champOuvert(c.tblJournal,c.colJnlCollab,"mbj-collab"):'')+
       (c.colJnlNature?'<label>Nature / origine</label>'+
         champVierge(c.tblJournal,c.colJnlNature,"mbj-nature"):'')+
-      '<label>Date de saisie</label>'+champDateFR('id="mbj-date"','',dateDuJourFR())+
+      '<label id="mbj-date-lib" for="mbj-date">Date de l\'événement</label>'+
+        champDateFR('id="mbj-date"','',dateDuJourFR())+
       (c.colJnlDelai?'<label>Délai d\'exécution</label>'+champDateFR('id="mbj-delai"','',''):'')+
       '<button class="btn" id="mbj-ok">'+(S.reponseA?"Répondre":"Ajouter")+'</button></div></details>'+
     '<div class="mb-carte"><h3>Historique</h3>'+
@@ -11780,6 +11836,7 @@ function mbJournal(p){
         : '<div class="mb-rien">Journal vide.</div>')+
     '</div>';
 
+  brancherLibelleDate("mbj-nature","mbj-date-lib");
   const fj=$("#mbj-form");
   if(fj) fj.ontoggle=()=>{ if(!S.reponseA) S.mob.jnlForm=fj.open; };
   const ann=$("#mbj-annuler");
@@ -11809,7 +11866,8 @@ function mbJournal(p){
     const texte=$("#mbj-texte").value.trim();
     if(!texte){ toast("Saisissez un commentaire.",true); return; }
     const d=frVersDate($("#mbj-date").value);
-    if(d===undefined){ toast("Date de saisie invalide : jj/mm/aaaa.",true); return; }
+    if(d===undefined){ toast("Date invalide : jj/mm/aaaa.",true); return; }
+    if(!dateJnlFutureAcceptee(d)) return;
     const champs={[c.colJnlTexte]:texte};
     if(c.colJnlDate && d!==null) champs[c.colJnlDate]=d;
     if(c.colJnlAuteur && $("#mbj-auteur")){

@@ -520,8 +520,61 @@ label.jc-solde.coche{background:#eaf2dc;border-color:#c9dcaa;color:#5f7a2a;}
   .jc-outils{margin-left:0;width:100%;justify-content:flex-end;}
 }
 /* ---------- Notifications ---------- */
-.btn-top.btn-notif{position:relative;display:inline-flex;align-items:center;justify-content:center;
-  padding:3px 9px;line-height:0;}
+.btn-top.btn-notif{position:relative;display:inline-flex;align-items:center;gap:7px;margin-left:10px;
+  border-radius:16px;padding:3px 12px 3px 9px;font-weight:bold;white-space:nowrap;}
+.btn-top.btn-notif svg{display:block;flex:0 0 auto;}
+.btn-top.btn-notif.active{background:#FFCC00;border-color:#FFCC00;color:#1c2330;}
+.btn-top.btn-notif.active:hover{background:#ffd633;}
+.btn-top.btn-notif.sonne{animation:notif-halo 2.2s ease-out 3;}
+.btn-top.btn-notif.sonne svg{animation:notif-sonne 1s ease 2;transform-origin:50% 10%;}
+@keyframes notif-halo{0%{box-shadow:0 0 0 0 rgba(255,204,0,.75)}70%{box-shadow:0 0 0 9px rgba(255,204,0,0)}100%{box-shadow:0 0 0 0 rgba(255,204,0,0)}}
+@keyframes notif-sonne{0%,100%{transform:rotate(0)}20%{transform:rotate(16deg)}40%{transform:rotate(-14deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-4deg)}}
+@media (prefers-reduced-motion:reduce){.btn-top.btn-notif.sonne,.btn-top.btn-notif.sonne svg{animation:none}}
+.notif-pied{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.notif-admin{margin-left:auto;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--bleu);background:#fff;
+  color:var(--bleu);border-radius:6px;padding:4px 9px;font-weight:bold;font-size:11px;}
+.notif-admin:hover{background:var(--bleu-clair);}
+/* récapitulatif administrateur */
+.nr-voile{position:fixed;inset:0;background:rgba(12,18,32,.45);display:flex;align-items:flex-start;justify-content:center;
+  padding:24px 14px;z-index:80;overflow-y:auto;}
+.nr-fen{width:min(1000px,100%);background:#fff;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.3);overflow:hidden;}
+.nr-tete{display:flex;align-items:center;gap:10px;background:var(--bleu);color:#fff;padding:12px 16px;}
+.nr-tete h2{margin:0;font-size:14px;}
+.nr-x{margin-left:auto;background:rgba(255,255,255,.15);border:0;color:#fff;width:30px;height:30px;border-radius:6px;font-size:14px;}
+.nr-barre{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--trait);}
+.nr-chiffre{display:inline-flex;align-items:baseline;gap:6px;background:var(--fond);border:1px solid var(--trait);border-radius:8px;padding:6px 12px;}
+.nr-chiffre b{font-size:18px;color:var(--bleu);}
+.nr-chiffre span{font-size:11.5px;color:var(--gris);}
+.nr-chiffre.rouge b{color:#c62828;}
+.nr-droite{margin-left:auto;}
+.nr-corps{padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;max-height:64vh;overflow-y:auto;}
+.nr-pers{border:1px solid var(--trait);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;}
+.nr-pers-tete{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bleu-survol);border-bottom:1px solid var(--trait);}
+.nr-av{flex:0 0 32px;height:32px;border-radius:50%;background:var(--bleu);color:#fff;display:inline-flex;align-items:center;
+  justify-content:center;font-weight:bold;font-size:11.5px;}
+.nr-id{flex:1;min-width:0;}
+.nr-id b{display:block;}
+.nr-id span{display:block;font-size:11px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nr-id .nr-sans{color:#a85a12;font-weight:bold;}
+.nr-nb{min-width:28px;height:24px;line-height:24px;border-radius:12px;background:#E30613;color:#fff;text-align:center;
+  font-weight:bold;font-size:12px;padding:0 8px;}
+.nr-pers ul{list-style:none;margin:0;padding:4px 0;flex:1;}
+.nr-pers li{display:flex;gap:8px;align-items:flex-start;padding:6px 12px;font-size:12px;line-height:1.4;}
+.nr-pers li i{flex:0 0 20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-style:normal;font-weight:bold;font-size:10px;color:#fff;margin-top:1px;}
+.nr-g-action{background:#6B3FA0}.nr-g-tache{background:#5f7a2a}.nr-g-journal{background:#0e9594}
+.nr-lib{overflow-wrap:anywhere;}
+.nr-pers li .pastille{font-size:10.5px;margin-left:5px;}
+.nr-ctx{display:block;font-size:11px;color:var(--gris);}
+.nr-pied{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:9px 12px;border-top:1px solid #eef1f5;background:var(--fond);}
+.nr-pied .btn,.nr-pied .btn-2{font-size:11.5px;padding:6px 10px;}
+.nr-ap-b{margin-left:auto;background:none;border:0;color:var(--bleu);font-weight:bold;font-size:11.5px;text-decoration:underline;}
+.nr-ap{border-top:1px solid var(--trait);background:#fff;padding:12px 14px;}
+.nr-ap[hidden]{display:none;}
+.nr-obj{font-size:11px;color:var(--gris);margin-bottom:8px;}
+.nr-obj b{color:var(--encre);}
+.nr-note{padding:10px 16px 14px;font-size:11px;color:var(--gris);border-top:1px solid var(--trait);line-height:1.5;}
+@media (max-width:520px){.nr-corps{grid-template-columns:1fr}.nr-voile{padding:0}.nr-fen{border-radius:0}}
 .btn-top.btn-notif[hidden]{display:none!important;}
 .btn-top.btn-notif[aria-expanded="true"]{background:#fff;color:var(--bleu);}
 .btn-top.btn-notif.sans-agent{opacity:.8;}
@@ -1326,6 +1379,11 @@ tbody tr.ligne-com:hover{background:transparent;}
   <button class="btn-top bascule" id="btn-panneau"
           title="Replier / déplier la liste des projets" aria-expanded="true">◀ Projets</button>
   <div class="marque">Suivi des projets et actions — SDIS de l'Ain</div>
+  <button class="btn-top btn-notif" id="btn-notif" hidden aria-expanded="false" aria-controls="notif-pan"
+    aria-label="Notifications" title="Notifications"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path
+    d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span
+    id="notif-txt">Notifications</span></button>
   <div class="spacer"></div>
   <span id="btns-barre"></span>
   <!-- Visibilité pilotée par la case « Afficher le bouton PDF » des réglages. -->
@@ -1341,11 +1399,6 @@ tbody tr.ligne-com:hover{background:transparent;}
     title="Exporter en Excel les échéances en retard et à venir des projets affichés">Échéances (Excel)</button>
   <button class="btn-top" id="btn-vue-mobile" hidden
     title="Revenir à l'affichage adapté au téléphone">📱 Vue mobile</button>
-  <button class="btn-top btn-notif" id="btn-notif" hidden aria-expanded="false" aria-controls="notif-pan"
-    aria-label="Notifications" title="Notifications"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path
-    d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span
-    class="notif-badge" id="notif-badge" hidden></span></button>
   <button class="btn-top" id="btn-actualiser">Actualiser</button>
 </div>
 <section class="notif-pan" id="notif-pan" hidden aria-label="Notifications"></section>
@@ -3228,13 +3281,10 @@ function designe(tableId,ligne,col,agent){
   return pliColonne(val)===nom || String(val).split(/[,;\n]/).some(x=>pliColonne(x)===nom);
 }
 
-function calculerNotifs(){
-  const c=S.cfg;
-  S.notifs=[]; S.notifAgent=null;
-  if(!notifsPossibles()) return;
-  const ag=agentCourant();
-  S.notifAgent=ag;
-  if(!ag) return;
+/* notifications d'un agent donné : ce qui le désigne, sans tenir compte de la lecture */
+function notifsDe(ag){
+  const c=S.cfg, out=[];
+  if(!ag) return out;
   const num=v=>Number(v)||null;
   S.data.main.filter(r=>estProjet(r) && !estArchive(r)).forEach(p=>{
     const acts=actionsDe(p);
@@ -3242,7 +3292,7 @@ function calculerNotifs(){
       const av=pct(a[c.colAvancement]);
       if(interrompu(a) || (av!=null && av>=100)) return;
       if(designe(c.tblMain,a,c.colPorteur,ag))
-        S.notifs.push({cle:"action:"+a.id+":porteur",genre:"action",p,a,
+        out.push({cle:"action:"+a.id+":porteur",genre:"action",p,a,
           lib:lire(c.tblMain,a,c.colLibelle),ech:num(a[c.colEch])});
     });
     if(c.tblTache && c.colTacheLien && c.colTachePorteur)
@@ -3250,7 +3300,7 @@ function calculerNotifs(){
         const av=pct(t[c.colTacheAvancement]);
         if(statutInterrompu(c.tblTache,t,c.colTacheStatut) || (av!=null && av>=100)) return;
         if(designe(c.tblTache,t,c.colTachePorteur,ag))
-          S.notifs.push({cle:"tache:"+t.id+":porteur",genre:"tache",p,a:x.id!==p.id?x:null,t,
+          out.push({cle:"tache:"+t.id+":porteur",genre:"tache",p,a:x.id!==p.id?x:null,t,
             lib:lire(c.tblTache,t,c.colTacheLibelle),ech:num(t[c.colTacheFin])});
       }));
     if(c.tblJournal && c.colJnlLien && c.colJnlCollab){
@@ -3260,13 +3310,21 @@ function calculerNotifs(){
         vus.add(j.id);
         if(!designe(c.tblJournal,j,c.colJnlCollab,ag)) return;
         const clos=!!(c.colJnlTraite && j[c.colJnlTraite]===true);
-        S.notifs.push({cle:"journal:"+j.id+":collab",genre:"journal",p,a:x.id!==p.id?x:null,j,
+        out.push({cle:"journal:"+j.id+":collab",genre:"journal",p,a:x.id!==p.id?x:null,j,
           lib:txt(lire(c.tblJournal,j,c.colJnlTexte)).trim(),date:num(j[c.colJnlDate]),
           ech:clos?null:num(j[c.colJnlDelai]),
           auteur:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""});
       }));
     }
   });
+  return out;
+}
+function calculerNotifs(){
+  S.notifs=[]; S.notifAgent=null;
+  if(!notifsPossibles()) return;
+  const ag=agentCourant();
+  S.notifAgent=ag;
+  if(ag) S.notifs=notifsDe(ag);
 }
 
 function cleLuesLocales(){ return NT_LUES+":"+(S.notifAgent?S.notifAgent.id:""); }
@@ -3308,8 +3366,12 @@ function majCloche(){
   if(!b) return;
   b.hidden=!notifsPossibles();
   const n=nonLues().length;
-  const bd=$("#notif-badge");
-  bd.hidden=!n; bd.textContent=n>99?"99+":String(n);
+  /* jaune et chiffrée tant qu'il reste du non lu ; elle sonne une fois par session */
+  $("#notif-txt").textContent = n ? (n>99?"99+":n)+" notification"+(n>1?"s":"") : "Notifications";
+  b.classList.toggle("active",n>0);
+  if(n>0 && !S.clocheSonnee && !b.hidden){
+    S.clocheSonnee=true; b.classList.add("sonne"); setTimeout(()=>b.classList.remove("sonne"),6600);
+  }
   b.setAttribute("aria-label","Notifications"+(n?" : "+n+" non lue"+(n>1?"s":""):""));
   b.title=S.notifAgent ? "Notifications de "+nomAgent(S.notifAgent) : "Notifications : indiquez qui vous êtes";
   b.classList.toggle("sans-agent",!S.notifAgent);
@@ -3389,14 +3451,20 @@ function rendreNotifs(){
     '<div class="notif-filtres">'+[["nonlues","Non lues",nl.length],["toutes","Toutes",(S.notifs||[]).length]]
       .map(([k,l,n])=>'<button type="button" class="notif-chip'+(filtre===k?" on":"")+'" data-nf="'+k+'">'+l+' <b>'+n+'</b></button>').join("")+'</div>'+
     '<div class="notif-liste">'+corps+'</div>'+
-    '<div class="notif-pied">'+esc(nomAgent(S.notifAgent))+
-      (S.agentParCompte?'':' — <button type="button" class="notif-lien" id="notif-changer">Ce n\'est pas vous ?</button>')+'</div>';
+    '<div class="notif-pied"><span>'+esc(nomAgent(S.notifAgent))+
+      (S.agentParCompte?'':' — <button type="button" class="notif-lien" id="notif-changer">Ce n\'est pas vous ?</button>')+'</span>'+
+      '<button type="button" class="notif-admin" id="notif-recap" title="Notifications non lues de tous les agents">'+
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
+        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/>'+
+        '<path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Récapitulatif administrateur</button></div>';
 
   $("#notif-fermer").onclick=fermerNotifs;
   pan.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>{ S.notifFiltre=b.dataset.nf; rendreNotifs(); });
   const tout=$("#notif-tout");
   if(tout) tout.onclick=()=>{ const k=nl.length; marquerLues(nl);
     toast(k+" notification"+(k>1?"s":"")+" marquée"+(k>1?"s":"")+" comme lue"+(k>1?"s":"")); };
+  const rc=$("#notif-recap");
+  if(rc) rc.onclick=ouvrirRecapNotifs;
   const ch=$("#notif-changer");
   if(ch) ch.onclick=()=>{ lsEcrire(NT_AGENT,""); calculerNotifs(); rendreListe(); rendreNotifs(); };
   pan.querySelectorAll("[data-ncle]").forEach(el=>{
@@ -3422,7 +3490,14 @@ function brancherClocheMobile(){
   majCloche();
 }
 
-function ouvrirNotifs(){ $("#notif-pan").hidden=false; $("#btn-notif").setAttribute("aria-expanded","true"); rendreNotifs(); }
+function ouvrirNotifs(){
+  const pan=$("#notif-pan"), b=$("#btn-notif");
+  if(!enMobile() && b && !b.hidden){
+    const r=b.getBoundingClientRect();
+    pan.style.left=Math.max(8,Math.min(r.left,window.innerWidth-pan.offsetWidth-8||r.left))+"px";
+    pan.style.right="auto";
+  }else{ pan.style.left=""; pan.style.right=""; }
+  $("#notif-pan").hidden=false; $("#btn-notif").setAttribute("aria-expanded","true"); rendreNotifs(); }
 function fermerNotifs(){ $("#notif-pan").hidden=true; $("#btn-notif").setAttribute("aria-expanded","false"); }
 
 /* mobile : fiche du projet, onglet Actions (accordéon de l'action déplié) ou Journal */
@@ -3448,6 +3523,170 @@ function ouvrirNotifMobile(n){
   cible.scrollIntoView({behavior:"smooth",block:"center"});
   cible.classList.add("jnl-vise");
   setTimeout(()=>cible.classList.remove("jnl-vise"),1800);
+}
+
+/* --- Récapitulatif administrateur ---
+   Pour chaque agent : ses notifications non lues, d'après Notifications_Lues
+   (Utilisateur = e-mail du compte). Protégé par le mot de passe des réglages.
+   Les messageries étant sécurisées, rien n'est envoyé : adresse, objet et
+   message se copient, le message avec sa mise en forme (HTML + texte brut). */
+const NR_GEN={action:"Porteur de l'action",tache:"Porteur de la tâche",journal:"Désigné dans le journal de bord"};
+function recapNotifs(){
+  const c=S.cfg, luesPar=new Map();
+  if(notifTableOk() && c.colNotifUtil)
+    (S.data.notifLues||[]).forEach(r=>{
+      const e=String(r[c.colNotifUtil]||"").trim().toLowerCase();
+      if(!e) return;
+      if(!luesPar.has(e)) luesPar.set(e,new Set());
+      luesPar.get(e).add(txt(r[c.colNotifElement]));
+    });
+  const avecCompte=!!(c.colAgentCompte && infoCol(c.tblAgent,c.colAgentCompte));
+  const out=[];
+  (S.data.agents||[]).forEach(ag=>{
+    const nom=nomAgent(ag);
+    if(!nom) return;
+    const mail=avecCompte?txt(lire(c.tblAgent,ag,c.colAgentCompte)).trim().toLowerCase():"";
+    const L=luesPar.get(mail)||new Set();
+    const items=notifsDe(ag).filter(n=>!L.has(n.cle));
+    if(items.length) out.push({nom,mail,items});
+  });
+  return out.sort((a,b)=>b.items.length-a.items.length||a.nom.localeCompare(b.nom,"fr"));
+}
+const nrLib=n=>n.genre==="journal"?(n.lib.length>140?n.lib.slice(0,140)+"…":n.lib)||"(entrée sans commentaire)":(n.lib||"(sans libellé)");
+const nrProjet=n=>lire(S.cfg.tblMain,n.p,S.cfg.colLibelle)||"(sans libellé)";
+function nrPrenom(p){
+  const x=p.mail?p.mail.split("@")[0].split(/[._-]/)[0]:"";
+  return x?x[0].toUpperCase()+x.slice(1):"";
+}
+function nrObjet(p){ return "Console projets : "+p.items.length+" notification"+(p.items.length>1?"s":"")+" en attente"; }
+function nrTexte(p){
+  return "Bonjour"+(nrPrenom(p)?" "+nrPrenom(p):"")+",\n\n"+
+    "Vous avez "+p.items.length+" notification"+(p.items.length>1?"s":"")+" en attente dans la console de suivi des projets :\n\n"+
+    p.items.map(n=>{ const e=etatNotif(n.ech);
+      return "- "+NR_GEN[n.genre]+" « "+nrLib(n)+" » ("+nrProjet(n)+")"+
+        (n.ech?" — échéance "+dateVersFR(n.ech):"")+(e&&e.k==="retard"?" — EN RETARD":""); }).join("\n")+
+    "\n\nVous pouvez les consulter avec la cloche, en haut de la console.\n\nCordialement,";
+}
+function nrHtml(p){
+  const COUL={retard:["#fbe6e6","#c62828"],proche:["#fdeee1","#a85a12"],avenir:["#e8ecf7","#002395"]};
+  const td='style="padding:6px 10px;border:1px solid #dde2ea;font-family:Tahoma,Arial,sans-serif;font-size:13px;vertical-align:top"';
+  const th='style="padding:6px 10px;border:1px solid #dde2ea;background:#002395;color:#ffffff;font-family:Tahoma,Arial,sans-serif;font-size:12px;text-align:left"';
+  const nbRet=p.items.filter(n=>{ const e=etatNotif(n.ech); return e&&e.k==="retard"; }).length;
+  return '<div style="font-family:Tahoma,Arial,sans-serif;font-size:13px;color:#1c2330">'+
+    '<p>Bonjour'+(nrPrenom(p)?" "+esc(nrPrenom(p)):"")+',</p>'+
+    '<p>Vous avez <b>'+p.items.length+' notification'+(p.items.length>1?"s":"")+'</b> en attente dans la console de suivi des projets'+
+      (nbRet?', dont <b style="color:#c62828">'+nbRet+' en retard</b>':'')+' :</p>'+
+    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0 12px">'+
+      '<tr><th '+th+'>Objet</th><th '+th+'>Élément</th><th '+th+'>Projet</th><th '+th+'>Échéance</th></tr>'+
+      p.items.map(n=>{ const e=etatNotif(n.ech), cl=e?COUL[e.k]:null;
+        return '<tr><td '+td+'>'+esc(NR_GEN[n.genre])+'</td><td '+td+'><b>'+esc(nrLib(n))+'</b></td>'+
+          '<td '+td+'>'+esc(nrProjet(n))+'</td><td '+td+'>'+(cl?'<span style="background:'+cl[0]+';color:'+cl[1]+
+          ';font-weight:bold;padding:2px 8px;border-radius:10px">'+esc(dateVersFR(n.ech)+(e.k==="retard"?" — "+e.t:""))+
+          '</span>':'—')+'</td></tr>'; }).join("")+
+    '</table><p>Vous pouvez les consulter avec la cloche <b>🔔</b>, en haut de la console.</p><p>Cordialement,</p></div>';
+}
+async function copierRiche(html,texte){
+  try{
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html":new Blob([html],{type:"text/html"}),
+        "text/plain":new Blob([texte],{type:"text/plain"})})]);
+      return true;
+    }
+  }catch(e){}
+  /* secours (presse-papiers restreint dans le cadre du widget) : sélection d'un bloc rendu */
+  const d=document.createElement("div");
+  d.contentEditable="true"; d.style.cssText="position:fixed;left:-9999px;top:0;background:#fff";
+  d.innerHTML=html; document.body.appendChild(d);
+  const r=document.createRange(); r.selectNodeContents(d);
+  const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  let ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  sel.removeAllRanges(); d.remove();
+  return ok;
+}
+async function copierTexte(t){
+  try{ if(navigator.clipboard){ await navigator.clipboard.writeText(t); return true; } }catch(e){}
+  const ta=document.createElement("textarea"); ta.value=t; ta.style.cssText="position:fixed;left:-9999px";
+  document.body.appendChild(ta); ta.select(); let ok=false;
+  try{ ok=document.execCommand("copy"); }catch(e){}
+  ta.remove(); return ok;
+}
+
+async function ouvrirRecapNotifs(){
+  const c=S.cfg;
+  fermerNotifs();
+  if(!await motDePasseValide("Mot de passe des réglages :")) return;
+  /* lectures à jour de tout le monde */
+  if(notifTableOk()){
+    try{ S.data.notifLues=enLignes(await grist.docApi.fetchTable(c.tblNotif)); }
+    catch(e){ console.warn("Lecture de Notifications_Lues impossible : "+e.message); }
+  }
+  const pers=recapNotifs();
+  const tot=pers.reduce((s,x)=>s+x.items.length,0);
+  const ret=pers.reduce((s,x)=>s+x.items.filter(n=>{ const e=etatNotif(n.ech); return e&&e.k==="retard"; }).length,0);
+  const ini=n=>n.replace(/[^A-Za-zÀ-ÿ ]/g," ").split(" ").filter(Boolean).map(x=>x[0]).join("").slice(0,2).toUpperCase();
+  const v=document.createElement("div");
+  v.className="nr-voile";
+  v.innerHTML='<div class="nr-fen" role="dialog" aria-modal="true" aria-labelledby="nr-t">'+
+    '<div class="nr-tete"><h2 id="nr-t">Notifications en attente de lecture — au '+esc(dateDuJourFR())+'</h2>'+
+      '<button type="button" class="nr-x" aria-label="Fermer">✕</button></div>'+
+    '<div class="nr-barre">'+
+      '<span class="nr-chiffre"><b>'+pers.length+'</b><span>personne'+(pers.length>1?"s":"")+' concernée'+(pers.length>1?"s":"")+'</span></span>'+
+      '<span class="nr-chiffre"><b>'+tot+'</b><span>notification'+(tot>1?"s":"")+' non lue'+(tot>1?"s":"")+'</span></span>'+
+      '<span class="nr-chiffre rouge"><b>'+ret+'</b><span>sur une échéance dépassée</span></span>'+
+      (pers.length?'<button type="button" class="btn-2 nr-droite" id="nr-tout">Copier tout le récapitulatif</button>':'')+
+    '</div>'+
+    '<div class="nr-corps">'+(pers.length ? pers.map((x,k)=>
+      '<article class="nr-pers"><div class="nr-pers-tete"><span class="nr-av">'+esc(ini(x.nom))+'</span>'+
+        '<span class="nr-id"><b>'+esc(x.nom)+'</b>'+(x.mail?'<span>'+esc(x.mail)+'</span>'
+          :'<span class="nr-sans">Aucune adresse dans '+esc(c.colAgentCompte||"Compte_Grist")+'</span>')+'</span>'+
+        '<span class="nr-nb" title="Notifications non lues">'+x.items.length+'</span></div>'+
+      '<ul>'+x.items.map(n=>{ const e=etatNotif(n.ech);
+        return '<li><i class="nr-g-'+n.genre+'" title="'+esc(NR_GEN[n.genre])+'">'+
+          ({action:"A",tache:"T",journal:"J"})[n.genre]+'</i><span><span class="nr-lib">'+esc(nrLib(n))+'</span>'+
+          (e?'<span class="pastille notif-'+e.k+'">'+esc(e.t)+'</span>':'')+
+          '<span class="nr-ctx">'+esc(NR_GEN[n.genre])+' — '+esc(nrProjet(n))+'</span></span></li>'; }).join("")+'</ul>'+
+      '<div class="nr-pied">'+
+        (x.mail?'<button type="button" class="btn-2" data-nradr="'+k+'">Adresse</button>':'')+
+        '<button type="button" class="btn-2" data-nrobj="'+k+'">Objet</button>'+
+        '<button type="button" class="btn" data-nrcop="'+k+'">Copier le message</button>'+
+        '<button type="button" class="nr-ap-b" data-nrap="'+k+'" aria-expanded="false">Aperçu</button></div>'+
+      '<div class="nr-ap" id="nr-ap-'+k+'" hidden><div class="nr-obj">Objet : <b>'+esc(nrObjet(x))+'</b></div>'+nrHtml(x)+'</div>'+
+      '</article>').join("")
+      : '<div class="notif-vide" style="grid-column:1/-1"><b>Aucune notification en attente</b>Tout le monde est à jour.</div>')+
+    '</div>'+
+    '<div class="nr-note">Le décompte s\'appuie sur la table '+esc(c.tblNotif||"Notifications_Lues")+'. Une personne en lecture seule, '+
+      'dont les lectures ne sont gardées que dans son navigateur, apparaît ici avec des notifications qu\'elle a peut-être déjà lues. '+
+      'Un agent sans adresse dans '+esc(c.colAgentCompte||"Compte_Grist")+' apparaît avec toutes ses notifications.</div>'+
+  '</div>';
+  document.body.appendChild(v);
+  const fermer=()=>{ v.remove(); document.removeEventListener("keydown",echap); };
+  const echap=e=>{ if(e.key==="Escape") fermer(); };
+  document.addEventListener("keydown",echap);
+  v.querySelector(".nr-x").onclick=fermer;
+  v.addEventListener("mousedown",e=>{ if(e.target===v) fermer(); });
+  v.querySelectorAll("[data-nradr]").forEach(b=>b.onclick=async()=>
+    toast(await copierTexte(pers[+b.dataset.nradr].mail)?"Adresse copiée":"Copie impossible",!1));
+  v.querySelectorAll("[data-nrobj]").forEach(b=>b.onclick=async()=>
+    toast(await copierTexte(nrObjet(pers[+b.dataset.nrobj]))?"Objet copié":"Copie impossible"));
+  v.querySelectorAll("[data-nrcop]").forEach(b=>b.onclick=async()=>{
+    const x=pers[+b.dataset.nrcop];
+    const ok=await copierRiche(nrHtml(x),nrTexte(x));
+    toast(ok?"Message copié avec sa mise en forme : collez-le dans votre messagerie (Ctrl+V)"
+            :"Copie impossible : ouvrez l'aperçu, sélectionnez-le et faites Ctrl+C",!ok);
+  });
+  v.querySelectorAll("[data-nrap]").forEach(b=>b.onclick=()=>{
+    const a=v.querySelector("#nr-ap-"+b.dataset.nrap);
+    a.hidden=!a.hidden; b.setAttribute("aria-expanded",String(!a.hidden));
+    b.textContent=a.hidden?"Aperçu":"Masquer l'aperçu";
+  });
+  const tout=v.querySelector("#nr-tout");
+  if(tout) tout.onclick=async()=>{
+    const html=pers.map(x=>'<h3 style="font-family:Tahoma,Arial,sans-serif;color:#002395;margin:18px 0 4px">'+
+      esc(x.nom)+(x.mail?' — '+esc(x.mail):'')+'</h3>'+nrHtml(x)).join('<hr style="border:0;border-top:1px solid #dde2ea">');
+    const ok=await copierRiche(html,pers.map(x=>"== "+x.nom+(x.mail?" <"+x.mail+">":"")+" ==\n"+nrTexte(x)).join("\n\n"));
+    toast(ok?"Récapitulatif copié avec sa mise en forme":"Copie impossible dans ce navigateur",!ok);
+  };
 }
 
 /* ouvre le projet sur l'élément concerné, et la notification passe en lue */

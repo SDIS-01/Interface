@@ -299,6 +299,7 @@ tr.tache-cible td{background:#fff3c4!important;transition:background .4s;}
 .col-bulle{width:34px;}
 .btn-bulle{border:0;background:transparent;cursor:pointer;font-size:14px;padding:3px;border-radius:5px;}
 .btn-bulle:hover{background:var(--bleu-survol);}
+.carte-tete .btn-bulle{font-size:12px;padding:6px 10px;border:1px solid var(--trait);background:#fff;margin-left:auto;}
 .fa-bloc-tete .btn-bulle{font-size:12px;padding:6px 10px;border:1px solid var(--trait);background:#fff;}
 tr.glisse-source{opacity:.45;}
 tr.glisse-avant td{box-shadow:inset 0 2px 0 var(--bleu);}
@@ -4724,12 +4725,22 @@ function vueSynthese(p){
           ch("Descriptif du projet",editeur(t,p,c.colDescriptif,{multi:true}),true)+
         '</div></div>'
       : '')+
-    '<div class="carte'+(ouvert&&hmPret()?" carte-ouverte":"")+'"><h2>Commentaire</h2><div class="grille">'+
-      ch("Commentaire du projet",editeur(t,p,c.colCommentaire,{multi:true}),true)+
-    '</div></div>'+
+    /* même procédure que pour les actions et les tâches : le commentaire ne se
+       réécrit pas, on ajoute une entrée datée et signée en tête du fil ; chaque
+       ajout est tracé dans l'historique */
+    (c.colCommentaire
+      ? '<div class="carte"><div class="carte-tete"><h2>Commentaire</h2>'+
+          '<button type="button" class="btn-2 btn-bulle" data-bulle-t="'+esc(t)+'" data-bulle-r="'+p.id+
+          '" data-bulle-c="'+esc(c.colCommentaire)+'">💬 Ajouter un commentaire</button></div>'+
+          commentaireLecture(p[c.colCommentaire])+'</div>'
+      : '')+
     (c.colPJ?'<div class="carte"><h2>Pièces jointes</h2>'+blocPJ(t,p,c.colPJ)+'</div>':"");
   brancherEditeurs();
   brancherPJ();
+  document.querySelectorAll("#corps [data-bulle-t]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    ouvrirBulle(b,b.dataset.bulleT,Number(b.dataset.bulleR),b.dataset.bulleC,()=>rendreProjet());
+  });
   $("#verrou").onclick=()=>basculerVerrou(p);
 }
 

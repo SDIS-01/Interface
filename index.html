@@ -8659,6 +8659,9 @@ function vueStrategie(p){
     });
     $("#st-annuler").onclick=()=>{ f.ouvert=false; f.coches=null; re(); };
     $("#st-valider").onclick=async()=>{
+      const retires=idsStrat(p,stSel).filter(id=>!f.coches.has(id));
+      if(retires.length && !await confirmerSuppression(retires.length+" résultat"+
+        (retires.length>1?"s seront détachés":" sera détaché")+" du projet. Continuer ?")) return;
       if(await ecrireStrat(p,stSel,[...f.coches])){ f.ouvert=false; f.coches=null; rendreProjet(); }
     };
   }
@@ -8666,7 +8669,7 @@ function vueStrategie(p){
     const st=sts.find(x=>x.col===b.dataset.stCol); if(!st) return;
     const id=Number(b.dataset.stDet);
     const r=lignesStrat(st).find(x=>x.id===id);
-    if(!confirm("Détacher ce résultat du projet ?\n\n"+(r?resStrat(st,r):""))) return;
+    if(!await confirmerSuppression("Détacher ce résultat du projet ?\n\n"+(r?resStrat(st,r):""))) return;
     if(await ecrireStrat(p,st,idsStrat(p,st).filter(x=>x!==id))){ f.coches=null; rendreProjet(); }
   });
 }
@@ -10933,14 +10936,9 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ if(mpSel.block!==null) mpChoisir(mpSel.page,null); return; }
   if(mpSel.page===null||mpSel.block===null) return;
 
-  if(e.key==="Delete"||e.key==="Backspace"){
-    e.preventDefault();
-    mpPage(mpSel.page).blocks.splice(mpSel.block,1);
-    const i=mpSel.page;
-    mpSel={page:i,block:null};
-    mpRedessiner(i); enregistrerPagesSup(S.projetSel);
-    return;
-  }
+  /* suppression au clavier désactivée : elle passe par le bouton « Supprimer le bloc »,
+     protégé par le mot de passe */
+  if(e.key==="Delete"||e.key==="Backspace"){ e.preventDefault(); return; }
   const f=MP_FLECHES[e.key];
   if(f){
     e.preventDefault();
@@ -11018,7 +11016,8 @@ function mpBrancherInspecteur(box,iPage,b){
   const u=q(".mpSoul");    if(u) u.onclick=()=>{ b.underline=!b.underline; valider(); };
   const w=q(".mpEcrire");  if(w) w.onclick=()=>mpEcrire(iPage,mpSel.block);
   const d=q(".mpSupprBloc");
-  if(d) d.onclick=()=>{
+  if(d) d.onclick=async()=>{
+    if(!await confirmerSuppression("Supprimer ce bloc ?")) return;
     mpPage(iPage).blocks.splice(mpSel.block,1);
     mpSel={page:iPage,block:null};
     valider();
@@ -11216,8 +11215,10 @@ function rendrePagesSup(){
     };
   });
   liste.querySelectorAll(".mpSupprPage").forEach(el=>{
-    el.onclick=e=>{
-      pagesSup.splice(Number(e.target.dataset.page),1);
+    el.onclick=async e=>{
+      const n=Number(e.target.dataset.page);
+      if(!await confirmerSuppression("Supprimer la page additionnelle "+(n+1)+" ?")) return;
+      pagesSup.splice(n,1);
       mpSel={page:null,block:null};
       rendrePagesSup();
       enregistrerPagesSup(S.projetSel);
@@ -13544,7 +13545,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-01-a — onglet Stratégie (rattachement SDACR / PE)";
+const VERSION="2026-10-01-b — suppressions protégées par mot de passe";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

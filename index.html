@@ -885,17 +885,37 @@ body.mob .msel-pan label{padding:9px 6px;}
 .btn.btn-perso:hover{background:#a34340;}
 
 /* ---------- Onglet Stratégie ---------- */
-.st-obj{font-size:11.5px;color:var(--gris);font-weight:bold;margin:12px 0 3px;}
-.st-groupe>.st-obj:first-child{margin-top:0;}
-.st-sous{font-size:12px;color:var(--encre);margin:6px 0 2px 10px;}
-.st-res{display:flex;align-items:center;gap:8px;padding:5px 4px 5px 20px;
-  border-bottom:1px solid var(--trait);font-size:12.5px;}
+.st-bloc{margin-bottom:16px;}
+.st-bandeau{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-radius:var(--rayon) var(--rayon) 0 0;}
+.st-bandeau b{font-size:14px;}
+.st-bandeau svg{flex:none;}
+.st-nb{margin-left:auto;font-size:12px;}
+.st-corps{background:#fff;border:1px solid var(--trait);border-top:0;
+  border-radius:0 0 var(--rayon) var(--rayon);padding:12px 14px;}
+.st-obj{display:flex;align-items:center;gap:10px;margin:12px 0 8px;}
+.st-corps>.st-obj:first-child,.st-liste>.st-det:first-child>.st-obj{margin-top:0;}
+.st-num{flex:none;min-width:26px;height:26px;padding:0 6px;border-radius:13px;display:inline-flex;
+  align-items:center;justify-content:center;font-size:12px;font-weight:bold;box-sizing:border-box;}
+.st-ot{font-weight:bold;font-size:13px;color:var(--encre);}
+.st-sous{margin:0 0 10px 36px;padding-left:12px;border-left:3px solid var(--trait);}
+.st-sl{font-size:12px;color:var(--gris);margin-bottom:5px;}
+.st-res{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--rayon);
+  background:var(--fond);margin-bottom:5px;font-size:12.5px;}
 .st-res>span{flex:1;}
-label.st-res{cursor:pointer;}
-label.st-res:hover{background:var(--bleu-survol);}
+.st-coche{flex:none;font-weight:bold;}
+.st-liste .st-res{background:#fff;border:1px solid var(--trait);cursor:pointer;}
+.st-liste .st-res:hover{background:var(--bleu-survol);}
+.st-liste .st-res.on{border-color:var(--bleu);background:var(--bleu-clair);}
 .st-res input{margin:0;}
-.st-liste{max-height:52vh;overflow-y:auto;border:1px solid var(--trait);
-  border-radius:var(--rayon);padding:8px 10px;}
+.st-det>summary{list-style:none;cursor:pointer;}
+.st-det>summary::-webkit-details-marker{display:none;}
+.st-det>summary::before{content:"▸";color:var(--gris);font-size:11px;width:10px;}
+.st-det[open]>summary::before{content:"▾";}
+.st-cpt{margin-left:auto;font-size:11px;padding:1px 8px;border-radius:9px;
+  background:var(--neutre-pastel);color:var(--gris);}
+.st-cpt.plein{background:var(--bleu-clair);color:var(--bleu);}
+.st-liste{max-height:55vh;overflow-y:auto;}
 .st-pied{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;}
 .st-pied .decompte{margin-right:auto;color:var(--gris);font-size:11.5px;}
 .st-aucun{color:var(--gris);font-size:12px;padding:4px 0;}
@@ -1760,7 +1780,7 @@ const DEF = {
   /* onglet Stratégie : colonnes Référence multiple de la table principale vers
      les tables Recap, séparées par des virgules ; colonnes de regroupement */
   colsStrategie:"ID_SDACR_25_30, ID_Projet_Etablissement_23_28",
-  colStratObjectif:"Objectif", colStratSousObjectif:"Sous_Objectif",
+  colStratObjectif:"ID_Objectif", colStratSousObjectif:"ID_Sous_Objectif",
   /* trois boutons libres de la barre supérieure */
   barre1Libelle:"", barre1Url:"", barre1Coul:"",
   barre2Libelle:"", barre2Url:"", barre2Coul:"",
@@ -8552,20 +8572,51 @@ function resStrat(st,r){ return (st.colRes?lire(st.table,r,st.colRes):"").trim()
 function objStrat(st,r){ return st.colObj?lire(st.table,r,st.colObj).trim():""; }
 function sousStrat(st,r){ return st.colSous?lire(st.table,r,st.colSous).trim():""; }
 
-/* arborescence objectif > sous-objectif > résultat ; ligne(r) dessine un résultat */
-function arbreStrat(st,lignes,ligne){
+/* couleurs des stratégies, dans l'ordre des réglages : [fond, texte] */
+const ST_COULEURS=[["#e8ecf7","#002395"],["#E4EDD2","#3b6d11"],["#FDE5D3","#B35D15"],
+                   ["#EEEDFE","#3C3489"],["#F3DCDB","#8C3A38"]];
+function couleurStrat(st){
+  const i=Math.max(0,strategies().findIndex(x=>x.col===st.col));
+  return ST_COULEURS[i%ST_COULEURS.length];
+}
+const ST_ICONE='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+  'stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/>'+
+  '<circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>';
+
+/* « 4 - Moderniser… » -> numéro « 4 », titre « Moderniser… » */
+function decouperNumero(lib){
+  const m=String(lib||"").match(/^\s*(\d+(?:\.\d+)*)\s*[-–—.:)]?\s+(.+)$/);
+  return m?{num:m[1],titre:m[2]}:{num:"",titre:String(lib||"")};
+}
+
+/* regroupement objectif > sous-objectif > résultats, trié dans l'ordre naturel */
+function grouperStrat(st,lignes){
   const cmp=(a,b)=>String(a).localeCompare(String(b),"fr",{numeric:true,sensitivity:"base"});
   const tri=lignes.slice().sort((a,b)=>cmp(objStrat(st,a),objStrat(st,b))||
     cmp(sousStrat(st,a),sousStrat(st,b))||cmp(resStrat(st,a),resStrat(st,b)));
-  let html="", obj=null, sous=null;
+  const objs=[];
   tri.forEach(r=>{
     const o=objStrat(st,r), so=sousStrat(st,r);
-    if(o!==obj){ obj=o; sous=null; if(o) html+='<div class="st-obj">'+esc(o)+'</div>'; }
-    if(so!==sous){ sous=so; if(so) html+='<div class="st-sous">'+esc(so)+'</div>'; }
-    html+=ligne(r);
+    let g=objs[objs.length-1];
+    if(!g||g.cle!==o){ g={cle:o,sous:[]}; objs.push(g); }
+    let s=g.sous[g.sous.length-1];
+    if(!s||s.lib!==so){ s={lib:so,res:[]}; g.sous.push(s); }
+    s.res.push(r);
   });
-  return '<div class="st-groupe">'+html+'</div>';
+  objs.forEach((g,i)=>{ const d=decouperNumero(g.cle); g.num=d.num||String(i+1); g.titre=d.titre; });
+  return objs;
 }
+
+function enteteObj(g,coul,extra){
+  return (g.cle?'<span class="st-num" style="background:'+coul[0]+';color:'+coul[1]+'">'+esc(g.num)+'</span>'+
+    '<span class="st-ot">'+esc(g.titre)+'</span>':'<span class="st-ot" style="color:var(--gris)">Sans objectif</span>')+
+    (extra||"");
+}
+function sousBloc(s,ligne){
+  return '<div class="st-sous">'+(s.lib?'<div class="st-sl">'+esc(s.lib)+'</div>':'')+
+    s.res.map(ligne).join("")+'</div>';
+}
+function pluriel(n,mot){ return n+" "+mot+(n>1?"s":""); }
 
 async function ecrireStrat(p,st,ids){
   await enregistrerBrouillon();
@@ -8581,7 +8632,7 @@ async function ecrireStrat(p,st,ids){
 function vueStrategie(p){
   const sts=strategies();
   let f=S.fStrat;
-  if(!f||f.projet!==p.id) f=S.fStrat={projet:p.id,ouvert:false,col:"",q:"",coches:null};
+  if(!f||f.projet!==p.id) f=S.fStrat={projet:p.id,ouvert:false,col:"",q:"",coches:null,fermes:new Set()};
   const corps=$("#corps");
 
   if(!sts.length){
@@ -8602,12 +8653,12 @@ function vueStrategie(p){
   let html='<div class="barre-actions"><button class="btn" id="st-ouvrir"'+(f.ouvert?" disabled":"")+
     '>Rattacher un résultat</button></div>';
 
-  /* sélecteur */
+  /* sélecteur : arborescence complète, seuls les résultats se cochent */
   if(f.ouvert){
-    const q=pliColonne(f.q);
-    const toutes=lignesStrat(stSel);
-    const vues=toutes.filter(r=>!q||pliColonne(resStrat(stSel,r)+" "+objStrat(stSel,r)+" "+
+    const coul=couleurStrat(stSel), q=pliColonne(f.q);
+    const vues=lignesStrat(stSel).filter(r=>!q||pliColonne(resStrat(stSel,r)+" "+objStrat(stSel,r)+" "+
       sousStrat(stSel,r)).includes(q));
+    const groupes=grouperStrat(stSel,vues);
     html+='<div class="carte carte-ouverte"><div class="carte-tete"><h2>Rattacher à la stratégie</h2></div>'+
       '<div class="barre-filtres"><select id="st-strat">'+
       sts.map(x=>'<option value="'+esc(x.col)+'"'+(x.col===stSel.col?" selected":"")+'>'+
@@ -8617,28 +8668,40 @@ function vueStrategie(p){
       '<div class="st-liste">'+
       (S.bloquees&&S.bloquees.has(stSel.table)
         ? '<div class="st-aucun">Table '+esc(stSel.table)+' illisible avec votre compte.</div>'
-        : !vues.length ? '<div class="st-aucun">Aucun résultat ne correspond.</div>'
-        : arbreStrat(stSel,vues,r=>'<label class="st-res"><input type="checkbox" data-st-id="'+r.id+'"'+
-            (f.coches.has(r.id)?" checked":"")+'><span>'+esc(resStrat(stSel,r))+'</span></label>'))+
-      '</div><div class="st-pied"><span class="decompte">'+f.coches.size+' sélectionné'+
-        (f.coches.size>1?"s":"")+'</span>'+
+        : !groupes.length ? '<div class="st-aucun">Aucun résultat ne correspond.</div>'
+        : groupes.map(g=>{
+            const tous=g.sous.reduce((a,s)=>a.concat(s.res),[]);
+            const k=tous.filter(r=>f.coches.has(r.id)).length;
+            return '<details class="st-det" data-cle="'+esc(g.cle)+'"'+
+              ((q||!f.fermes.has(g.cle))?" open":"")+'><summary class="st-obj">'+
+              enteteObj(g,coul,'<span class="st-cpt'+(k?" plein":"")+'">'+k+' / '+tous.length+'</span>')+
+              '</summary>'+
+              g.sous.map(s=>sousBloc(s,r=>'<label class="st-res'+(f.coches.has(r.id)?" on":"")+'">'+
+                '<input type="checkbox" data-st-id="'+r.id+'"'+(f.coches.has(r.id)?" checked":"")+'>'+
+                '<span>'+esc(resStrat(stSel,r))+'</span></label>')).join("")+
+              '</details>';
+          }).join(""))+
+      '</div><div class="st-pied"><span class="decompte" id="st-total"></span>'+
       '<button class="btn btn-2" id="st-annuler">Annuler</button>'+
       '<button class="btn" id="st-valider">Enregistrer</button></div></div>';
   }
 
   /* résultats rattachés, par stratégie */
   sts.forEach(st=>{
-    const ids=idsStrat(p,st);
-    const lignes=lignesStrat(st).filter(r=>ids.includes(r.id));
-    html+='<div class="carte"><div class="carte-tete"><h2>'+esc(st.libelle)+'</h2>'+
-      '<span class="decompte" style="color:var(--gris);font-size:11.5px">'+lignes.length+' résultat'+
-      (lignes.length>1?"s":"")+'</span></div>'+
-      (lignes.length
-        ? arbreStrat(st,lignes,r=>'<div class="st-res"><span>'+esc(resStrat(st,r))+'</span>'+
-            '<button class="btn-sup" title="Détacher ce résultat" data-st-col="'+esc(st.col)+
-            '" data-st-det="'+r.id+'">✕</button></div>')
+    const coul=couleurStrat(st), ids=idsStrat(p,st);
+    const groupes=grouperStrat(st,lignesStrat(st).filter(r=>ids.includes(r.id)));
+    const n=groupes.reduce((a,g)=>a+g.sous.reduce((b,s)=>b+s.res.length,0),0);
+    html+='<div class="st-bloc"><div class="st-bandeau" style="background:'+coul[0]+';color:'+coul[1]+'">'+
+      ST_ICONE+'<b>'+esc(st.libelle)+'</b><span class="st-nb">'+pluriel(n,"résultat")+
+      (n?' · '+pluriel(groupes.length,"objectif"):'')+'</span></div><div class="st-corps">'+
+      (n
+        ? groupes.map(g=>'<div class="st-obj">'+enteteObj(g,coul)+'</div>'+
+            g.sous.map(s=>sousBloc(s,r=>'<div class="st-res"><span class="st-coche" style="color:'+coul[1]+
+              '">✓</span><span>'+esc(resStrat(st,r))+'</span>'+
+              '<button class="btn-sup" title="Détacher ce résultat" data-st-col="'+esc(st.col)+
+              '" data-st-det="'+r.id+'">✕</button></div>')).join("")).join("")
         : '<div class="st-aucun">Aucun résultat rattaché.</div>')+
-      '</div>';
+      '</div></div>';
   });
   corps.innerHTML=html;
 
@@ -8646,16 +8709,38 @@ function vueStrategie(p){
   const ouv=$("#st-ouvrir");
   if(ouv) ouv.onclick=()=>{ f.ouvert=true; f.col=stSel.col; f.q=""; f.coches=null; re(); };
   if(f.ouvert){
+    const total=()=>{ const t=$("#st-total"); if(t) t.textContent=pluriel(f.coches.size,"sélectionné"); };
+    total();
     $("#st-strat").onchange=e=>{ f.col=e.target.value; f.coches=null; re(); };
     const qi=$("#st-q");
     qi.oninput=()=>{ f.q=qi.value; };
     qi.onsearch=qi.onchange=()=>{ f.q=qi.value; re(); };
     qi.onkeydown=e=>{ if(e.key==="Enter"){ f.q=qi.value; re(); } };
+    corps.querySelectorAll(".st-det").forEach(d=>d.ontoggle=()=>{
+      if(f.q) return;                                    // l'ouverture forcée par la recherche n'est pas retenue
+      if(d.open) f.fermes.delete(d.dataset.cle); else f.fermes.add(d.dataset.cle);
+    });
+    /* cocher ne redessine pas : on garde la position et les dépliages */
+    const majCompteurs=()=>{
+      corps.querySelectorAll(".st-det").forEach(d=>{
+        const cbs=d.querySelectorAll("[data-st-id]"), k=[...cbs].filter(x=>x.checked).length;
+        const c=d.querySelector(".st-cpt");
+        if(c){ c.textContent=k+" / "+cbs.length; c.classList.toggle("plein",!!k); }
+      });
+      total();
+    };
     corps.querySelectorAll("[data-st-id]").forEach(cb=>cb.onchange=()=>{
       const id=Number(cb.dataset.stId);
-      if(cb.checked){ if(!stSel.multiple) f.coches.clear(); f.coches.add(id); }
-      else f.coches.delete(id);
-      re();
+      if(cb.checked){
+        if(!stSel.multiple){
+          f.coches.clear();
+          corps.querySelectorAll("[data-st-id]").forEach(x=>{ if(x!==cb){ x.checked=false;
+            x.closest(".st-res").classList.remove("on"); } });
+        }
+        f.coches.add(id);
+      }else f.coches.delete(id);
+      cb.closest(".st-res").classList.toggle("on",cb.checked);
+      majCompteurs();
     });
     $("#st-annuler").onclick=()=>{ f.ouvert=false; f.coches=null; re(); };
     $("#st-valider").onclick=async()=>{
@@ -13545,7 +13630,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-01-b — suppressions protégées par mot de passe";
+const VERSION="2026-10-01-c — onglet Stratégie : nouvelle présentation";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

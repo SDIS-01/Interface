@@ -5318,14 +5318,26 @@ function surClicHorsBulle(e){
   if(!e.target.closest(".bulle-com") && !e.target.closest(".btn-bulle")) fermerBulle();
 }
 
+/* commentaire général du projet : jamais tracé dans l'historique, donc le nom
+   de l'auteur ne peut pas y être appris ; on le prend du compte Grist */
+function commentaireNonTrace(tableId,rowId){
+  return tableId===S.cfg.tblMain && !!S.projetSel && rowId===S.projetSel.id;
+}
+function nomDepuisCompte(){
+  const e=String(S.moiEmail||"");
+  return e.includes("@") ? e.split("@")[0] : "";
+}
+
 function ouvrirBulle(bouton,tableId,rowId,colId,apres){
   fermerBulle();
-  const connu=S.moi||(!hmPret()?moiMemorise():"");
-  const demanderNom=!S.moi && !hmPret();
+  const nonTrace=commentaireNonTrace(tableId,rowId);
+  const auto=S.moi||(nonTrace?nomDepuisCompte():"");
+  const connu=auto||((!hmPret()||nonTrace)?moiMemorise():"");
+  const demanderNom=!auto && (!hmPret()||nonTrace);
   const b=document.createElement("div");
   b.className="bulle-com";
   b.innerHTML='<div class="bc-titre">Nouveau commentaire <span>'+esc(dateDuJourFR())+
-      (S.moi?' — '+esc(S.moi):'')+'</span></div>'+
+      (auto?' — '+esc(auto):'')+'</span></div>'+
     (demanderNom?'<input type="text" class="bc-nom" placeholder="Votre nom" value="'+esc(connu)+'">':'')+
     '<textarea class="bc-texte" rows="4" placeholder="Votre commentaire…"></textarea>'+
     '<div class="bc-boutons"><button type="button" class="btn-2 bc-annuler">Annuler</button>'+
@@ -5345,7 +5357,7 @@ function ouvrirBulle(bouton,tableId,rowId,colId,apres){
   b.querySelector(".bc-ok").onclick=async()=>{
     const texte=ta.value.trim();
     if(!texte){ toast("Saisissez un commentaire.",true); return; }
-    let nom=S.moi||"";
+    let nom=auto||"";
     if(demanderNom){
       nom=(b.querySelector(".bc-nom").value||"").trim();
       if(!nom){ toast("Indiquez votre nom.",true); return; }
@@ -13630,7 +13642,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-01-d — onglet Stratégie : alignement des résultats";
+const VERSION="2026-10-01-e — auteur du commentaire général de la Synthèse";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

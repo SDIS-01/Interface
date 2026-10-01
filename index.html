@@ -903,7 +903,7 @@ body.mob .msel-pan label{padding:9px 6px;}
 .st-res{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--rayon);
   background:var(--fond);margin-bottom:5px;font-size:12.5px;}
 .st-res>span{flex:1;}
-.st-coche{flex:none;font-weight:bold;}
+.st-res>.st-coche{flex:0 0 auto;font-weight:bold;}
 .st-liste .st-res{background:#fff;border:1px solid var(--trait);cursor:pointer;}
 .st-liste .st-res:hover{background:var(--bleu-survol);}
 .st-liste .st-res.on{border-color:var(--bleu);background:var(--bleu-clair);}
@@ -13630,7 +13630,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-01-c — onglet Stratégie : nouvelle présentation";
+const VERSION="2026-10-01-d — onglet Stratégie : alignement des résultats";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

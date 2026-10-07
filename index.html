@@ -1406,6 +1406,29 @@ tbody tr.ligne-com:hover{background:transparent;}
   background:#FDF3F3!important;color:var(--rouge);}
 .filtre-plage .date-fr{width:104px;flex:0 0 auto;}
 
+/* onglet Budget */
+.bdg-contenu{font-size:13px;line-height:1.55;overflow-x:auto;}
+.bdg-contenu p{margin:0 0 6px;}
+.bdg-contenu ul,.bdg-contenu ol{margin:0 0 6px;padding-left:22px;}
+.bdg-contenu table{border-collapse:collapse;margin:8px 0;}
+.bdg-contenu th,.bdg-contenu td{border:1px solid var(--trait);padding:5px 10px;text-align:left;
+  vertical-align:top;min-width:80px;}
+.bdg-contenu th{background:#eef2f8;color:var(--bleu);font-weight:bold;}
+.bdg-contenu tr:nth-child(even) td{background:#fafbfd;}
+.bdg-edit{border:1px solid var(--bleu);border-radius:6px;padding:10px 12px;min-height:180px;
+  outline:none;background:#fff;}
+.bdg-edit:focus{box-shadow:0 0 0 3px rgba(0,35,149,.12);}
+.bdg-outils{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch;margin-bottom:8px;}
+.bdg-outils button{border:1px solid var(--trait);background:#fff;border-radius:5px;padding:4px 10px;
+  font-size:12px;cursor:pointer;color:var(--encre,#1d2433);}
+.bdg-outils button:hover:not(:disabled){border-color:var(--bleu);color:var(--bleu);}
+.bdg-outils button:disabled{opacity:.4;cursor:default;}
+.bdg-outils .sep{width:1px;background:var(--trait);margin:2px 4px;}
+.bdg-pied{display:flex;gap:8px;margin-top:10px;justify-content:flex-end;}
+.bdg-vide{color:var(--gris);font-size:12.5px;padding:4px 0;}
+.mb-carte .bdg-outils button{padding:8px 11px;font-size:13px;}
+.mb-carte .bdg-pied .btn,.mb-carte .bdg-pied .btn-2{flex:1;padding:10px;}
+.mb-carte .bdg-edit{min-height:220px;}
 </style>
 </head>
 <body>
@@ -1743,7 +1766,7 @@ const DEF = {
   colNature:"Nature", colLibelle:"", colGroupement:"Groupement", colPorteur:"Porteur",
   colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
   colArchive:"Archive_Projet",
-  colCommentaire:"Commentaire", colDescriptif:"Descriptif_initiative", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
+  colCommentaire:"Commentaire", colDescriptif:"Descriptif_initiative", colBudget:"Budget", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colPJ:"Pièce_Jointe",
   colMillesime:"Millesime_P2A",
   colSup:"MEC_2023",
@@ -1795,7 +1818,7 @@ const CHAMPS_REGLAGES = [
     ["colGroupement","Groupement"],["colPorteur","Porteur"],["colPriorite","Priorité"],
     ["colAvancement","Avancement"],["colStatut","Statut"],
     ["colArchive","Archivage (case à cocher)"],["colCommentaire","Commentaire"],
-    ["colDescriptif","Descriptif du projet"],
+    ["colDescriptif","Descriptif du projet"],["colBudget","Budget (texte libre et tableaux)"],
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
     ["colPJ","Pièces jointes"],
     ["colMillesime","Millésime P2A (un ou plusieurs)"],
@@ -3758,7 +3781,7 @@ function ouvrirNotif(n){
 const ONGLETS=[["synthese","Synthèse"],["analyse","Analyse"],["strategie","Stratégie"],["actions","Actions"],["taches","Tâches"],
                ["instances","Instances"],["planning","Planning"],
                ["journal","Journal de bord"],["notes","Notes"],
-               ["historique","Historique"],["ressources","Ressources"]];
+               ["historique","Historique"],["ressources","Ressources"],["budget","Budget"]];
 
 /* table des fonctions de rendu, partagée par l'affichage et l'impression */
 const VUES={};   // remplie plus bas, une fois les fonctions vueXxx déclarées
@@ -8766,12 +8789,221 @@ function vueStrategie(p){
   });
 }
 
+/* =======================================================================
+   Onglet Budget : texte libre et tableaux, rangés en HTML simple dans une
+   colonne Texte de la table principale. Partagé entre poste et mobile.
+   ======================================================================= */
+const BDG_BALISES={P:"p",DIV:"p",H1:"p",H2:"p",H3:"p",H4:"p",BR:"br",
+  B:"b",STRONG:"b",I:"i",EM:"i",U:"u",UL:"ul",OL:"ol",LI:"li",
+  TABLE:"table",THEAD:"tbody",TBODY:"tbody",TFOOT:"tbody",TR:"tr",TH:"th",TD:"td"};
+
+/* Ne garde que paragraphes, gras, italique, listes et tableaux, sans aucun
+   attribut : un copier-coller depuis Word ou LibreOffice n'apporte ni styles
+   parasites ni contenu actif. Un ancien texte brut devient des paragraphes. */
+function nettoyerBudget(html){
+  const s=String(html==null?"":html).trim();
+  if(!s) return "";
+  if(!/<[a-z][\s\S]*>/i.test(s))
+    return s.split(/\r?\n/).map(l=>"<p>"+(esc(l)||"<br>")+"</p>").join("");
+  const tpl=document.createElement("template");
+  tpl.innerHTML=s;                         // contenu inerte : rien ne s'exécute
+  const sortie=document.createElement("div");
+  const copier=(src,dst)=>{
+    src.childNodes.forEach(n=>{
+      if(n.nodeType===3){ dst.appendChild(document.createTextNode(n.nodeValue)); return; }
+      if(n.nodeType!==1) return;
+      const tag=n.tagName;
+      if(/^(SCRIPT|STYLE|TEMPLATE|IFRAME|OBJECT|SVG|COLGROUP|COL)$/.test(tag)) return;
+      const k=BDG_BALISES[tag];
+      if(!k){ copier(n,dst); return; }     // span, font… : on garde le texte
+      const e=document.createElement(k);
+      dst.appendChild(e);
+      if(k!=="br") copier(n,e);
+    });
+  };
+  copier(tpl.content,sortie);
+  sortie.querySelectorAll("table").forEach(t=>{ if(!t.querySelector("td,th")) t.remove(); });
+  return sortie.innerHTML.replace(/(<p>(<br>)?<\/p>)+$/,"").trim();
+}
+
+function budgetVide(html){
+  if(!html) return true;
+  if(/<table/i.test(html)) return false;
+  const d=document.createElement("div");
+  d.innerHTML=html;
+  return !d.textContent.trim();
+}
+
+function budgetPret(){
+  const c=S.cfg;
+  return !!(c.colBudget && infoCol(c.tblMain,c.colBudget));
+}
+
+function budgetDe(p){ return nettoyerBudget(txt(p[S.cfg.colBudget])); }
+
+const BDG_OUTILS=[["gras","<b>G</b>","Gras"],["ital","<i>I</i>","Italique"],
+  ["puces","• Liste","Liste à puces"],["|"],
+  ["tableau","Insérer un tableau","Insérer un tableau"],["|"],
+  ["lig+","+ ligne","Ajouter une ligne sous la ligne courante"],
+  ["col+","+ colonne","Ajouter une colonne à droite de la colonne courante"],
+  ["lig-","– ligne","Supprimer la ligne courante"],
+  ["col-","– colonne","Supprimer la colonne courante"]];
+
+function blocBudget(p){
+  const c=S.cfg;
+  if(!budgetPret())
+    return '<div class="bdg-vide">Pour utiliser cet onglet, créez dans la table '+
+      esc(c.tblMain)+' une colonne de type Texte (par exemple « Budget »), puis '+
+      'sélectionnez-la dans les réglages du widget, champ « Budget ».</div>';
+  if(S.bdgEdition===p.id){
+    const h=S.bdgBrouillon;
+    return '<div class="bdg-outils">'+BDG_OUTILS.map(o=>o[0]==="|"
+        ? '<span class="sep"></span>'
+        : '<button type="button" data-bdg="'+o[0]+'" title="'+esc(o[2])+'"'+
+          (/^(lig|col)/.test(o[0])?" disabled":"")+'>'+o[1]+'</button>').join("")+'</div>'+
+      '<div class="bdg-contenu bdg-edit" id="bdg-ed" contenteditable="true">'+
+        (h||"<p><br></p>")+'</div>'+
+      '<div class="bdg-pied"><button type="button" class="btn-2" id="bdg-annuler">Annuler</button>'+
+      '<button type="button" class="btn" id="bdg-enr">Enregistrer</button></div>';
+  }
+  const h=budgetDe(p);
+  return (budgetVide(h)
+      ? '<div class="bdg-vide">Aucune information budgétaire pour ce projet.</div>'
+      : '<div class="bdg-contenu">'+h+'</div>')+
+    '<div class="bdg-pied"><button type="button" class="btn-2" id="bdg-modif">'+
+      (budgetVide(h)?"Saisir le budget":"Modifier")+'</button></div>';
+}
+
+/* cellule de tableau où se trouve le curseur, dans l'éditeur */
+function bdgCellule(ed){
+  const s=window.getSelection();
+  if(!s||!s.rangeCount) return null;
+  let n=s.anchorNode;
+  if(n&&n.nodeType===3) n=n.parentNode;
+  const td=n&&n.closest?n.closest("td,th"):null;
+  return td&&ed.contains(td)?td:null;
+}
+function bdgCurseurDans(el){
+  const r=document.createRange(), s=window.getSelection();
+  r.selectNodeContents(el); r.collapse(true);
+  s.removeAllRanges(); s.addRange(r);
+}
+function bdgNouvelleCellule(tag){
+  const n=document.createElement(tag||"td");
+  n.appendChild(document.createElement("br"));
+  return n;
+}
+function bdgTableauHtml(){
+  const ligne=v=>"<tr>"+v.map(x=>"<td>"+(x||"<br>")+"</td>").join("")+"</tr>";
+  return "<table><tbody><tr><th>Poste</th><th>Prévu</th><th>Engagé</th></tr>"+
+    ligne(["","",""])+ligne(["","",""])+"</tbody></table><p><br></p>";
+}
+
+function bdgOutil(ed,act){
+  const td=bdgCellule(ed);
+  if(act==="gras"){ document.execCommand("bold"); return; }
+  if(act==="ital"){ document.execCommand("italic"); return; }
+  if(act==="puces"){ document.execCommand("insertUnorderedList"); return; }
+  if(act==="tableau"){
+    const html=bdgTableauHtml();
+    const s=window.getSelection();
+    const dedans=s&&s.rangeCount&&ed.contains(s.anchorNode);
+    if(td){ td.closest("table").insertAdjacentHTML("afterend",html); }
+    else if(dedans){ document.execCommand("insertHTML",false,html); }
+    else ed.insertAdjacentHTML("beforeend",html);
+    return;
+  }
+  if(!td) return;
+  const tr=td.parentNode, table=td.closest("table"), idx=td.cellIndex;
+  if(act==="lig+"){
+    const nv=document.createElement("tr");
+    for(let i=0;i<tr.cells.length;i++) nv.appendChild(bdgNouvelleCellule("td"));
+    tr.after(nv); bdgCurseurDans(nv.cells[Math.min(idx,nv.cells.length-1)]);
+  }else if(act==="col+"){
+    [...table.rows].forEach(r=>{
+      const tete=r.cells[0]&&r.cells[0].tagName==="TH";
+      const n=bdgNouvelleCellule(tete?"th":"td"), ref=r.cells[idx];
+      ref?ref.after(n):r.appendChild(n);
+    });
+    bdgCurseurDans(tr.cells[idx+1]);
+  }else if(act==="lig-"){
+    if(table.rows.length<=1) table.remove(); else tr.remove();
+  }else if(act==="col-"){
+    if(tr.cells.length<=1) table.remove();
+    else [...table.rows].forEach(r=>{ if(r.cells[idx]) r.cells[idx].remove(); });
+  }
+}
+
+function brancherBudget(racine,p,redessiner){
+  const c=S.cfg;
+  const modif=racine.querySelector("#bdg-modif");
+  if(modif) modif.onclick=()=>{
+    S.bdgEdition=p.id; S.bdgBrouillon=budgetDe(p); redessiner();
+    const ed=racine.querySelector("#bdg-ed");
+    if(ed){ ed.focus(); }
+  };
+  const ed=racine.querySelector("#bdg-ed");
+  if(!ed) return;
+  const majOutils=()=>{
+    const dansTab=!!bdgCellule(ed);
+    racine.querySelectorAll('[data-bdg^="lig"],[data-bdg^="col"]').forEach(b=>b.disabled=!dansTab);
+  };
+  const noter=()=>{ S.bdgBrouillon=ed.innerHTML; };
+  ed.oninput=noter;
+  ed.onkeyup=majOutils; ed.onmouseup=majOutils; ed.ontouchend=()=>setTimeout(majOutils,0);
+  ed.onfocus=majOutils;
+  /* le collage est nettoyé tout de suite, pour voir à l'écran ce qui sera gardé */
+  ed.onpaste=e=>{
+    const d=e.clipboardData;
+    if(!d) return;
+    const html=d.getData("text/html"), brut=d.getData("text/plain");
+    e.preventDefault();
+    const propre=html?nettoyerBudget(html):nettoyerBudget(brut);
+    if(propre) document.execCommand("insertHTML",false,propre);
+    noter();
+  };
+  racine.querySelectorAll("[data-bdg]").forEach(b=>{
+    b.onmousedown=e=>e.preventDefault();      // garde la sélection dans l'éditeur
+    b.onclick=()=>{
+      if(document.activeElement!==ed && !bdgCellule(ed)) ed.focus();
+      bdgOutil(ed,b.dataset.bdg); noter(); majOutils();
+    };
+  });
+  racine.querySelector("#bdg-annuler").onclick=()=>{
+    const change=nettoyerBudget(S.bdgBrouillon)!==budgetDe(p);
+    if(change && !confirm("Abandonner les modifications du budget ?")) return;
+    S.bdgEdition=null; S.bdgBrouillon=""; redessiner();
+  };
+  racine.querySelector("#bdg-enr").onclick=async()=>{
+    noter();
+    let v=nettoyerBudget(S.bdgBrouillon);
+    if(budgetVide(v)) v="";
+    const btn=racine.querySelector("#bdg-enr");
+    btn.disabled=true;
+    try{
+      await grist.docApi.applyUserActions([["UpdateRecord",c.tblMain,p.id,{[c.colBudget]:v}]]);
+      p[c.colBudget]=v;
+      S.bdgEdition=null; S.bdgBrouillon="";
+      toast("Budget enregistré");
+      redessiner();
+    }catch(e){
+      btn.disabled=false;
+      toast("Échec de l'enregistrement : "+e.message,true);
+    }
+  };
+}
+
+function vueBudget(p){
+  $("#corps").innerHTML='<div class="carte"><h2>Budget</h2>'+blocBudget(p)+'</div>';
+  brancherBudget($("#corps"),p,()=>vueBudget(p));
+}
+
 /* on renseigne la table des vues une fois toutes les fonctions déclarées */
 Object.assign(VUES,{
   strategie:vueStrategie,
   synthese:vueSynthese, analyse:vueAnalyse, actions:vueActions, taches:vueTaches,
   instances:vueInstances, planning:vuePlanning, journal:vueJournal, notes:vueNotes,
-  historique:vueHistorique, ressources:vueRessources
+  historique:vueHistorique, ressources:vueRessources, budget:vueBudget
 });
 
 /* =======================================================================
@@ -13087,7 +13319,7 @@ function valsFiltreMob(p,k,col){
 }
 
 const MB_ONGLETS=[["synthese","Synthèse"],["travaux","Actions"],
-                  ["instances","Instances"],["journal","Journal"]];
+                  ["instances","Instances"],["journal","Journal"],["budget","Budget"]];
 
 function mbFiche(){
   const c=S.cfg, m=S.mob, p=S.projetSel;
@@ -13114,8 +13346,14 @@ function mbFiche(){
   $("#mb-note").onclick=()=>mbFeuilleNote(p);
   brancherClocheMobile();
 
-  ({synthese:mbSynthese,travaux:mbTravaux,instances:mbInstances,journal:mbJournal}
+  ({synthese:mbSynthese,travaux:mbTravaux,instances:mbInstances,journal:mbJournal,budget:mbBudget}
     [m.onglet]||mbSynthese)(p);
+}
+
+/* Budget : même bloc que sur poste, enregistré directement */
+function mbBudget(p){
+  $("#mb-corps").innerHTML='<div class="mb-carte"><h3>Budget</h3>'+blocBudget(p)+'</div>';
+  brancherBudget($("#mb-corps"),p,()=>mbBudget(p));
 }
 
 /* Synthèse : l'avancement, puis ce qui est en retard et ce qui arrive.

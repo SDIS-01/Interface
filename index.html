@@ -1744,7 +1744,6 @@ const DEF = {
   colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
   colArchive:"Archive_Projet",
   colCommentaire:"Commentaire", colDescriptif:"Descriptif_initiative", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
-  colSuspension:"Date_Suspension", colAbandon:"Date_Abandon",
   colPJ:"Pièce_Jointe",
   colMillesime:"Millesime_P2A",
   colSup:"MEC_2023",
@@ -1798,7 +1797,6 @@ const CHAMPS_REGLAGES = [
     ["colArchive","Archivage (case à cocher)"],["colCommentaire","Commentaire"],
     ["colDescriptif","Descriptif du projet"],
     ["colDebut","Date de début"],["colEch","Échéance prévue"],["colFin","Date de fin"],
-    ["colSuspension","Date de suspension"],["colAbandon","Date d'abandon"],
     ["colPJ","Pièces jointes"],
     ["colMillesime","Millésime P2A (un ou plusieurs)"],
     ["colSup","Champ complémentaire de l'identité"],
@@ -2255,8 +2253,7 @@ function estProjet(r){ const n=natureDe(r); return n==="AV"||n==="PEPS"; }
 function estAction(r){ return natureDe(r)==="MEO"; }
 function cleProjet(r){ return txt(r[S.cfg.colProjKey]); }
 
-/* une ligne est « interrompue » si une date de suspension/abandon est posée
-   ou si sa colonne Statut vaut Interrompu */
+/* une ligne est « interrompue » si sa colonne Statut vaut Interrompu */
 function statutInterrompu(tableId,ligne,colId){
   if(!colId||!ligne) return false;
   return /interromp/i.test(txt(lire(tableId,ligne,colId)));
@@ -2264,8 +2261,7 @@ function statutInterrompu(tableId,ligne,colId){
 
 function interrompu(r){
   const c=S.cfg;
-  return !!(r[c.colSuspension] || r[c.colAbandon]) ||
-         statutInterrompu(c.tblMain,r,c.colStatut);
+  return statutInterrompu(c.tblMain,r,c.colStatut);
 }
 
 /* Archivage : case à cocher posée dans Grist sur la ligne du projet. La colonne
@@ -4759,8 +4755,6 @@ function vueSynthese(p){
       ch("Date de début",date(c.colDebut))+
       ch("Échéance prévue",date(c.colEch))+
       ch("Date de fin",date(c.colFin))+
-      ch("Date de suspension",date(c.colSuspension))+
-      ch("Date d'abandon",date(c.colAbandon))+
     '</div></div>'+
     (c.colDescriptif
       ? '<div class="carte"><h2>Descriptif</h2><div class="grille">'+
@@ -6729,16 +6723,17 @@ function analyseProjet(p){
 
   /* --- synthèse rédigée --- */
   const phr=[];
+  /* interrompu : la date de fin porte la date d'interruption */
   if(inter) phr.push("Le projet est interrompu"+
-    (p[c.colSuspension]?" depuis le "+dateVersFR(p[c.colSuspension]):"")+
-    (p[c.colAbandon]?" (abandon le "+dateVersFR(p[c.colAbandon])+")":"")+".");
-  if(fin){
+    (finBrute?" depuis le "+dateVersFR(finBrute):"")+
+    " ; avancement "+(av==null?"non renseigné":av+" %")+".");
+  if(fin && !inter){
     phr.push("Le projet a été clôturé le "+dateVersFR(fin)+
       (cal.retardFin>0?", avec "+anaJours(cal.retardFin)+" de retard sur l'échéance prévue":
        cal.retardFin<0?", "+anaJours(cal.retardFin)+" avant l'échéance prévue":
        cal.retardFin===0?", à l'échéance prévue":"")+
       " ; avancement "+(av==null?"non renseigné":av+" %")+".");
-  }else{
+  }else if(!inter){
     let s="Le projet est avancé à "+(av==null?"— (non renseigné)":avN+" %")+".";
     if(!ech) s+=" Aucune échéance prévue n'est renseignée.";
     else if(cal.depasse) s+=" L'échéance du "+dateVersFR(ech)+" est dépassée de "+

@@ -2324,6 +2324,44 @@ function lire(tableId,ligne,colId){
    4. Regroupement projets / actions / tâches / journal
    ======================================================================= */
 
+/* --- identifiant d'une nouvelle action ----------------------------------
+   <identifiant du projet>_MEO<nn>_<intitulé>, par ex. 2027_08_P_MEO03_Migration.
+   Le numéro suit le plus grand MEOnn déjà pris par les actions du projet
+   (chaque projet repart à MEO01 ; un numéro libéré n'est pas réutilisé).
+   L'identifiant est fixé à la création : les tâches s'y rattachent. */
+function colActKeySaisissable(){
+  const c=S.cfg, i=c.colActKey && infoCol(c.tblMain,c.colActKey);
+  return !!(i && !i.formule && !/^Ref/.test(i.type));
+}
+function idProjetPourAction(p){ return lire(S.cfg.tblMain,p,S.cfg.colProjKey).trim(); }
+function prochainNumeroMEO(p){
+  const c=S.cfg;
+  let max=0;
+  actionsDe(p).forEach(a=>{
+    const m=txt(a[c.colActKey]).match(/_MEO(\d+)/i);
+    if(m) max=Math.max(max,Number(m[1]));
+  });
+  return String(max+1).padStart(2,"0");
+}
+function identifiantAction(p,intitule){
+  return idProjetPourAction(p)+"_MEO"+prochainNumeroMEO(p)+"_"+String(intitule||"").trim();
+}
+/* contrôle avant la saisie : sans identifiant de projet, on ne crée rien */
+function actionCreable(p){
+  if(!colActKeySaisissable()) return true;
+  if(idProjetPourAction(p)) return true;
+  toast("Ce projet n'a pas d'identifiant (colonne « "+S.cfg.colProjKey+
+        " ») : renseignez-le avant de créer une action.",true);
+  return false;
+}
+/* complète les champs d'une nouvelle action ; false si c'est impossible */
+function poserIdAction(champs,p,intitule){
+  if(!colActKeySaisissable()) return true;
+  if(!actionCreable(p)) return false;
+  champs[S.cfg.colActKey]=identifiantAction(p,intitule);
+  return true;
+}
+
 function natureDe(r){ return lire(S.cfg.tblMain,r,S.cfg.colNature).toUpperCase().trim(); }
 function estProjet(r){ const n=natureDe(r); return n==="AV"||n==="PEPS"; }
 function estAction(r){ return natureDe(r)==="MEO"; }
@@ -5125,6 +5163,7 @@ function vueActions(p){
     ouvrirFenetreAction(Number(tr.dataset.ouvrirLigne));
   });
   $("#add-action").onclick=async()=>{
+    if(!actionCreable(p)) return;
     const r=await feuilleAjout({titre:"Nouvelle action",
       sous:lire(t,p,c.colLibelle),libelle:"Libellé de l'action"});
     if(!r) return;
@@ -5135,6 +5174,7 @@ function vueActions(p){
     const infoN=infoCol(t,c.colNature);
     champs[c.colNature] = (infoN&&infoN.type.startsWith("Ref:")) ? p[c.colNature] : "MEO";
     if(c.colProjKey) champs[c.colProjKey]=p[c.colProjKey];
+    if(!poserIdAction(champs,p,lib)) return;
     await ajouter(t,champs);
     await charger(); rendreListe(); rendreProjet();
   };
@@ -9552,6 +9592,7 @@ async function classerNote(p,note,dest,extra){
     if(c.colDebut && extra.debut!==null && extra.debut!==undefined) champs[c.colDebut]=extra.debut;
     if(c.colEch   && extra.ech!==null   && extra.ech!==undefined)   champs[c.colEch]=extra.ech;
     if(c.colCommentaire && extra.texte) champs[c.colCommentaire]=extra.texte;
+    if(!poserIdAction(champs,p,extra.libelle)) return;
     table=t; id=await ajouter(table,champs);
   }
   else if(dest==="tache"){
@@ -13880,7 +13921,7 @@ function mbTravaux(p){
     if(!zone.hidden){ const t=zone.querySelector("textarea"); if(t) brancherAutoHauteur(zone); }
   });
 
-  $("#mb-add-action").onclick=()=>mbFeuilleAjout({
+  $("#mb-add-action").onclick=()=>actionCreable(p) && mbFeuilleAjout({
     titre:"Nouvelle action",
     sous:lire(c.tblMain,p,c.colLibelle),
     libelle:"Libellé de l'action",
@@ -13891,6 +13932,7 @@ function mbTravaux(p){
       if(c.colProjKey) champs[c.colProjKey]=p[c.colProjKey];
       if(c.colDebut) champs[c.colDebut]=r.debut;
       if(c.colEch)   champs[c.colEch]=r.fin;
+      if(!poserIdAction(champs,p,lib)) return;
       await ajouter(t,champs);
     }
   });

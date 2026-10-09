@@ -1456,6 +1456,26 @@ body.mob .note-choix .btn-2,body.mob .note-form-btns .btn,body.mob .note-form-bt
 body.mob .note-texte{font-size:13.5px;}
 body.mob .notes-liste{display:flex;flex-direction:column;gap:10px;}
 .avct-lect{justify-content:flex-end;font-weight:bold;padding:6px 8px;cursor:default;}
+.bdg-contenu table[data-bdg]{table-layout:fixed;}
+.bdg-contenu th{position:relative;overflow-wrap:anywhere;}
+.bdg-contenu td{overflow-wrap:anywhere;}
+.bdg-contenu td.bdg-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.bdg-contenu td.bdg-ko{background:#fbebeb!important;outline:1px solid #C0504D;outline-offset:-1px;}
+.bdg-edit td.bdg-sec{cursor:pointer;}
+.bdg-edit td.bdg-sec:empty::after,.bdg-edit td.bdg-sec:has(> br:only-child)::after{content:"Choisir…";color:var(--gris);font-style:italic;}
+.bdg-contenu tr.bdg-total td{font-weight:bold;background:#eef2f8!important;border-top:2px solid var(--bleu);color:var(--bleu);white-space:normal;}
+.bdg-contenu tr.bdg-total td.bdg-num{white-space:nowrap;}
+.bdg-contenu tr.bdg-total td.bdg-sec{font-weight:normal;font-size:12px;line-height:1.6;}
+.bdg-poignee{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:2;user-select:none;}
+.bdg-poignee:hover,body.bdg-redim .bdg-poignee{background:rgba(0,35,149,.25);}
+body.bdg-redim{cursor:col-resize;user-select:none;}
+.bdg-menu{position:fixed;z-index:9999;background:#fff;border:1px solid var(--trait);border-radius:6px;
+  box-shadow:0 6px 18px rgba(12,18,32,.14);padding:4px;display:flex;flex-direction:column;min-width:170px;}
+.bdg-menu button{border:0;background:none;text-align:left;padding:7px 10px;font-size:13px;border-radius:4px;cursor:pointer;}
+.bdg-menu button:hover{background:var(--bleu-survol,#eef2f8);}
+.bdg-menu button.on{color:var(--bleu);font-weight:bold;}
+.bdg-menu button i{color:var(--gris);}
+body.mob .bdg-menu button{padding:11px 12px;font-size:14px;}
 </style>
 </head>
 <body>
@@ -8830,10 +8850,22 @@ function vueStrategie(p){
 const BDG_BALISES={P:"p",DIV:"p",H1:"p",H2:"p",H3:"p",H4:"p",BR:"br",
   B:"b",STRONG:"b",I:"i",EM:"i",U:"u",UL:"ul",OL:"ol",LI:"li",
   TABLE:"table",THEAD:"tbody",TBODY:"tbody",TFOOT:"tbody",TR:"tr",TH:"th",TD:"td"};
+/* attributs conservés : ceux qui décrivent un tableau de budget, et rien d'autre */
+const BDG_TYPES=["txt","eur","sec"];
+function bdgAttributs(src,dst){
+  const k=dst.tagName;
+  if(k==="TABLE" && src.getAttribute("data-bdg")==="1") dst.setAttribute("data-bdg","1");
+  if(k==="TR" && src.getAttribute("data-total")==="1") dst.setAttribute("data-total","1");
+  if(k==="TH"){
+    const t=src.getAttribute("data-t"), w=src.getAttribute("data-w");
+    if(BDG_TYPES.includes(t)) dst.setAttribute("data-t",t);
+    if(/^\d{2,4}$/.test(w||"")) dst.setAttribute("data-w",w);
+  }
+}
 
-/* Ne garde que paragraphes, gras, italique, listes et tableaux, sans aucun
-   attribut : un copier-coller depuis Word ou LibreOffice n'apporte ni styles
-   parasites ni contenu actif. Un ancien texte brut devient des paragraphes. */
+/* Ne garde que paragraphes, gras, italique, listes et tableaux : un
+   copier-coller depuis Word ou LibreOffice n'apporte ni styles parasites ni
+   contenu actif. Un ancien texte brut devient des paragraphes. */
 function nettoyerBudget(html){
   const s=String(html==null?"":html).trim();
   if(!s) return "";
@@ -8848,9 +8880,11 @@ function nettoyerBudget(html){
       if(n.nodeType!==1) return;
       const tag=n.tagName;
       if(/^(SCRIPT|STYLE|TEMPLATE|IFRAME|OBJECT|SVG|COLGROUP|COL)$/.test(tag)) return;
+      if(n.classList && (n.classList.contains("bdg-poignee"))) return;
       const k=BDG_BALISES[tag];
       if(!k){ copier(n,dst); return; }     // span, font… : on garde le texte
       const e=document.createElement(k);
+      bdgAttributs(n,e);
       dst.appendChild(e);
       if(k!=="br") copier(n,e);
     });
@@ -8875,13 +8909,116 @@ function budgetPret(){
 
 function budgetDe(p){ return nettoyerBudget(txt(p[S.cfg.colBudget])); }
 
+/* --- tableau de budget : colonnes typées, montants en euros, total ------- */
+const BDG_SECTIONS=["Investissement","Fonctionnement"];
+const BDG_LARG={txt:150,eur:140,sec:160};
+const BDG_EUR=new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"});
+
+function bdgEstBudget(t){ return !!(t && t.getAttribute("data-bdg")==="1"); }
+function bdgEntete(t){ return t.rows[0]||null; }
+function bdgTypes(t){
+  const h=bdgEntete(t);
+  return h ? [...h.cells].map(c=>BDG_TYPES.includes(c.dataset.t)?c.dataset.t:"txt") : [];
+}
+function bdgLignesDonnees(t){
+  return [...t.rows].slice(1).filter(r=>r.getAttribute("data-total")!=="1");
+}
+function bdgLigneTotal(t){ return [...t.rows].find(r=>r.getAttribute("data-total")==="1")||null; }
+
+/* "12 500,5", "12500.50 €", "-300" → nombre ; "" → null ; autre → NaN */
+function bdgLireMontant(s){
+  const v=String(s||"").replace(/[\s  €]/g,"").replace(",",".");
+  if(!v) return null;
+  return /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : NaN;
+}
+function bdgFormat(n){ return BDG_EUR.format(n); }
+
+function bdgFormaterCellule(td){
+  const n=bdgLireMontant(td.textContent);
+  td.classList.toggle("bdg-ko",Number.isNaN(n));
+  if(n===null){ if(td.textContent.trim()==="") td.innerHTML="<br>"; return; }
+  if(!Number.isNaN(n)) td.textContent=bdgFormat(n);
+}
+
+/* recalcule la ligne Total d'un tableau de budget */
+function bdgTotaliser(t){
+  const tot=bdgLigneTotal(t);
+  if(!tot) return;
+  const types=bdgTypes(t);
+  const iEur=types.indexOf("eur"), iSec=types.indexOf("sec");
+  let total=0;
+  const parSec={};
+  BDG_SECTIONS.forEach(x=>parSec[x]=0);
+  bdgLignesDonnees(t).forEach(r=>{
+    const n=iEur>=0&&r.cells[iEur]?bdgLireMontant(r.cells[iEur].textContent):null;
+    if(n===null||Number.isNaN(n)) return;
+    total+=n;
+    const sec=iSec>=0&&r.cells[iSec]?r.cells[iSec].textContent.trim():"";
+    if(sec in parSec) parSec[sec]+=n;
+  });
+  while(tot.cells.length<types.length) tot.appendChild(document.createElement("td"));
+  while(tot.cells.length>types.length) tot.lastElementChild.remove();
+  [...tot.cells].forEach((td,i)=>{
+    if(i===iEur) td.textContent=bdgFormat(total);
+    else if(i===iSec) td.innerHTML=BDG_SECTIONS.map(x=>esc(x)+" : "+esc(bdgFormat(parSec[x]))).join("<br>");
+    else if(i===(iEur===0?1:0)) td.textContent="Total";
+    else td.textContent="";
+  });
+}
+
+/* Mise en forme et, en modification, outils (poignées, menu des sections).
+   Rien de ce qui est posé ici n'est conservé : le nettoyage l'écarte. */
+function bdgPreparer(racine,edition){
+  if(!racine) return;
+  racine.querySelectorAll("table").forEach(t=>{
+    if(!bdgEstBudget(t)) return;
+    const types=bdgTypes(t), h=bdgEntete(t);
+    let larg=0;
+    [...h.cells].forEach((th,i)=>{
+      const w=Number(th.dataset.w)||BDG_LARG[types[i]]||150;
+      th.style.width=w+"px"; larg+=w;
+      if(edition && !th.querySelector(".bdg-poignee")){
+        const g=document.createElement("span");
+        g.className="bdg-poignee"; g.contentEditable="false";
+        g.title="Glisser pour ajuster la largeur";
+        th.appendChild(g);
+      }
+    });
+    t.style.width=larg+"px"; t.style.tableLayout="fixed";
+    bdgLignesDonnees(t).forEach(r=>[...r.cells].forEach((td,i)=>{
+      td.classList.toggle("bdg-num",types[i]==="eur");
+      td.classList.toggle("bdg-sec",types[i]==="sec");
+      if(edition && types[i]==="sec") td.contentEditable="false";
+      if(types[i]==="eur" && !edition) bdgFormaterCellule(td);
+    }));
+    const tot=bdgLigneTotal(t);
+    if(tot){
+      tot.classList.add("bdg-total");
+      [...tot.cells].forEach((td,i)=>td.classList.toggle("bdg-sec",types[i]==="sec"));
+      if(edition) tot.contentEditable="false";
+      bdgTotaliser(t);
+      [...tot.cells].forEach((td,i)=>td.classList.toggle("bdg-num",types[i]==="eur"));
+    }
+  });
+}
+
+function bdgTableauHtml(){
+  const cols=[["txt","Poste",260],["eur","Montant",140],["sec","Section",160],["txt","Commentaire",320]];
+  return '<table data-bdg="1"><tbody>'+
+    '<tr>'+cols.map(([t,l,w])=>'<th data-t="'+t+'" data-w="'+w+'">'+l+'</th>').join("")+'</tr>'+
+    '<tr>'+cols.map(()=>'<td><br></td>').join("")+'</tr>'+
+    '<tr data-total="1">'+cols.map(()=>'<td></td>').join("")+'</tr>'+
+    '</tbody></table><p><br></p>';
+}
+
 const BDG_OUTILS=[["gras","<b>G</b>","Gras"],["ital","<i>I</i>","Italique"],
   ["puces","• Liste","Liste à puces"],["|"],
-  ["tableau","Insérer un tableau","Insérer un tableau"],["|"],
+  ["tableau","Insérer un tableau","Insérer un tableau de budget"],["|"],
   ["lig+","+ ligne","Ajouter une ligne sous la ligne courante"],
   ["col+","+ colonne","Ajouter une colonne à droite de la colonne courante"],
   ["lig-","– ligne","Supprimer la ligne courante"],
-  ["col-","– colonne","Supprimer la colonne courante"]];
+  ["col-","– colonne","Supprimer la colonne courante"],
+  ["total","Ligne total","Ajouter ou retirer la ligne Total"]];
 
 function blocBudget(p){
   const c=S.cfg;
@@ -8890,11 +9027,11 @@ function blocBudget(p){
       esc(c.tblMain)+' une colonne de type Texte (par exemple « Budget »), puis '+
       'sélectionnez-la dans les réglages du widget, champ « Budget ».</div>';
   if(S.bdgEdition===p.id){
-    const h=S.bdgBrouillon;
+    const h=nettoyerBudget(S.bdgBrouillon);
     return '<div class="bdg-outils">'+BDG_OUTILS.map(o=>o[0]==="|"
         ? '<span class="sep"></span>'
         : '<button type="button" data-bdg="'+o[0]+'" title="'+esc(o[2])+'"'+
-          (/^(lig|col)/.test(o[0])?" disabled":"")+'>'+o[1]+'</button>').join("")+'</div>'+
+          (/^(lig|col|total)/.test(o[0])?" disabled":"")+'>'+o[1]+'</button>').join("")+'</div>'+
       '<div class="bdg-contenu bdg-edit" id="bdg-ed" contenteditable="true">'+
         (h||"<p><br></p>")+'</div>'+
       '<div class="bdg-pied"><button type="button" class="btn-2" id="bdg-annuler">Annuler</button>'+
@@ -8918,6 +9055,7 @@ function bdgCellule(ed){
   return td&&ed.contains(td)?td:null;
 }
 function bdgCurseurDans(el){
+  if(!el) return;
   const r=document.createRange(), s=window.getSelection();
   r.selectNodeContents(el); r.collapse(true);
   s.removeAllRanges(); s.addRange(r);
@@ -8927,14 +9065,31 @@ function bdgNouvelleCellule(tag){
   n.appendChild(document.createElement("br"));
   return n;
 }
-function bdgTableauHtml(){
-  const ligne=v=>"<tr>"+v.map(x=>"<td>"+(x||"<br>")+"</td>").join("")+"</tr>";
-  return "<table><tbody><tr><th>Poste</th><th>Prévu</th><th>Engagé</th></tr>"+
-    ligne(["","",""])+ligne(["","",""])+"</tbody></table><p><br></p>";
+
+/* menu Investissement / Fonctionnement, ouvert sur une cellule Section */
+function bdgFermerMenu(){ const m=document.querySelector(".bdg-menu"); if(m) m.remove(); }
+function bdgMenuSection(td,apres){
+  bdgFermerMenu();
+  const m=document.createElement("div");
+  m.className="bdg-menu";
+  m.innerHTML=BDG_SECTIONS.concat([""]).map(x=>
+    '<button type="button" data-v="'+esc(x)+'"'+(td.textContent.trim()===x&&x?' class="on"':'')+'>'+
+    (x?esc(x):'<i>Vider</i>')+'</button>').join("");
+  document.body.appendChild(m);
+  const r=td.getBoundingClientRect();
+  m.style.left=Math.max(6,Math.min(r.left,window.innerWidth-m.offsetWidth-6))+"px";
+  m.style.top=(r.bottom+m.offsetHeight+6>window.innerHeight ? r.top-m.offsetHeight-2 : r.bottom+2)+"px";
+  m.querySelectorAll("button").forEach(b=>{
+    b.onmousedown=e=>e.preventDefault();
+    b.onclick=()=>{ if(b.dataset.v) td.textContent=b.dataset.v; else td.innerHTML="<br>";
+      bdgFermerMenu(); apres(); };
+  });
+  setTimeout(()=>document.addEventListener("mousedown",function hors(e){
+    if(!m.contains(e.target)){ bdgFermerMenu(); document.removeEventListener("mousedown",hors); }
+  }),0);
 }
 
-function bdgOutil(ed,act){
-  const td=bdgCellule(ed);
+function bdgOutil(ed,act,td){
   if(act==="gras"){ document.execCommand("bold"); return; }
   if(act==="ital"){ document.execCommand("italic"); return; }
   if(act==="puces"){ document.execCommand("insertUnorderedList"); return; }
@@ -8949,18 +9104,37 @@ function bdgOutil(ed,act){
   }
   if(!td) return;
   const tr=td.parentNode, table=td.closest("table"), idx=td.cellIndex;
+  const budget=bdgEstBudget(table), types=budget?bdgTypes(table):[];
+  const estEntete=budget && tr===bdgEntete(table);
+  if(act==="total"){
+    if(!budget){ toast("La ligne Total n'existe que dans un tableau de budget.",true); return; }
+    const tot=bdgLigneTotal(table);
+    if(tot) tot.remove();
+    else{
+      const n=document.createElement("tr");
+      n.setAttribute("data-total","1");
+      types.forEach(()=>n.appendChild(document.createElement("td")));
+      table.rows[table.rows.length-1].after(n);
+    }
+    return;
+  }
   if(act==="lig+"){
     const nv=document.createElement("tr");
-    for(let i=0;i<tr.cells.length;i++) nv.appendChild(bdgNouvelleCellule("td"));
+    const n=budget?types.length:tr.cells.length;
+    for(let i=0;i<n;i++) nv.appendChild(bdgNouvelleCellule("td"));
     tr.after(nv); bdgCurseurDans(nv.cells[Math.min(idx,nv.cells.length-1)]);
   }else if(act==="col+"){
     [...table.rows].forEach(r=>{
       const tete=r.cells[0]&&r.cells[0].tagName==="TH";
       const n=bdgNouvelleCellule(tete?"th":"td"), ref=r.cells[idx];
+      if(budget && r===bdgEntete(table)){ n.setAttribute("data-t","txt"); n.setAttribute("data-w","150"); }
+      if(r.getAttribute("data-total")==="1") n.innerHTML="";
       ref?ref.after(n):r.appendChild(n);
     });
     bdgCurseurDans(tr.cells[idx+1]);
   }else if(act==="lig-"){
+    if(estEntete){ toast("L'en-tête du tableau ne se supprime pas seul : retirez les colonnes ou le tableau entier.",true); return; }
+    if(budget && bdgLignesDonnees(table).length<=1){ tr.innerHTML=types.map(()=>"<td><br></td>").join(""); return; }
     if(table.rows.length<=1) table.remove(); else tr.remove();
   }else if(act==="col-"){
     if(tr.cells.length<=1) table.remove();
@@ -8968,48 +9142,118 @@ function bdgOutil(ed,act){
   }
 }
 
+/* glisser une poignée d'en-tête : la colonne s'élargit, le tableau suit */
+function bdgRedimension(ed,surFin){
+  ed.addEventListener("pointerdown",e=>{
+    const g=e.target.closest&&e.target.closest(".bdg-poignee");
+    if(!g) return;
+    e.preventDefault();
+    const th=g.parentNode, t=th.closest("table");
+    const x0=e.clientX, w0=th.getBoundingClientRect().width, tw0=t.getBoundingClientRect().width;
+    document.body.classList.add("bdg-redim");
+    const bouge=ev=>{
+      const w=Math.max(50,Math.min(900,Math.round(w0+ev.clientX-x0)));
+      th.style.width=w+"px"; th.setAttribute("data-w",String(w));
+      t.style.width=Math.round(tw0-w0+w)+"px";
+    };
+    const fin=()=>{
+      document.removeEventListener("pointermove",bouge);
+      document.removeEventListener("pointerup",fin);
+      document.body.classList.remove("bdg-redim");
+      surFin();
+    };
+    document.addEventListener("pointermove",bouge);
+    document.addEventListener("pointerup",fin);
+  });
+}
+
 function brancherBudget(racine,p,redessiner){
   const c=S.cfg;
   const modif=racine.querySelector("#bdg-modif");
+  bdgPreparer(racine.querySelector(".bdg-contenu:not(.bdg-edit)"),false);
   if(modif) modif.onclick=()=>{
     S.bdgEdition=p.id; S.bdgBrouillon=budgetDe(p); redessiner();
     const ed=racine.querySelector("#bdg-ed");
-    if(ed){ ed.focus(); }
+    if(ed) ed.focus();
   };
   const ed=racine.querySelector("#bdg-ed");
   if(!ed) return;
-  const majOutils=()=>{
-    const dansTab=!!bdgCellule(ed);
-    racine.querySelectorAll('[data-bdg^="lig"],[data-bdg^="col"]').forEach(b=>b.disabled=!dansTab);
-  };
+  bdgPreparer(ed,true);
+  let derniere=null;                         // dernière cellule où était le curseur
+  let sortie=null;                           // cellule Montant à mettre en forme à la sortie
   const noter=()=>{ S.bdgBrouillon=ed.innerHTML; };
-  ed.oninput=noter;
+  const recalculer=()=>{ ed.querySelectorAll("table").forEach(t=>bdgEstBudget(t)&&bdgTotaliser(t)); };
+  const typeDe=td=>{
+    const t=td&&td.closest("table");
+    return t&&bdgEstBudget(t)&&td.tagName==="TD" ? bdgTypes(t)[td.cellIndex] : null;
+  };
+  const majOutils=()=>{
+    const td=bdgCellule(ed);
+    if(td) derniere=td;
+    if(derniere && !ed.contains(derniere)) derniere=null;
+    if(sortie && sortie!==td && ed.contains(sortie) && typeDe(sortie)==="eur"){
+      bdgFormaterCellule(sortie); recalculer(); noter();
+    }
+    sortie=td;
+    const dansTab=!!derniere;
+    racine.querySelectorAll('[data-bdg^="lig"],[data-bdg^="col"],[data-bdg="total"]')
+      .forEach(b=>b.disabled=!dansTab);
+  };
+  ed.oninput=()=>{ recalculer(); noter(); };
   ed.onkeyup=majOutils; ed.onmouseup=majOutils; ed.ontouchend=()=>setTimeout(majOutils,0);
   ed.onfocus=majOutils;
+  document.addEventListener("selectionchange",function suivre(){
+    if(!document.body.contains(ed)){ document.removeEventListener("selectionchange",suivre); return; }
+    majOutils();
+  });
+  /* un clic sur une cellule Section ouvre le choix */
+  ed.addEventListener("click",e=>{
+    const td=e.target.closest&&e.target.closest("td");
+    if(!td || !ed.contains(td) || typeDe(td)!=="sec") return;
+    if(td.parentNode.getAttribute("data-total")==="1") return;
+    derniere=td; majOutils();
+    bdgMenuSection(td,()=>{ recalculer(); noter(); });
+  });
+  bdgRedimension(ed,noter);
   /* le collage est nettoyé tout de suite, pour voir à l'écran ce qui sera gardé */
   ed.onpaste=e=>{
     const d=e.clipboardData;
     if(!d) return;
     const html=d.getData("text/html"), brut=d.getData("text/plain");
     e.preventDefault();
-    const propre=html?nettoyerBudget(html):nettoyerBudget(brut);
-    if(propre) document.execCommand("insertHTML",false,propre);
-    noter();
+    const td=bdgCellule(ed);
+    if(td){                                  // dans une cellule : texte seul
+      document.execCommand("insertText",false,brut);
+    }else{
+      const propre=html?nettoyerBudget(html):nettoyerBudget(brut);
+      if(propre) document.execCommand("insertHTML",false,propre);
+      bdgPreparer(ed,true);
+    }
+    recalculer(); noter();
   };
   racine.querySelectorAll("[data-bdg]").forEach(b=>{
     b.onmousedown=e=>e.preventDefault();      // garde la sélection dans l'éditeur
     b.onclick=()=>{
       if(document.activeElement!==ed && !bdgCellule(ed)) ed.focus();
-      bdgOutil(ed,b.dataset.bdg); noter(); majOutils();
+      const td=bdgCellule(ed)||(derniere&&ed.contains(derniere)?derniere:null);
+      bdgOutil(ed,b.dataset.bdg,td);
+      bdgPreparer(ed,true); recalculer(); noter(); majOutils();
     };
   });
   racine.querySelector("#bdg-annuler").onclick=()=>{
     const change=nettoyerBudget(S.bdgBrouillon)!==budgetDe(p);
     if(change && !confirm("Abandonner les modifications du budget ?")) return;
+    bdgFermerMenu();
     S.bdgEdition=null; S.bdgBrouillon=""; redessiner();
   };
   racine.querySelector("#bdg-enr").onclick=async()=>{
-    noter();
+    ed.querySelectorAll("table").forEach(t=>{
+      if(!bdgEstBudget(t)) return;
+      const types=bdgTypes(t);
+      bdgLignesDonnees(t).forEach(r=>[...r.cells].forEach((td,i)=>{ if(types[i]==="eur") bdgFormaterCellule(td); }));
+      bdgTotaliser(t);
+    });
+    noter(); bdgFermerMenu();
     let v=nettoyerBudget(S.bdgBrouillon);
     if(budgetVide(v)) v="";
     const btn=racine.querySelector("#bdg-enr");

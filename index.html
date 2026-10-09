@@ -2030,8 +2030,8 @@ function pctVersStock(p){ return S.fraction ? p/100 : p; }
 function couleurAvct(p,interrompu){
   if(interrompu) return "var(--interrompu)";
   if(p==null) return "#c9d0da";
-  if(p>=100) return "var(--vert)";
-  if(p>=50) return "var(--jaune)";
+  if(p>=76) return "var(--vert)";
+  if(p>=26) return "var(--jaune)";
   if(p>=1) return "var(--orange)";
   return "var(--rouge)";
 }
@@ -2039,8 +2039,8 @@ function couleurAvct(p,interrompu){
 function couleurPastel(p,interrompu){
   if(interrompu) return "var(--interrompu-pastel)";
   if(p==null) return "var(--neutre-pastel)";
-  if(p>=100) return "var(--vert-pastel)";
-  if(p>=50) return "var(--jaune-pastel)";
+  if(p>=76) return "var(--vert-pastel)";
+  if(p>=26) return "var(--jaune-pastel)";
   if(p>=1) return "var(--orange-pastel)";
   return "var(--rouge-pastel)";
 }
@@ -2982,7 +2982,7 @@ const MENUS={
   "m-etat":{tous:"Tous états", sel:[], opts:[
     ["encours","En cours"],["termine","Terminés"],["afaire","À engager"],["interrompu","Interrompus"]]},
   "m-avct":{tous:"Tout avancement", sel:[], opts:[
-    ["0","0 %"],["1-49","1 à 49 %"],["50-99","50 à 99 %"],["100","100 %"],["sans","Non renseigné"]]}
+    ["0","0 %"],["1-25","1 à 25 %"],["26-75","26 à 75 %"],["76-99","76 à 99 %"],["100","100 %"],["sans","Non renseigné"]]}
 };
 
 /* comparaison souple : sans accent, sans casse, pour la recherche dans les menus */
@@ -4068,8 +4068,9 @@ function dansTranche(a,code){
   if(!code) return true;
   if(code==="sans") return a===null;
   if(code==="0") return a===0;
-  if(code==="1-49") return a!==null&&a>=1&&a<=49;
-  if(code==="50-99") return a!==null&&a>=50&&a<=99;
+  if(code==="1-25") return a!==null&&a>=1&&a<=25;
+  if(code==="26-75") return a!==null&&a>=26&&a<=75;
+  if(code==="76-99") return a!==null&&a>=76&&a<=99;
   if(code==="100") return a===100;
   return true;
 }
@@ -4082,7 +4083,7 @@ function barreFiltres(prefixe,etat,porteurs,total,affiches,menuId,libelleDate){
     '<select id="'+prefixe+'-porteur"><option value="">Tous porteurs</option>'+
       porteurs.map(v=>'<option'+(etat.porteur===v?" selected":"")+'>'+esc(v)+'</option>').join("")+'</select>'+
     '<select id="'+prefixe+'-avct">'+
-      [["","Tout avancement"],["0","0 %"],["1-49","1 à 49 %"],["50-99","50 à 99 %"],
+      [["","Tout avancement"],["0","0 %"],["1-25","1 à 25 %"],["26-75","26 à 75 %"],["76-99","76 à 99 %"],
        ["100","100 %"],["sans","Non renseigné"]]
         .map(([v,l])=>'<option value="'+v+'"'+(etat.avct===v?" selected":"")+'>'+l+'</option>').join("")+'</select>'+
     '<span class="filtre-plage">'+libelleDate+' du '+
@@ -5966,8 +5967,8 @@ function vuePlanning(p){
     '<div class="planning"><div class="pl-grille'+(bande?" avec-rep":"")+'">'+
       entete+bande+fond+marqueur+rangs+'</div></div>'+
     '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--gris)">'+
-    [["var(--rouge)","À engager"],["var(--orange)","1 à 49 %"],["var(--jaune)","50 à 99 %"],
-     ["var(--vert)","Terminé"],["var(--interrompu)","Interrompu"]]
+    [["var(--rouge)","À engager"],["var(--orange)","1 à 25 %"],["var(--jaune)","26 à 75 %"],
+     ["var(--vert)","76 à 100 %"],["var(--interrompu)","Interrompu"]]
       .map(([c2,l])=>'<span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;'+
         'background:'+c2+';vertical-align:-1px;margin-right:4px"></span>'+l+'</span>').join("")+
     (visibles.length
@@ -10030,8 +10031,8 @@ const PDFC={
 function bandesImpr(av,inter){
   if(inter)    return {fill:"#595959", pale:"#f1efe8", txt:"#666660"};
   if(av==null) return {fill:"#DDD9D0", pale:"#F7F5F1", txt:"#6F6862"};
-  if(av>=100)  return {fill:"#7FA23F", pale:"#edf5e0", txt:"#3b6d11"};
-  if(av>=50)   return {fill:"#E8B400", pale:"#fff8db", txt:"#7a6000"};
+  if(av>=76)   return {fill:"#7FA23F", pale:"#edf5e0", txt:"#3b6d11"};
+  if(av>=26)   return {fill:"#E8B400", pale:"#fff8db", txt:"#7a6000"};
   if(av>=1)    return {fill:"#F79646", pale:"#fdeee1", txt:"#a85a12"};
   return             {fill:"#C0504D", pale:"#fbebeb", txt:"#993333"};
 }
@@ -10046,7 +10047,7 @@ function pastillePleineCouleurs(v,av,inter){
     .replace(/[^a-zA-Z0-9]+/g," ").trim().toLowerCase();
   if(/^en ?cours/.test(t) && av!=null){
     const b=bandesImpr(av,inter);
-    return {fond:b.fill,coul:av>=50&&av<100?"#4d3d00":"#ffffff"};
+    return {fond:b.fill,coul:av>=26&&av<76?"#4d3d00":"#ffffff"};
   }
   if(t.startsWith("p1"))       return {fond:"#C0504D",coul:"#ffffff"};
   if(t.startsWith("p2"))       return {fond:"#F79646",coul:"#ffffff"};
@@ -12814,15 +12815,16 @@ function odpEnsemble(d,liste){
    tableau de celles-ci. Au-delà de dix tâches le planning s'efface et l'on
    s'en tient au tableau, qui reste lisible quel que soit le volume. */
 
-const ODP_TRANCHES=[["afaire","À engager"],["debut","1 à 49 %"],
-                    ["avance","50 à 99 %"],["termine","Terminé"],
+const ODP_TRANCHES=[["afaire","À engager"],["debut","1 à 25 %"],
+                    ["mi","26 à 75 %"],["avance","76 à 99 %"],["termine","Terminé"],
                     ["interrompu","Interrompu"]];
 
 function trancheAvct(av,inter){
   if(inter) return "interrompu";
   if(av==null||av===0) return "afaire";
   if(av>=100) return "termine";
-  if(av>=50) return "avance";
+  if(av>=76) return "avance";
+  if(av>=26) return "mi";
   return "debut";
 }
 

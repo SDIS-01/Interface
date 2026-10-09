@@ -9105,6 +9105,11 @@ function bdgCurseurDans(el){
   r.selectNodeContents(el); r.collapse(true);
   s.removeAllRanges(); s.addRange(r);
 }
+function bdgCurseurFin(el){
+  const r=document.createRange(), s=window.getSelection();
+  r.selectNodeContents(el); r.collapse(false);
+  s.removeAllRanges(); s.addRange(r);
+}
 function bdgNouvelleCellule(tag){
   const n=document.createElement(tag||"td");
   n.appendChild(document.createElement("br"));
@@ -9239,9 +9244,18 @@ function brancherBudget(racine,p,redessiner){
     if(sortie && sortie!==td && ed.contains(sortie) && typeDe(sortie)==="eur"){
       bdgFormaterCellule(sortie); recalculer(); noter();
     }
+    /* en entrant dans une cellule Montant, on montre le nombre nu (100,5) :
+       le curseur ne bute plus sur les espaces et le symbole € */
+    if(td && td!==sortie && typeDe(td)==="eur"){
+      const n=bdgLireMontant(td.textContent);
+      if(n!==null && !Number.isNaN(n)){
+        const brut=String(n).replace(".",",");
+        if(td.textContent!==brut){ td.textContent=brut; bdgCurseurFin(td); }
+      }
+    }
     sortie=td;
     const dansTab=!!derniere;
-    racine.querySelectorAll('[data-bdg^="lig"],[data-bdg^="col"],[data-bdg="total"]')
+    racine.querySelectorAll('.bdg-outils [data-bdg^="lig"],.bdg-outils [data-bdg^="col"],.bdg-outils [data-bdg="total"]')
       .forEach(b=>b.disabled=!dansTab);
   };
   ed.oninput=()=>{ recalculer(); noter(); };
@@ -9276,7 +9290,8 @@ function brancherBudget(racine,p,redessiner){
     }
     recalculer(); noter();
   };
-  racine.querySelectorAll("[data-bdg]").forEach(b=>{
+  /* boutons seulement : le tableau porte lui aussi un attribut data-bdg */
+  racine.querySelectorAll(".bdg-outils button[data-bdg]").forEach(b=>{
     b.onmousedown=e=>e.preventDefault();      // garde la sélection dans l'éditeur
     b.onclick=()=>{
       if(document.activeElement!==ed && !bdgCellule(ed)) ed.focus();

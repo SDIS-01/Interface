@@ -1490,18 +1490,35 @@ body.mob .bdg-menu button{padding:11px 12px;font-size:14px;}
 .bdg-rep-outil{display:contents;}
 body.mob .bdg-rep-outil{display:none;}
 
-/* axes des actions */
-tr.axe-tete td{background:#eef2f8;border-top:2px solid var(--bleu);padding:7px 10px;}
-tr.axe-tete b{color:var(--bleu);font-size:12.5px;margin-right:12px;}
-tr.axe-tete span{color:var(--gris);font-size:11.5px;}
-.pastille-axe{display:inline-block;font-size:10.5px;font-weight:bold;color:var(--bleu);background:#eef2f8;
-  border:1px solid #c9d4ea;border-radius:9px;padding:1px 8px;margin-left:10px;vertical-align:2px;
+/* axes des actions : bloc numéroté, jauge et couleur propre à chaque axe */
+tr.axe-tete td{background:none;border-bottom:0;padding:16px 4px 8px;}
+tr.axe-tete:first-child td{padding-top:4px;}
+.axe-bloc{display:flex;align-items:center;gap:12px;}
+.axe-num{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--axe-fond);color:var(--axe-fonce);font-weight:bold;font-size:14px;}
+.axe-titre{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.axe-lib{font-size:11.5px;font-weight:bold;color:var(--axe-txt);text-transform:none;letter-spacing:0;}
+.axe-desc{font-size:13px;font-weight:bold;color:var(--encre);line-height:1.35;text-transform:none;letter-spacing:0;}
+.axe-sans{color:var(--gris);}
+.axe-jauge{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.axe-barre{display:block;width:96px;height:6px;border-radius:3px;background:#eef1f5;overflow:hidden;}
+.axe-barre i{display:block;height:100%;background:var(--axe);}
+.axe-res{font-size:11.5px;color:var(--gris);font-weight:normal;white-space:nowrap;}
+tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px;}
+.pastille-axe{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:bold;color:var(--axe-fonce);
+  background:var(--axe-fond);border-radius:9px;padding:1px 8px 1px 2px;margin-left:10px;vertical-align:2px;
   text-transform:none;letter-spacing:0;}
-.mb-axe{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:14px 2px 7px;
-  padding-bottom:5px;border-bottom:2px solid var(--bleu);}
-.mb-axe:first-child{margin-top:2px;}
-.mb-axe b{color:var(--bleu);font-size:13px;}
-.mb-axe span{color:var(--gris);font-size:11.5px;}
+.pastille-axe b{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+  background:var(--axe);color:#fff;font-size:9.5px;}
+.mb-axe-grp{margin:16px 0 4px;}
+.mb-axe-grp:first-child{margin-top:2px;}
+.mb-axe{display:flex;align-items:center;gap:10px;margin:0 2px 8px;}
+.mb-axe .axe-num{width:28px;height:28px;font-size:13px;}
+.mb-axe-t{flex:1;min-width:0;display:flex;flex-direction:column;}
+.mb-axe-t b{font-size:11.5px;color:var(--axe-txt);}
+.mb-axe-t em{font-style:normal;font-weight:bold;font-size:13px;color:var(--encre);line-height:1.35;}
+.mb-axe-t span{font-size:11.5px;color:var(--gris);margin-top:2px;}
+.mb-axe-acts{border-left:3px solid var(--axe);padding-left:9px;margin-left:13px;}
 .mb-form input#fa-axe{width:100%;box-sizing:border-box;}
 </style>
 </head>
@@ -2414,15 +2431,52 @@ function groupesParAxe(acts){
   if(m.has("")) cles.push("");
   return cles.map(k=>({axe:k, acts:m.get(k)}));
 }
-function resumeAxe(acts){
+function moyenneAxe(acts){
   const c=S.cfg;
   const v=acts.map(a=>pct(a[c.colAvancement])).filter(x=>x!=null);
-  const moy=v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):null;
-  return acts.length+" action"+(acts.length>1?"s":"")+(moy==null?"":" · avancement moyen "+moy+" %");
+  return v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):null;
 }
-function etiquetteAxe(r){
+function resumeAxe(acts){
+  const moy=moyenneAxe(acts);
+  return acts.length+" action"+(acts.length>1?"s":"")+(moy==null?"":" · "+moy+" %");
+}
+/* Teintes des axes, dans l'ordre : ni rouge, ni orange, ni jaune, ni vert
+   franc, déjà pris par l'avancement. [trait, fond, texte foncé, texte] */
+const AXE_TEINTES=[["#1D9E75","#E1F5EE","#085041","#0F6E56"],["#7F77DD","#EEEDFE","#3C3489","#534AB7"],
+  ["#378ADD","#E6F1FB","#0C447C","#185FA5"],["#D4537E","#FBEAF0","#72243E","#993556"],
+  ["#2B9BB5","#E3F4F8","#0E4A57","#1E7385"],["#6B7FA0","#EEF1F6","#2E3B52","#4A5A78"]];
+const AXE_SANS=["#B4B9C3","#F1F3F6","#6b7484","#6b7484"];
+/* couleur d'un axe : son rang parmi les axes du projet */
+function teinteAxe(p,axe){
+  if(!axe) return AXE_SANS;
+  const l=trierAxes([...new Set(actionsDe(p).map(axeDe).filter(Boolean))]);
+  const i=Math.max(0,l.indexOf(axe));
+  return AXE_TEINTES[i%AXE_TEINTES.length];
+}
+/* « Engagement 1 : Réduire… » → {lib:"Engagement 1", desc:"Réduire…", num:"1"} */
+function decouperAxe(axe){
+  const m=String(axe||"").match(/^([^:]+?)\s*:\s*(.+)$/);
+  const lib=m?m[1].trim():String(axe||"").trim(), desc=m?m[2].trim():"";
+  const n=lib.match(/\d+/) || String(axe||"").match(/\d+/);
+  return {lib, desc, num:n?n[0]:(lib.charAt(0).toUpperCase()||"–")};
+}
+/* bandeau d'axe (onglet Actions, poste) */
+function blocAxeHtml(p,g){
+  const t=teinteAxe(p,g.axe), d=decouperAxe(g.axe), moy=moyenneAxe(g.acts);
+  return '<div class="axe-bloc" style="--axe:'+t[0]+';--axe-fond:'+t[1]+';--axe-fonce:'+t[2]+';--axe-txt:'+t[3]+'">'+
+    '<span class="axe-num">'+(g.axe?esc(d.num):'–')+'</span>'+
+    '<span class="axe-titre">'+(g.axe
+        ? '<span class="axe-lib">'+esc(d.lib)+'</span>'+(d.desc?'<span class="axe-desc">'+esc(d.desc)+'</span>':'')
+        : '<span class="axe-desc axe-sans">Sans axe</span>')+'</span>'+
+    '<span class="axe-jauge">'+(moy==null?'':'<span class="axe-barre"><i style="width:'+moy+'%"></i></span>')+
+      '<span class="axe-res">'+esc(resumeAxe(g.acts))+'</span></span></div>';
+}
+function etiquetteAxe(r,p){
   const a=axeDe(r);
-  return a?'<span class="pastille-axe" title="Axe">'+esc(a)+'</span>':"";
+  if(!a) return "";
+  const t=teinteAxe(p,a), d=decouperAxe(a);
+  return '<span class="pastille-axe" title="'+esc(a)+'" style="--axe:'+t[0]+';--axe-fond:'+t[1]+';--axe-fonce:'+t[2]+'">'+
+    '<b>'+esc(d.num)+'</b>'+esc(d.lib)+'</span>';
 }
 /* champ texte de l'axe, avec les axes déjà employés proposés à la saisie */
 function listeAxesHtml(id){
@@ -5224,9 +5278,12 @@ function vueActions(p){
         const grp=groupesParAxe(acts);
         if(!grp) return acts.map(ligne).join("");
         const nbCol=avecStatut?8:7;
-        return grp.map(g=>'<tr class="axe-tete"><td colspan="'+nbCol+'"><b>'+
-            esc(g.axe||"Sans axe")+'</b><span>'+esc(resumeAxe(g.acts))+'</span></td></tr>'+
-            g.acts.map(ligne).join("")).join("");
+        return grp.map(g=>{
+          const tt=teinteAxe(p,g.axe);
+          return '<tr class="axe-tete"><td colspan="'+nbCol+'">'+blocAxeHtml(p,g)+'</td></tr>'+
+            g.acts.map(r=>ligne(r).replace('<tr class="ligne-action"',
+              '<tr class="ligne-action dans-axe" style="--axe:'+tt[0]+'"')).join("");
+        }).join("");
       })()+'</tbody></table></div>';
   }
   $("#corps").innerHTML=html;
@@ -5293,7 +5350,7 @@ function vueTaches(p){
     const ts=tachesDe(act).filter(filtre);
     if(actif && !ts.length) return;
     html+='<div class="carte"><h2>'+esc(lire(c.tblMain,act,c.colLibelle)||"(action sans libellé)")+
-      (act.id!==p.id?etiquetteAxe(act):'')+'</h2>';
+      (act.id!==p.id?etiquetteAxe(act,p):'')+'</h2>';
     if(!ts.length){
       html+='<div class="vide" style="padding:12px">Aucune tâche rattachée.</div>';
     }else{
@@ -14057,8 +14114,16 @@ function mbTravaux(p){
           const un=a=>bloc(a,lire(c.tblMain,a,c.colLibelle)||"(sans libellé)",1,a.id);
           const grp=groupesParAxe(acts);
           return grp
-            ? grp.map(g=>'<div class="mb-axe"><b>'+esc(g.axe||"Sans axe")+'</b><span>'+
-                esc(resumeAxe(g.acts))+'</span></div>'+g.acts.map(un).join("")).join("")
+            ? grp.map(g=>{
+                const tt=teinteAxe(p,g.axe), d=decouperAxe(g.axe);
+                return '<div class="mb-axe-grp" style="--axe:'+tt[0]+';--axe-fond:'+tt[1]+';--axe-fonce:'+tt[2]+';--axe-txt:'+tt[3]+'">'+
+                  '<div class="mb-axe"><span class="axe-num">'+(g.axe?esc(d.num):'–')+'</span>'+
+                  '<span class="mb-axe-t">'+(g.axe
+                    ? '<b>'+esc(d.lib)+'</b>'+(d.desc?'<em>'+esc(d.desc)+'</em>':'')
+                    : '<em>Sans axe</em>')+
+                  '<span>'+esc(resumeAxe(g.acts))+'</span></span></div>'+
+                  '<div class="mb-axe-acts">'+g.acts.map(un).join("")+'</div></div>';
+              }).join("")
             : acts.map(un).join("");
         })()
       : (propres.length?'':'<div class="mb-rien">Aucune action pour ce projet.</div>'))+

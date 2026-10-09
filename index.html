@@ -1418,7 +1418,9 @@ tbody tr.ligne-com:hover{background:transparent;}
 .bdg-edit{border:1px solid var(--bleu);border-radius:6px;padding:10px 12px;min-height:180px;
   outline:none;background:#fff;}
 .bdg-edit:focus{box-shadow:0 0 0 3px rgba(0,35,149,.12);}
-.bdg-outils{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch;margin-bottom:8px;}
+.bdg-outils{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch;margin:0 -6px 8px;padding:6px;
+  position:sticky;top:0;z-index:5;background:#fff;border-radius:6px;}
+.bdg-outils.colle{box-shadow:0 3px 8px rgba(12,18,32,.12);}
 .bdg-outils button{border:1px solid var(--trait);background:#fff;border-radius:5px;padding:4px 10px;
   font-size:12px;cursor:pointer;color:var(--encre,#1d2433);}
 .bdg-outils button:hover:not(:disabled){border-color:var(--bleu);color:var(--bleu);}
@@ -1462,7 +1464,7 @@ body.mob .notes-liste{display:flex;flex-direction:column;gap:10px;}
 .bdg-contenu td.bdg-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
 .bdg-contenu td.bdg-ko{background:#fbebeb!important;outline:1px solid #C0504D;outline-offset:-1px;}
 .bdg-edit td.bdg-sec{cursor:pointer;}
-.bdg-edit td.bdg-sec:empty::after,.bdg-edit td.bdg-sec:has(> br:only-child)::after{content:"Choisir…";color:var(--gris);font-style:italic;}
+.bdg-edit tr:not(.bdg-total)>td.bdg-sec:empty::after,.bdg-edit tr:not(.bdg-total)>td.bdg-sec:has(> br:only-child)::after{content:"Choisir…";color:var(--gris);font-style:italic;}
 .bdg-contenu tr.bdg-total td{font-weight:bold;background:#eef2f8!important;border-top:2px solid var(--bleu);color:var(--bleu);white-space:normal;}
 .bdg-contenu tr.bdg-total td.bdg-num{white-space:nowrap;}
 .bdg-contenu tr.bdg-total td.bdg-sec{font-weight:normal;font-size:12px;line-height:1.6;}
@@ -1476,6 +1478,17 @@ body.bdg-redim{cursor:col-resize;user-select:none;}
 .bdg-menu button.on{color:var(--bleu);font-weight:bold;}
 .bdg-menu button i{color:var(--gris);}
 body.mob .bdg-menu button{padding:11px 12px;font-size:14px;}
+
+/* repère mobile du budget */
+.bdg-cadre{position:relative;}
+.bdg-repere{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed #C0504D;pointer-events:none;z-index:3;}
+.bdg-repere span{position:absolute;top:6px;left:6px;white-space:nowrap;font-size:11px;font-weight:bold;
+  color:#993333;background:#fff;border:1px solid #f0c9c8;border-radius:4px;padding:2px 7px;}
+.bdg-repere[hidden]{display:none;}
+.bdg-outils #bdg-repere.on{border-color:#C0504D;color:#993333;background:#fbebeb;}
+.bdg-outils select{font-size:12px;padding:3px 6px;border:1px solid var(--trait);border-radius:5px;}
+.bdg-rep-outil{display:contents;}
+body.mob .bdg-rep-outil{display:none;}
 </style>
 </head>
 <body>
@@ -9061,6 +9074,30 @@ function bdgTableauHtml(){
     '</tbody></table><p><br></p>';
 }
 
+/* Repère mobile : trait vertical à la largeur utile d'un téléphone. Sur
+   mobile, la fiche retire 13 px de marge de chaque côté, puis la carte
+   13 px de marge et 1 px de bordure : 54 px en tout. Réglage propre au poste. */
+const BDG_ECRANS=[[360,"360 px (Android)"],[390,"390 px (iPhone)"],[412,"412 px (Android grand)"],[430,"430 px (iPhone Max)"]];
+const BDG_MARGE_MOBILE=54;
+function bdgRepere(){
+  try{ const o=JSON.parse(localStorage.getItem("cp-bdg-repere")||"{}");
+       return {on:!!o.on, l:BDG_ECRANS.some(e=>e[0]===o.l)?o.l:390}; }
+  catch(e){ return {on:false,l:390}; }
+}
+function bdgRepereEnr(o){ try{ localStorage.setItem("cp-bdg-repere",JSON.stringify(o)); }catch(e){} }
+function bdgPlacerRepere(racine){
+  const rep=racine.querySelector(".bdg-repere"), ed=racine.querySelector("#bdg-ed");
+  if(!rep||!ed) return;
+  const o=bdgRepere();
+  rep.hidden=!o.on || document.body.classList.contains("mob");
+  if(rep.hidden) return;
+  const cs=getComputedStyle(ed);
+  const debut=(parseFloat(cs.borderLeftWidth)||0)+(parseFloat(cs.paddingLeft)||0);
+  const utile=o.l-BDG_MARGE_MOBILE;
+  rep.style.left=(debut+utile-ed.scrollLeft)+"px";
+  rep.querySelector("span").textContent="Écran "+o.l+" px — "+utile+" px visibles";
+}
+
 const BDG_OUTILS=[["gras","<b>G</b>","Gras"],["ital","<i>I</i>","Italique"],
   ["puces","• Liste","Liste à puces"],["|"],
   ["tableau","Insérer un tableau","Insérer un tableau de budget"],["|"],
@@ -9081,9 +9118,16 @@ function blocBudget(p){
     return '<div class="bdg-outils">'+BDG_OUTILS.map(o=>o[0]==="|"
         ? '<span class="sep"></span>'
         : '<button type="button" data-bdg="'+o[0]+'" title="'+esc(o[2])+'"'+
-          (/^(lig|col|total)/.test(o[0])?" disabled":"")+'>'+o[1]+'</button>').join("")+'</div>'+
-      '<div class="bdg-contenu bdg-edit" id="bdg-ed" contenteditable="true">'+
+          (/^(lig|col|total)/.test(o[0])?" disabled":"")+'>'+o[1]+'</button>').join("")+
+        '<span class="bdg-rep-outil"><span class="sep"></span>'+
+        '<button type="button" id="bdg-repere" title="Afficher la largeur visible sur un téléphone"'+
+          (bdgRepere().on?' class="on"':'')+'>📱 Repère mobile</button>'+
+        '<select id="bdg-repere-l" title="Largeur d\'écran du téléphone"'+(bdgRepere().on?'':' hidden')+'>'+
+          BDG_ECRANS.map(([w,l])=>'<option value="'+w+'"'+(bdgRepere().l===w?' selected':'')+'>'+l+'</option>').join("")+
+        '</select></span></div>'+
+      '<div class="bdg-cadre"><div class="bdg-contenu bdg-edit" id="bdg-ed" contenteditable="true">'+
         (h||"<p><br></p>")+'</div>'+
+        '<div class="bdg-repere" hidden aria-hidden="true"><span></span></div></div>'+
       '<div class="bdg-pied"><button type="button" class="btn-2" id="bdg-annuler">Annuler</button>'+
       '<button type="button" class="btn" id="bdg-enr">Enregistrer</button></div>';
   }
@@ -9234,6 +9278,33 @@ function brancherBudget(racine,p,redessiner){
   const ed=racine.querySelector("#bdg-ed");
   if(!ed) return;
   bdgPreparer(ed,true);
+  const repB=racine.querySelector("#bdg-repere"), repL=racine.querySelector("#bdg-repere-l");
+  if(repB){
+    repB.onclick=()=>{
+      const o=bdgRepere(); o.on=!o.on; bdgRepereEnr(o);
+      repB.classList.toggle("on",o.on); repL.hidden=!o.on; bdgPlacerRepere(racine);
+    };
+    repL.onchange=()=>{ const o=bdgRepere(); o.l=Number(repL.value); bdgRepereEnr(o); bdgPlacerRepere(racine); };
+    ed.addEventListener("scroll",()=>bdgPlacerRepere(racine));
+    bdgPlacerRepere(racine);
+  }
+  /* barre d'outils collée en haut pendant le défilement ; sur mobile, sous
+     l'en-tête de la fiche, lui-même collé */
+  const outils=racine.querySelector(".bdg-outils");
+  if(outils){
+    const haut=document.querySelector("body.mob .mb-haut");
+    const zone=haut?null:outils.closest(".corps");          // conteneur qui défile sur poste
+    const marge=zone?parseFloat(getComputedStyle(zone).paddingTop)||0:0;
+    const top=haut?haut.offsetHeight:-marge;                // colle au bord, sans jour au-dessus
+    outils.style.top=top+"px";
+    if(window.IntersectionObserver){
+      const temoin=document.createElement("div");
+      temoin.style.cssText="height:1px;margin-bottom:-1px";
+      outils.before(temoin);
+      new IntersectionObserver(([e])=>outils.classList.toggle("colle",!e.isIntersecting),
+        {root:zone,rootMargin:"-"+(Math.max(top,0)+1)+"px 0px 0px 0px"}).observe(temoin);
+    }
+  }
   let derniere=null;                         // dernière cellule où était le curseur
   let sortie=null;                           // cellule Montant à mettre en forme à la sortie
   const noter=()=>{ S.bdgBrouillon=ed.innerHTML; };

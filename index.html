@@ -5240,8 +5240,13 @@ function vueTaches(p){
 
 /* Ordre manuel d'une tâche (colonne « Ordre »), ou null. */
 /* Commentaire affiché sans saisie possible : on le complète par la bulle 💬 */
+/* une ligne vide avant chaque saisie datée (« jj/mm/aaaa — auteur : »),
+   y compris dans les commentaires écrits avant ce réglage */
+function espacerCommentaire(v){
+  return txt(v).replace(/\n+(?=\d{2}\/\d{2}\/\d{4} — )/g,"\n\n");
+}
 function commentaireLecture(v){
-  const s=txt(v).trim();
+  const s=espacerCommentaire(v).trim();
   return s ? '<div class="com-lecture">'+esc(s)+'</div>'
            : '<div class="com-lecture vide-com">Aucun commentaire. Utilisez 💬 pour en ajouter un.</div>';
 }
@@ -5491,7 +5496,7 @@ async function ajouterCommentaire(tableId,rowId,colId,texte,nom){
   const JOKER="\u2063AUTEUR\u2063";           // remplacé dès que le nom est connu
   const entete=dateDuJourFR()+" — "+(nom||JOKER)+" : ";
   const ajout=entete+texte;
-  const nouveau=ajout+(ancien.trim()?"\n"+ancien:"");
+  const nouveau=ajout+(ancien.trim()?"\n\n"+ancien.replace(/^\s+/,""):"");   // une ligne vide entre deux saisies
   const tr=traceModif(tableId,rowId,colId,nouveau,ancien);
   if(tr) tr.nouveau=ajout;                    // l'historique retient l'ajout, pas tout le fil
   try{

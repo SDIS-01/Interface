@@ -2333,7 +2333,12 @@ function colActKeySaisissable(){
   const c=S.cfg, i=c.colActKey && infoCol(c.tblMain,c.colActKey);
   return !!(i && !i.formule && !/^Ref/.test(i.type));
 }
-function idProjetPourAction(p){ return lire(S.cfg.tblMain,p,S.cfg.colProjKey).trim(); }
+/* La colonne peut afficher « 2026_14_P PLAN TRANSITION ÉCOLOGIQUE » : on ne
+   garde que l'identifiant, c'est-à-dire le premier mot. */
+function idProjetPourAction(p){
+  const v=lire(S.cfg.tblMain,p,S.cfg.colProjKey).trim();
+  return (v.match(/^\S+/)||[""])[0].replace(/_+$/,"");
+}
 function prochainNumeroMEO(p){
   const c=S.cfg;
   let max=0;

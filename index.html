@@ -2418,9 +2418,9 @@ function poserIdAction(champs,p,intitule){
 function axeOK(){ const c=S.cfg; return !!(c.colAxe && infoCol(c.tblMain,c.colAxe)); }
 function axeDe(r){ return axeOK() ? txt(r[S.cfg.colAxe]).trim() : ""; }
 function trierAxes(l){ return l.sort((a,b)=>a.localeCompare(b,"fr",{numeric:true,sensitivity:"base"})); }
-function axesConnus(){
-  if(!axeOK()) return [];
-  return trierAxes([...new Set(S.data.main.filter(estAction).map(axeDe).filter(Boolean))]);
+function axesConnus(p){
+  if(!axeOK() || !p) return [];
+  return trierAxes([...new Set(actionsDe(p).map(axeDe).filter(Boolean))]);
 }
 /* [{axe, acts}] dans l'ordre des axes, « sans axe » en dernier ; null si aucun axe */
 function groupesParAxe(acts){
@@ -2479,11 +2479,12 @@ function etiquetteAxe(r,p){
     '<b>'+esc(d.num)+'</b>'+esc(d.lib)+'</span>';
 }
 /* champ texte de l'axe, avec les axes déjà employés proposés à la saisie */
-function listeAxesHtml(id){
-  return '<datalist id="'+id+'">'+axesConnus().map(x=>'<option value="'+esc(x)+'">').join("")+'</datalist>';
+function listeAxesHtml(id,p){
+  return '<datalist id="'+id+'">'+axesConnus(p).map(x=>'<option value="'+esc(x)+'">').join("")+'</datalist>';
 }
 function editeurAxe(t,r){
-  return editeur(t,r,S.cfg.colAxe).replace('<input ','<input list="dl-axes-fa" ')+listeAxesHtml("dl-axes-fa");
+  const p=projetDeLigne(t,r.id);
+  return editeur(t,r,S.cfg.colAxe).replace('<input ','<input list="dl-axes-fa" ')+listeAxesHtml("dl-axes-fa",p);
 }
 
 function natureDe(r){ return lire(S.cfg.tblMain,r,S.cfg.colNature).toUpperCase().trim(); }
@@ -5299,7 +5300,7 @@ function vueActions(p){
   $("#add-action").onclick=async()=>{
     if(!actionCreable(p)) return;
     const r=await feuilleAjout({titre:"Nouvelle action",
-      sous:lire(t,p,c.colLibelle),libelle:"Libellé de l'action",axe:axeOK()});
+      sous:lire(t,p,c.colLibelle),libelle:"Libellé de l'action",axe:axeOK(),projet:p});
     if(!r) return;
     const lib=r.lib;
     const champs={[c.colLibelle]:lib};
@@ -14154,7 +14155,7 @@ function mbTravaux(p){
   $("#mb-add-action").onclick=()=>actionCreable(p) && mbFeuilleAjout({
     titre:"Nouvelle action",
     sous:lire(c.tblMain,p,c.colLibelle),
-    libelle:"Libellé de l'action", axe:axeOK(),
+    libelle:"Libellé de l'action", axe:axeOK(), projet:p,
     action:async (lib,r)=>{
       const t=c.tblMain, champs={[c.colLibelle]:lib};
       if(r.axe && axeOK()) champs[c.colAxe]=r.axe;
@@ -14651,7 +14652,7 @@ function feuilleAjout(o){
       '<h3>'+esc(o.titre)+'</h3>'+(o.sous?'<p class="sous">'+esc(o.sous)+'</p>':'')+
       '<label>'+esc(o.libelle)+'</label><textarea id="fa-lib"></textarea>'+
       (o.axe?'<label>Axe <span style="font-weight:normal;color:var(--gris)">(facultatif)</span></label>'+
-        '<input type="text" id="fa-axe" list="dl-axes-ajout" autocomplete="off">'+listeAxesHtml("dl-axes-ajout"):'')+
+        '<input type="text" id="fa-axe" list="dl-axes-ajout" autocomplete="off">'+listeAxesHtml("dl-axes-ajout",o.projet):'')+
       '<label>Date de début</label>'+champDateFR('id="fa-debut"','',dateDuJourFR())+
       '<label>'+esc(o.libelleFin||"Échéance prévue")+'</label>'+
         champDateFR('id="fa-fin"','','')+

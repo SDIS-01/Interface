@@ -1256,6 +1256,8 @@ tbody tr.ligne-com:hover{background:transparent;}
   color:#6b5a12;font-size:15px;line-height:1;padding:0 4px;}
 
 /* ---------- Blocs et ordre des pages du PDF ---------- */
+.nr-raz-info{padding:6px 18px;font-size:11.5px;color:var(--gris);background:var(--fond);border-bottom:1px solid var(--trait);}
+.nr-raz-arme{background:#C0504D!important;color:#fff!important;border-color:#C0504D!important;}
 .impr-preset{display:flex;gap:6px;}
 .impr-preset button{flex:1;}
 .impr-preset button.actif{background:#C0504D;color:#fff;border-color:#C0504D;font-weight:bold;}
@@ -3606,7 +3608,55 @@ function notifsDe(ag){
       }));
     }
   });
-  return out;
+  /* ce qui existait à la dernière remise à zéro est réputé lu pour cet agent */
+  const B=baseNotifs();
+  return B.size ? out.filter(n=>!B.has(ag.id+"|"+n.cle)) : out;
+}
+
+/* --- remise à zéro des notifications -------------------------------------
+   L'administrateur fige, pour chaque agent, la liste des notifications
+   existantes (« agent|clé ») dans les options du widget. Elles ne sont plus
+   jamais présentées ; seules les affectations faites ensuite notifient, y
+   compris une action existante réattribuée à un autre agent. */
+let baseCache={src:null,set:new Set()};
+function baseNotifs(){
+  const b=S.notifBase;
+  if(baseCache.src!==b) baseCache={src:b,set:new Set((b&&b.cles)||[])};
+  return baseCache.set;
+}
+async function remettreNotifsAZero(){
+  const c=S.cfg;
+  /* instantané brut, calculé sans l'ancien filtre */
+  const ancien=S.notifBase; S.notifBase=null;
+  const cles=[];
+  try{
+    (S.data.agents||[]).forEach(ag=>notifsDe(ag).forEach(n=>cles.push(ag.id+"|"+n.cle)));
+  }finally{ S.notifBase=ancien; }
+  const n=new Date();
+  S.notifBase={ts:Date.now(),
+    date:n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0"),
+    cles};
+  try{ await grist.widgetApi.setOptions(paquetOptions()); }
+  catch(e){ toast("Remise à zéro non enregistrée : "+e.message,true); return false; }
+  /* les anciennes lectures deviennent inutiles : on vide la table, sauf les
+     lignes « identification » qui relient chaque compte à son e-mail */
+  let purge=0;
+  if(notifTableOk()){
+    try{
+      const tab=await grist.docApi.fetchTable(c.tblNotif);
+      const ids=tab.id.filter((id,i)=>String(tab[c.colNotifElement][i])!=="identification");
+      for(let i=0;i<ids.length;i+=500){
+        const lot=ids.slice(i,i+500);
+        await grist.docApi.applyUserActions([["BulkRemoveRecord",c.tblNotif,lot]]);
+        purge+=lot.length;
+      }
+      S.data.notifLues=enLignes(await grist.docApi.fetchTable(c.tblNotif));
+    }catch(e){ toast("Notifications remises à zéro, mais la table "+c.tblNotif+" n'a pas pu être vidée : "+e.message,true); }
+  }
+  S.notifLuesSession=[];
+  lsEcrire(cleLuesLocales(),"");
+  calculerNotifs(); majCloche(); rendreListe();
+  return {nb:cles.length,purge};
 }
 function calculerNotifs(){
   S.notifs=[]; S.notifAgent=null;
@@ -3924,7 +3974,11 @@ async function ouvrirRecapNotifs(){
       '<span class="nr-chiffre"><b>'+tot+'</b><span>notification'+(tot>1?"s":"")+' non lue'+(tot>1?"s":"")+'</span></span>'+
       '<span class="nr-chiffre rouge"><b>'+ret+'</b><span>sur une échéance dépassée</span></span>'+
       (pers.length?'<button type="button" class="btn-2 nr-droite" id="nr-tout">Copier tout le récapitulatif</button>':'')+
+      '<button type="button" class="btn-2'+(pers.length?'':' nr-droite')+'" id="nr-raz" '+
+        'title="Considérer toutes les notifications actuelles comme lues, pour tout le monde">Remettre à zéro</button>'+
     '</div>'+
+    (S.notifBase&&S.notifBase.date?'<div class="nr-raz-info">Dernière remise à zéro le '+
+      esc(dateVersFR(Date.parse(S.notifBase.date)/1000))+' : seules les affectations postérieures notifient.</div>':'')+
     '<div class="nr-corps">'+(pers.length ? pers.map((x,k)=>
       '<article class="nr-pers"><div class="nr-pers-tete"><span class="nr-av">'+esc(ini(x.nom))+'</span>'+
         '<span class="nr-id"><b>'+esc(x.nom)+'</b>'+(x.mail?'<span>'+esc(x.mail)+'</span>'
@@ -3969,6 +4023,24 @@ async function ouvrirRecapNotifs(){
     a.hidden=!a.hidden; b.setAttribute("aria-expanded",String(!a.hidden));
     b.textContent=a.hidden?"Aperçu":"Masquer l'aperçu";
   });
+  /* confirmation en deux clics : le premier arme le bouton pendant 6 s */
+  const raz=v.querySelector("#nr-raz");
+  let arme=null;
+  raz.onclick=async()=>{
+    if(!arme){
+      raz.textContent="Confirmer : tout passer en lu pour tous";
+      raz.classList.add("nr-raz-arme");
+      arme=setTimeout(()=>{ arme=null; raz.textContent="Remettre à zéro"; raz.classList.remove("nr-raz-arme"); },6000);
+      return;
+    }
+    clearTimeout(arme); arme=null;
+    raz.disabled=true; raz.textContent="Remise à zéro…";
+    const r=await remettreNotifsAZero();
+    if(!r){ raz.disabled=false; raz.textContent="Remettre à zéro"; raz.classList.remove("nr-raz-arme"); return; }
+    fermer();
+    toast("Notifications remises à zéro : "+r.nb+" notification"+(r.nb>1?"s":"")+" passée"+(r.nb>1?"s":"")+
+      " en lu"+(r.purge?", "+r.purge+" ligne"+(r.purge>1?"s":"")+" retirée"+(r.purge>1?"s":"")+" de "+c.tblNotif:""));
+  };
   const tout=v.querySelector("#nr-tout");
   if(tout) tout.onclick=async()=>{
     const html=pers.map(x=>'<h3 style="font-family:Tahoma,Arial,sans-serif;color:#002395;margin:18px 0 4px">'+
@@ -12542,15 +12614,26 @@ function paquetOptions(){
                 taches:IMPR.taches,
                 sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
                 pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
-          pages:S.pagesParProjet||{}};
+          pages:S.pagesParProjet||{},
+          notifBase:S.notifBase||null};
 }
 
 /* écriture différée : on regroupe les rafales de modifications de l'éditeur */
+/* Une console ouverte avant une remise à zéro ne doit pas l'effacer en
+   enregistrant ses propres options : on reprend la plus récente. */
+async function reprendreBaseNotifs(){
+  try{
+    const o=await grist.widgetApi.getOptions();
+    const b=o&&o.notifBase;
+    if(b && (!S.notifBase || (b.ts||0)>(S.notifBase.ts||0))) S.notifBase=b;
+  }catch(e){}
+}
 function sauverAuto(){
   sauveDemandee=true;
   if(sauveEnCours) return;
   sauveEnCours=setTimeout(async()=>{
     sauveEnCours=null; sauveDemandee=false;
+    await reprendreBaseNotifs();
     try{ await grist.widgetApi.setOptions(paquetOptions()); }
     catch(e){ console.warn("Sauvegarde automatique : "+e.message); }
     if(sauveDemandee) sauverAuto();
@@ -12568,6 +12651,7 @@ async function enregistrerReglages(){
   if($("#mdp-retirer") && $("#mdp-retirer").checked){ S.cfg.mdpHash=""; S.deverrouille=false; }
   else if(nouveau){ S.cfg.mdpHash=await empreinte(nouveau); S.deverrouille=false; }
   normaliserReglages();
+  await reprendreBaseNotifs();
   try{ await grist.widgetApi.setOptions(paquetOptions()); }catch(e){}
   $("#voile").classList.remove("ouvert");
   await tout();
@@ -14849,6 +14933,7 @@ async function demarrer(){
     if(o && o.cfg) S.cfg=Object.assign({},DEF,o.cfg);
     /* on repart du dernier travail enregistré dans le document */
     if(o && o.pages && typeof o.pages==="object") S.pagesParProjet=o.pages;
+    if(o && o.notifBase) S.notifBase=o.notifBase;
     if(o && o.impr){
       if(o.impr.sections) Object.assign(IMPR.sections,o.impr.sections);
       if(Array.isArray(o.impr.ordre)) IMPR.ordre=ordreValide(o.impr.ordre);

@@ -10344,7 +10344,7 @@ const BLOCS_IMPR=[
   ["analyse","Analyse du projet",
     [["anaTdb","Tableau de bord"],["anaFeux","Feu par action"],["anaReco","Recommandations"],
      ["anaEch","Échéances à venir et en retard"]]],
-  ["planActions","Planning par action MEO"],
+  ["planActions","Fiche par action MEO (état, planning, tâches)"],
   ["detail","Actions MEO et tâches"],
   ["instances","Instances"],
   ["journal","Journal de bord"],
@@ -10954,7 +10954,7 @@ function docPage(ctx){
 /* Bandeau d'identité horizontal de la page 1, calqué sur la première
    diapositive du diaporama : l'anneau d'avancement à gauche, puis les badges
    sur trois colonnes. Le reste de la page s'écrit alors sur toute la largeur. */
-function bandeauIdentite(ctx,p,x,y,w){
+function bandeauIdentite(ctx,p,x,y,w,libAv){
   const pdf=ctx.pdf, c=S.cfg, t=c.tblMain;
   const zSauve=PZ, minSauve=PMIN;
   if(IMPR.lisible){ PZ=14/12; PMIN=14; }   // badges à 14, comme la colonne d'avant
@@ -10962,7 +10962,7 @@ function bandeauIdentite(ctx,p,x,y,w){
     const av=pct(p[c.colAvancement]), inter=interrompu(p);
     pDonut(pdf,x+46,y+46,40,13,av,bandesImpr(av,inter).fill);
     pTexte(pdf,x+102,y+46-fz(9),"Avancement",{taille:12,couleur:PDFC.gris});
-    pTexte(pdf,x+102,y+46+fz(9),"global",{taille:12,couleur:PDFC.gris});
+    pTexte(pdf,x+102,y+46+fz(9),libAv||"global",{taille:12,couleur:PDFC.gris});
 
     const colonnes=[
       [["Porteur",esc0(lire(t,p,c.colPorteur)),null]],
@@ -11084,10 +11084,10 @@ function libelleColonneBrut(tableId,colId){
    Même construction qu'à l'écran (vuePlanning) — un projet sans action MEO mais
    avec des tâches produit donc bien un planning, ce qui n'était pas le cas
    auparavant : seules les actions étaient prises en compte. */
-/* Planning de synthèse : avec des actions MEO, le projet, ses axes s'il y en
-   a, puis ses actions (les tâches seulement si la case « Les faire figurer
-   aussi dans le planning » est cochée) ; sans action MEO, le projet et ses
-   tâches. Avec o.action : le planning d'une seule action et de ses tâches. */
+/* Planning de synthèse : avec des actions MEO, le projet et ses actions (les
+   tâches seulement si la case « Les faire figurer aussi dans le planning »
+   est cochée) ; sans action MEO, le projet et ses tâches. Avec o.action : le
+   planning d'une seule action et de ses tâches (fiche de l'action). */
 function rangsGantt(p,acts,numeros,o){
   o=o||{};
   const c=S.cfg, out=[];
@@ -11119,20 +11119,9 @@ function rangsGantt(p,acts,numeros,o){
   };
   pousser(p,0,false,"");
   tachesDe(p).forEach(t=>pousser(t,1,true,""));
-  const groupes=groupesParAxe(acts);
-  const poserActions=(l,niv)=>l.forEach(a=>{
-    pousser(a,niv,false,(numeros.get(a.id)||"")+".");
-    tachesDe(a).forEach(t=>pousser(t,niv+1,true,""));
-  });
-  if(!groupes) poserActions(acts,1);
-  else groupes.forEach(g=>{
-    /* rang d'axe : il couvre ses actions, avec leur avancement moyen */
-    const bs=g.acts.map(a=>({d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null}));
-    const ds=bs.map(b=>b.d||b.f).filter(Boolean), fs=bs.map(b=>b.f||b.d).filter(Boolean);
-    out.push({r:null,niv:1,tache:false,axe:true,
-      d:ds.length?Math.min(...ds):null, f:fs.length?Math.max(...fs):null,
-      lib:g.axe||"Sans axe", av:moyenneAxe(g.acts), inter:false});
-    poserActions(g.acts,2);
+  acts.forEach(a=>{
+    pousser(a,1,false,(numeros.get(a.id)||"")+".");
+    tachesDe(a).forEach(t=>pousser(t,2,true,""));
   });
   return out.filter(z=>z.d||z.f);
 }
@@ -11689,6 +11678,42 @@ function dessinerBudgetPdf(ctx,p){
   });
 }
 
+/* Fiche d'une action MEO : une page (ou plus) par action, comme un projet en
+   réduction — titre, bandeau d'état, planning de l'action et de ses tâches,
+   tableau des tâches. */
+function dessinerFicheActionPdf(ctx,p,a,acts,numeros){
+  const c=S.cfg, pdf=ctx.pdf, lw=PW-2*MX;
+  docPage(ctx);
+  const n=numeros.get(a.id)||"";
+  const lib=lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)";
+  const lignesT=pDecoupe(pdf,"Action "+n+" — "+lib,lw,15,"bold");
+  lignesT.forEach((l,k)=>pTexte(pdf,MX,ctx.y+fz(14)+k*fz(18),l,{taille:15,style:"bold",couleur:PDFC.bleu}));
+  ctx.y+=fz(14)+(lignesT.length-1)*fz(18)+4;
+  const axe=axeDe(a);
+  if(axe){ pTexte(pdf,MX,ctx.y+fz(11),axe,{taille:11,couleur:PDFC.gris}); ctx.y+=fz(11)+4; }
+  ctx.y+=10;
+  if(IMPR.sections.identite!==false) ctx.y=bandeauIdentite(ctx,a,MX,ctx.y,lw,"de l'action");
+  ctx.y=dessinerGantt(ctx,p,acts,numeros,MX,ctx.y,lw,{action:a,titre:"Planning"})+4;
+  if(!(c.tblTache && c.colTacheLien)) return;
+  const ts=tachesDe(a);
+  if(!ts.length) return;
+  const lignes=ts.map(k=>{
+    const av=pct(k[c.colTacheAvancement]), inter=statutInterrompu(c.tblTache,k,c.colTacheStatut);
+    const co=bandesImpr(av,inter);
+    return {cellules:{
+      lib:{type:"texte",t:lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"},
+      resp:{type:"texte",t:lire(c.tblTache,k,c.colTachePorteur)},
+      ech:{type:"texte",t:inter?"Interrompu":dateVersFR(k[c.colTacheFin]),couleur:inter?PDFC.gris:PDFC.encre},
+      avct:{type:"pastille",t:inter?"Interrompu":(av==null?"–":av+"%"),fond:co.pale,coul:co.txt},
+      com:{type:"texte",t:lire(c.tblTache,k,c.colTacheCommentaire),couleur:PDFC.gris}
+    }};
+  });
+  dessinerTableau(ctx,"Tâches",
+    [{cle:"lib",titre:"Tâche",w:330},{cle:"resp",titre:"Responsable",w:130},
+     {cle:"ech",titre:"Échéance",w:90},{cle:"avct",titre:"Avancement",w:100},
+     {cle:"com",titre:"Commentaire",w:lw-650}],lignes,MX,lw,false);
+}
+
 /* Inventaire des pièces jointes du projet, de ses actions, tâches, instances… */
 function dessinerRessourcesPdf(ctx,p){
   const rs=ressourcesDe(p);
@@ -11711,7 +11736,7 @@ function dessinerRessourcesPdf(ctx,p){
    cliquables et reprises en signets dans le volet de navigation du PDF. */
 const SOMMAIRE_LIB={synthese:"Synthèse",strategie:"Stratégie SDACR / PE",
   instances:"Instances",journal:"Journal de bord",budget:"Budget",
-  planActions:"Planning par action MEO",
+  planActions:"Fiches des actions MEO",
   analyse:"Analyse du projet",ressources:"Inventaire des pièces jointes",
   sup:"Pages additionnelles"};
 function remplirSommaire(ctx,entrees){
@@ -11831,17 +11856,9 @@ function construireDoc(p){
         ctx.sommaire={page:ctx.pages,y:ctx.y,yBas:ctx.yBas};
       },
       strategie:()=>dessinerStrategiePdf(ctx,p),
-      /* un planning par action MEO, avec ses tâches ; les suivants
-         s'enchaînent sur la même page tant qu'il y a la place */
-      planActions:()=>{
-        if(!acts.length) return;
-        docPage(ctx);
-        acts.forEach(a=>{
-          const lib=lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)";
-          ctx.y=dessinerGantt(ctx,p,acts,numeros,MX,ctx.y,PW-2*MX,
-            {action:a,titre:"Planning — "+(numeros.get(a.id)||"")+". "+lib})+6;
-        });
-      },
+      /* une fiche par action MEO, traitée comme un mini-projet : son état,
+         son planning, puis le tableau de ses tâches */
+      planActions:()=>acts.forEach(a=>dessinerFicheActionPdf(ctx,p,a,acts,numeros)),
       instances:()=>dessinerInstancesPdf(ctx,p),
       budget:()=>dessinerBudgetPdf(ctx,p),
       ressources:()=>dessinerRessourcesPdf(ctx,p)

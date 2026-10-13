@@ -10340,7 +10340,8 @@ const BLOCS_IMPR=[
   ["sommaire","Sommaire et signets"],
   ["synthese","Page de synthèse",
     [["identite","Identité"],["descriptif","Descriptif"],
-     ["commentaire","Commentaire du projet"],["planning","Planning"]]],
+     ["commentaire","Commentaire du projet"],["planning","Planning"],
+     ["apercu","En un coup d'œil"]]],
   ["analyse","Analyse du projet",
     [["anaTdb","Tableau de bord"],["anaFeux","Feu par action"],["anaReco","Recommandations"],
      ["anaEch","Échéances à venir et en retard"]]],
@@ -10358,7 +10359,7 @@ const BLOCS_IMPR=[
 const BLOCS_COMPLET=["sommaire","strategie","instances","budget","ressources","planActions"];
 /* version des réglages par défaut : une version enregistrée plus ancienne
    reçoit une fois les nouveaux défauts (contenu et ordre du dossier complet) */
-const VERSION_DEFAUTS_IMPR=2;
+const VERSION_DEFAUTS_IMPR=3;
 const ORDRE_DEFAUT=BLOCS_IMPR.map(b=>b[0]);
 
 /* Le diaporama a sa propre liste : ni instances, ni descriptif, ni pages
@@ -10388,7 +10389,7 @@ function ordrePptxValide(liste){
 const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.45","Maximale"]];
 
 const IMPR={
-  sections:{synthese:true,identite:true,descriptif:true,commentaire:false,planning:true,actions:true,
+  sections:{synthese:true,identite:true,descriptif:true,commentaire:false,planning:true,apercu:true,actions:true,
             detail:true,journal:true,analyse:true,anaTdb:true,anaFeux:false,anaReco:false,anaEch:false,sup:true,
             sommaire:true,strategie:true,instances:true,budget:true,ressources:false,planActions:true},
   ordre:ORDRE_DEFAUT.slice(),
@@ -10553,13 +10554,13 @@ function rendreBlocsImpr(){
 
 /* --- préréglages : fiche projet (contenu historique) ou dossier complet --- */
 const PRESETS_IMPR={
-  fiche:{synthese:true,identite:true,descriptif:true,commentaire:true,planning:true,detail:true,
+  fiche:{synthese:true,identite:true,descriptif:true,commentaire:true,planning:true,apercu:false,detail:true,
          journal:true,analyse:false,sup:true,
          sommaire:false,strategie:false,instances:false,budget:false,ressources:false,planActions:false},
   /* dossier complet = réglage par défaut : planning de synthèse sans commentaire,
      analyse réduite au tableau de bord juste après, un planning par action MEO,
      stratégie en fin de document, pas d'inventaire des pièces jointes */
-  complet:{synthese:true,identite:true,descriptif:true,commentaire:false,planning:true,detail:true,
+  complet:{synthese:true,identite:true,descriptif:true,commentaire:false,planning:true,apercu:true,detail:true,
            journal:true,analyse:true,anaTdb:true,anaFeux:false,anaReco:false,anaEch:false,sup:true,
            sommaire:true,strategie:true,instances:true,budget:true,ressources:false,planActions:true}
 };
@@ -11678,40 +11679,149 @@ function dessinerBudgetPdf(ctx,p){
   });
 }
 
-/* Fiche d'une action MEO : une page (ou plus) par action, comme un projet en
-   réduction — titre, bandeau d'état, planning de l'action et de ses tâches,
-   tableau des tâches. */
+/* --- « En un coup d'œil » : les trois colonnes de la revue détaillée ------ */
+/* items : [{date, texte, type}] ; dessine une colonne encadrée et renvoie
+   la hauteur utile qu'elle occuperait (mesure seule si !dessin) */
+function pdfColonne(pdf,x,y,w,h,titre,items,vide,fond,dessin){
+  const hT=fz(22), wD=fz(46), hl=fz(13.5), pad=10;
+  const wTxt=w-2*pad-wD;
+  let yy=y+hT+8, n=0;
+  const lots=items.map(it=>{
+    const l=pDecoupe(pdf,String(it.texte||"").replace(/\s*\n\s*/g," ").trim()||"—",wTxt,10.5,"normal");
+    return {it,l,h:Math.max(l.length*hl,it.type?2*hl:hl)+8};
+  });
+  if(!dessin){
+    return hT+8+(lots.length?lots.reduce((s,o)=>s+o.h,0):hl+8)+8;
+  }
+  pAplat(pdf,x,y,w,h,fond||"#ffffff",5);
+  pdf.setDrawColor(PDFC.trait); pdf.setLineWidth(0.8); pdf.roundedRect(x,y,w,h,5,5,"S");
+  pAplat(pdf,x,y,w,hT,PDFC.fondBadge,5); pAplat(pdf,x,y+hT-5,w,5,PDFC.fondBadge,0);
+  pTexte(pdf,x+pad,y+hT/2,titre,{taille:11,style:"bold",couleur:PDFC.encre,baseline:"middle"});
+  pTexte(pdf,x+w-pad,y+hT/2,String(items.length),{taille:11,style:"bold",couleur:PDFC.gris,align:"right",baseline:"middle"});
+  if(!lots.length){
+    pDecoupe(pdf,vide,w-2*pad,10.5,"normal").forEach((l,k)=>
+      pTexte(pdf,x+pad,yy+fz(10)+k*hl,l,{taille:10.5,couleur:PDFC.gris}));
+    return;
+  }
+  const bas=y+h-8;
+  for(const o of lots){
+    const reste=lots.length-n;
+    if(yy+o.h>bas-(reste>1?hl:0)) break;
+    pTexte(pdf,x+pad,yy+fz(10),o.it.date||"",{taille:10.5,style:"bold",couleur:PDFC.encre});
+    if(o.it.type) pTexte(pdf,x+pad,yy+fz(10)+hl,o.it.type,{taille:9,couleur:PDFC.gris});
+    o.l.forEach((l,k)=>pTexte(pdf,x+pad+wD,yy+fz(10)+k*hl,l,{taille:10.5,couleur:PDFC.encre}));
+    yy+=o.h; n++;
+    if(n<lots.length) pFiletH(pdf,x+pad,x+w-pad,yy-4,PDFC.trait);
+  }
+  if(n<lots.length)
+    pTexte(pdf,x+pad,bas-2,"… et "+(lots.length-n)+" autre"+(lots.length-n>1?"s":""),
+      {taille:9.5,couleur:PDFC.gris});
+}
+/* Réalisé (30 jours) / Prochaines étapes / Points d'attention, sous le planning
+   de la synthèse — mêmes règles que le diaporama */
+function pdfColonnesApercu(ctx,p,y){
+  const pdf=ctx.pdf, lw=PW-2*MX, gap=14, wc=(lw-2*gap)/3;
+  let A, RA;
+  try{ A=analyseComplete(p); RA=odpRealiseAVenir(p,A); }
+  catch(e){ console.warn("Coup d'œil indisponible : "+e.message); return y; }
+  const auj=aujourdHuiUTC();
+  const faits=RA.faits.map(f=>({date:odpJM(f.ts),texte:f.lib,type:f.t}));
+  const suite=(RA.avenir.length?RA.avenir:A.frise.ev.filter(e=>e.ts>=auj))
+    .map(e=>({date:odpJM(e.ts),texte:e.lib,type:e.type}));
+  const att=odpDemandesJournal(A);
+  const cols=[["Réalisé (30 jours)",faits,"Rien de terminé sur la période.","#ffffff"],
+              ["Prochaines étapes",suite,"Aucune échéance à venir.",PDFC.fondCom],
+              ["Points d'attention",att,"Aucune demande d'arbitrage ou d'exécution en attente.","#ffffff"]];
+  /* titre + au moins trois éléments par colonne : sinon, page suivante */
+  const mini=fz(14)+6+fz(22)+8+3*fz(30);
+  if(y+mini>ctx.yBas){ docPage(ctx); y=ctx.y; }
+  pTexte(pdf,MX,y+fz(10),"En un coup d'œil",{taille:12,style:"bold",couleur:PDFC.bleu});
+  y+=fz(14)+6;
+  const voulu=Math.max(...cols.map(c=>pdfColonne(pdf,0,0,wc,0,c[0],c[1],c[2],c[3],false)));
+  const h=Math.min(voulu,ctx.yBas-y);
+  cols.forEach((c,k)=>pdfColonne(pdf,MX+k*(wc+gap),y,wc,h,c[0],c[1],c[2],c[3],true));
+  ctx.y=y+h+14;
+  return ctx.y;
+}
+
+/* Fiche d'une action MEO, sur le modèle de sa diapositive de revue détaillée :
+   titre, anneau d'avancement et badges (porteur, statut | début, échéance,
+   fin), planning de l'action et de ses tâches, tableau des tâches, puis le
+   commentaire de l'action. */
 function dessinerFicheActionPdf(ctx,p,a,acts,numeros){
-  const c=S.cfg, pdf=ctx.pdf, lw=PW-2*MX;
+  const c=S.cfg, pdf=ctx.pdf, lw=PW-2*MX, t=c.tblMain;
   docPage(ctx);
   const n=numeros.get(a.id)||"";
-  const lib=lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)";
-  const lignesT=pDecoupe(pdf,"Action "+n+" — "+lib,lw,15,"bold");
+  const lib=lire(t,a,c.colLibelle)||"(action sans libellé)";
+  const lignesT=pDecoupe(pdf,(n?n+". ":"")+lib,lw,15,"bold");
   lignesT.forEach((l,k)=>pTexte(pdf,MX,ctx.y+fz(14)+k*fz(18),l,{taille:15,style:"bold",couleur:PDFC.bleu}));
   ctx.y+=fz(14)+(lignesT.length-1)*fz(18)+4;
   const axe=axeDe(a);
   if(axe){ pTexte(pdf,MX,ctx.y+fz(11),axe,{taille:11,couleur:PDFC.gris}); ctx.y+=fz(11)+4; }
   ctx.y+=10;
-  if(IMPR.sections.identite!==false) ctx.y=bandeauIdentite(ctx,a,MX,ctx.y,lw,"de l'action");
-  ctx.y=dessinerGantt(ctx,p,acts,numeros,MX,ctx.y,lw,{action:a,titre:"Planning"})+4;
-  if(!(c.tblTache && c.colTacheLien)) return;
-  const ts=tachesDe(a);
-  if(!ts.length) return;
-  const lignes=ts.map(k=>{
-    const av=pct(k[c.colTacheAvancement]), inter=statutInterrompu(c.tblTache,k,c.colTacheStatut);
-    const co=bandesImpr(av,inter);
-    return {cellules:{
-      lib:{type:"texte",t:lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"},
-      resp:{type:"texte",t:lire(c.tblTache,k,c.colTachePorteur)},
-      ech:{type:"texte",t:inter?"Interrompu":dateVersFR(k[c.colTacheFin]),couleur:inter?PDFC.gris:PDFC.encre},
-      avct:{type:"pastille",t:inter?"Interrompu":(av==null?"–":av+"%"),fond:co.pale,coul:co.txt},
-      com:{type:"texte",t:lire(c.tblTache,k,c.colTacheCommentaire),couleur:PDFC.gris}
-    }};
+
+  /* anneau et badges */
+  const av=pct(a[c.colAvancement]), inter=interrompu(a), y0=ctx.y;
+  pDonut(pdf,MX+46,y0+46,40,13,av,bandesImpr(av,inter).fill);
+  const colonnes=[
+    [["Porteur",esc0(lire(t,a,c.colPorteur)),null],
+     ["Statut",null,txt(lire(t,a,c.colStatut)).trim()]],
+    [["Début",esc0(dateVersFR(a[c.colDebut])),null],
+     ["Échéance",inter?"Interrompu":esc0(dateVersFR(a[c.colEch])),null],
+     ["Fin",esc0(dateVersFR(a[c.colFin])),null]]
+  ];
+  const xb=MX+120, gap=12, wc=Math.min(380,(lw-120-gap)/2);
+  let bas=y0;
+  colonnes.forEach((col,k)=>{
+    const cx=xb+k*(wc+gap);
+    const lc=col.filter(b=>b[1]||b[2]).reduce((m,b)=>Math.max(m,pLargeur(pdf,b[0]+" ",12,"normal")),0)+6;
+    let cy=y0;
+    col.forEach(([cle,valeur,pastille])=>{
+      if(!valeur && !pastille) return;
+      const lignes=pastille?[""]:pDecoupe(pdf,valeur,wc-22-lc,12,"bold");
+      const h=7+7+Math.max(fz(18),lignes.length*fz(15));
+      pAplat(pdf,cx,cy,wc,h,PDFC.fondBadge,6);
+      pTexte(pdf,cx+11,cy+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
+      if(pastille){
+        const pc=pastillePleineCouleurs(pastille,av,inter);
+        pPastille(pdf,cx+11+lc,cy+7+2,pastille,pc.fond,pc.coul,11);
+      }else lignes.forEach((l,i)=>pTexte(pdf,cx+11+lc,cy+7+fz(11)+i*fz(15),l,
+        {taille:12,style:"bold",couleur:PDFC.encre}));
+      cy+=h+7;
+    });
+    bas=Math.max(bas,cy-7);
   });
-  dessinerTableau(ctx,"Tâches",
-    [{cle:"lib",titre:"Tâche",w:330},{cle:"resp",titre:"Responsable",w:130},
-     {cle:"ech",titre:"Échéance",w:90},{cle:"avct",titre:"Avancement",w:100},
-     {cle:"com",titre:"Commentaire",w:lw-650}],lignes,MX,lw,false);
+  ctx.y=Math.max(bas,y0+92)+16;
+
+  /* planning de l'action et de ses tâches */
+  const ts=(c.tblTache && c.colTacheLien)?tachesDe(a):[];
+  if(ts.length) ctx.y=dessinerGantt(ctx,p,acts,numeros,MX,ctx.y,lw,{action:a,titre:"Planning"})+4;
+
+  /* tableau des tâches */
+  if(ts.length){
+    const lignes=ts.map(k=>{
+      const at=pct(k[c.colTacheAvancement]), it=statutInterrompu(c.tblTache,k,c.colTacheStatut);
+      const co=bandesImpr(at,it);
+      return {cellules:{
+        lib:{type:"texte",t:lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"},
+        avct:{type:"pastille",t:it?"Interrompu":(at==null?"–":at+"%"),fond:co.pale,coul:co.txt},
+        com:{type:"texte",t:c.colTacheCommentaire?lire(c.tblTache,k,c.colTacheCommentaire):"",couleur:PDFC.gris}
+      }};
+    });
+    dessinerTableau(ctx,"Tâches",
+      [{cle:"lib",titre:"Tâche",w:Math.round(lw*0.40)},{cle:"avct",titre:"Avancement",w:Math.round(lw*0.14)},
+       {cle:"com",titre:"Commentaire",w:lw-Math.round(lw*0.40)-Math.round(lw*0.14)}],lignes,MX,lw,false);
+  }
+
+  /* commentaire de l'action, en entier, à la suite */
+  const com=c.colCommentaire?lire(t,a,c.colCommentaire):"";
+  if(com && String(com).trim()){
+    titreSectionPdf(ctx,"Commentaire de l'action");
+    String(com).split(/\r?\n/).forEach(par=>{
+      if(!par.trim()){ ctx.y+=fz(6); return; }
+      paragraphePdf(ctx,par,{taille:11});
+    });
+  }
 }
 
 /* Inventaire des pièces jointes du projet, de ses actions, tâches, instances… */
@@ -11803,6 +11913,7 @@ function construireDoc(p){
            largeur, avec le même report en page dédiée s'il est trop long */
         if(IMPR.sections.commentaire) ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
+        if(IMPR.sections.apercu) ctx.y=pdfColonnesApercu(ctx,p,ctx.y);
         const xa=xg, wa=wg;
         /* La liste des actions n'a plus de case à elle : elle découle du
            réglage des tâches. Avec les tâches, les actions figurent déjà dans

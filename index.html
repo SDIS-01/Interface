@@ -10340,21 +10340,25 @@ const BLOCS_IMPR=[
   ["sommaire","Sommaire et signets"],
   ["synthese","Page de synthèse",
     [["identite","Identité"],["descriptif","Descriptif"],
-     ["planning","Planning"]]],
-  ["strategie","Stratégie SDACR / PE"],
+     ["commentaire","Commentaire du projet"],["planning","Planning"]]],
+  ["analyse","Analyse du projet",
+    [["anaTdb","Tableau de bord"],["anaFeux","Feu par action"],["anaReco","Recommandations"],
+     ["anaEch","Échéances à venir et en retard"]]],
+  ["planActions","Planning par action MEO"],
   ["detail","Actions MEO et tâches"],
   ["instances","Instances"],
   ["journal","Journal de bord"],
   ["budget","Budget"],
-  ["analyse","Analyse du projet",
-    [["anaTdb","Tableau de bord"],["anaFeux","Feu par action"],["anaReco","Recommandations"],
-     ["anaEch","Échéances à venir et en retard"]]],
   ["ressources","Inventaire des pièces jointes"],
-  ["sup","Pages additionnelles"]
+  ["sup","Pages additionnelles"],
+  ["strategie","Stratégie SDACR / PE"]
 ];
 /* blocs ajoutés par le dossier complet : décochés par défaut, la fiche
    projet reste donc identique pour qui ne touche à rien */
-const BLOCS_COMPLET=["sommaire","strategie","instances","budget","ressources"];
+const BLOCS_COMPLET=["sommaire","strategie","instances","budget","ressources","planActions"];
+/* version des réglages par défaut : une version enregistrée plus ancienne
+   reçoit une fois les nouveaux défauts (contenu et ordre du dossier complet) */
+const VERSION_DEFAUTS_IMPR=2;
 const ORDRE_DEFAUT=BLOCS_IMPR.map(b=>b[0]);
 
 /* Le diaporama a sa propre liste : ni instances, ni descriptif, ni pages
@@ -10384,9 +10388,9 @@ function ordrePptxValide(liste){
 const ZOOMS_IMPR=[["1","Normale"],["1.15","Grande"],["1.3","Très grande"],["1.45","Maximale"]];
 
 const IMPR={
-  sections:{synthese:true,identite:true,descriptif:true,planning:true,actions:true,
-            detail:true,journal:true,analyse:false,anaTdb:true,anaFeux:true,anaReco:true,anaEch:true,sup:true,
-            sommaire:false,strategie:false,instances:false,budget:false,ressources:false},
+  sections:{synthese:true,identite:true,descriptif:true,commentaire:false,planning:true,actions:true,
+            detail:true,journal:true,analyse:true,anaTdb:true,anaFeux:false,anaReco:false,anaEch:false,sup:true,
+            sommaire:true,strategie:true,instances:true,budget:true,ressources:false,planActions:true},
   ordre:ORDRE_DEFAUT.slice(),
   zoom:1,
   lisible:true,          // corps du texte à 16 pt
@@ -10410,12 +10414,13 @@ function chargerOptionsImpr(){
     const o=JSON.parse(localStorage.getItem("cp-impression")||"null");
     if(!o) return;
     if(o.sections) Object.assign(IMPR.sections,o.sections);
+    if((o.versionDefauts||0)<VERSION_DEFAUTS_IMPR) appliquerDefautsImpr();
     /* reprise d'un réglage enregistré par une version antérieure */
     if(o.sections && o.sections.actions!==undefined && o.sections.detail===undefined)
       IMPR.sections.detail=o.sections.actions;
     if(o.sections && o.sections.synthese!==undefined && o.sections.identite===undefined)
       IMPR.sections.identite=o.sections.synthese;
-    if(Array.isArray(o.ordre)) IMPR.ordre=ordreValide(o.ordre);
+    if(Array.isArray(o.ordre) && (o.versionDefauts||0)>=VERSION_DEFAUTS_IMPR) IMPR.ordre=ordreValide(o.ordre);
     if(o.zoom) IMPR.zoom=Number(o.zoom)||1;
     if(o.lisible!==undefined) IMPR.lisible=!!o.lisible;
     if(o.planningTaches!==undefined) IMPR.planningTaches=!!o.planningTaches;
@@ -10448,7 +10453,7 @@ if(IMPR.instancePptx===undefined) IMPR.instancePptx="";
 function enregistrerOptionsImpr(){
   sauverAuto();
   try{ localStorage.setItem("cp-impression",JSON.stringify(
-    {sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
+    {versionDefauts:VERSION_DEFAUTS_IMPR,sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
      planningTaches:IMPR.planningTaches, taches:IMPR.taches,
      sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
      pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
@@ -10548,13 +10553,21 @@ function rendreBlocsImpr(){
 
 /* --- préréglages : fiche projet (contenu historique) ou dossier complet --- */
 const PRESETS_IMPR={
-  fiche:{synthese:true,identite:true,descriptif:true,planning:true,detail:true,
+  fiche:{synthese:true,identite:true,descriptif:true,commentaire:true,planning:true,detail:true,
          journal:true,analyse:false,sup:true,
-         sommaire:false,strategie:false,instances:false,budget:false,ressources:false},
-  complet:{synthese:true,identite:true,descriptif:true,planning:true,detail:true,
-           journal:true,analyse:true,anaTdb:true,anaFeux:true,anaReco:true,anaEch:true,sup:true,
-           sommaire:true,strategie:true,instances:true,budget:true,ressources:true}
+         sommaire:false,strategie:false,instances:false,budget:false,ressources:false,planActions:false},
+  /* dossier complet = réglage par défaut : planning de synthèse sans commentaire,
+     analyse réduite au tableau de bord juste après, un planning par action MEO,
+     stratégie en fin de document, pas d'inventaire des pièces jointes */
+  complet:{synthese:true,identite:true,descriptif:true,commentaire:false,planning:true,detail:true,
+           journal:true,analyse:true,anaTdb:true,anaFeux:false,anaReco:false,anaEch:false,sup:true,
+           sommaire:true,strategie:true,instances:true,budget:true,ressources:false,planActions:true}
 };
+function appliquerDefautsImpr(){
+  Object.assign(IMPR.sections,PRESETS_IMPR.complet);
+  IMPR.ordre=ORDRE_DEFAUT.slice();
+  IMPR.planningTaches=false;
+}
 function presetCourant(){
   return Object.keys(PRESETS_IMPR).find(nom=>{
     const p=PRESETS_IMPR[nom];
@@ -10571,6 +10584,7 @@ function appliquerPresetImpr(nom){
   Object.assign(IMPR.sections,PRESETS_IMPR[nom]);
   /* le dossier complet couvre tout le projet, pas seulement les actions filtrées */
   if(nom==="complet"){
+    IMPR.ordre=ORDRE_DEFAUT.slice();
     IMPR.portee="toutes";
     document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value==="toutes"));
   }
@@ -11070,13 +11084,30 @@ function libelleColonneBrut(tableId,colId){
    Même construction qu'à l'écran (vuePlanning) — un projet sans action MEO mais
    avec des tâches produit donc bien un planning, ce qui n'était pas le cas
    auparavant : seules les actions étaient prises en compte. */
-function rangsGantt(p,acts,numeros){
+/* Planning de synthèse : avec des actions MEO, le projet, ses axes s'il y en
+   a, puis ses actions (les tâches seulement si la case « Les faire figurer
+   aussi dans le planning » est cochée) ; sans action MEO, le projet et ses
+   tâches. Avec o.action : le planning d'une seule action et de ses tâches. */
+function rangsGantt(p,acts,numeros,o){
+  o=o||{};
   const c=S.cfg, out=[];
+  if(o.action){
+    const a=o.action, b0={d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null};
+    out.push({r:a,niv:0,tache:false,d:b0.d,f:b0.f,
+      lib:(numeros.get(a.id)?numeros.get(a.id)+". ":"")+lire(c.tblMain,a,c.colLibelle),
+      av:pct(a[c.colAvancement]),inter:interrompu(a)});
+    tachesDe(a).forEach(t=>{
+      const d=Number(t[c.colTacheDebut])||null, f=Number(t[c.colTacheFin])||null;
+      out.push({r:t,niv:1,tache:true,d,f,lib:lire(c.tblTache,t,c.colTacheLibelle),
+        av:pct(t[c.colTacheAvancement]),inter:statutInterrompu(c.tblTache,t,c.colTacheStatut)});
+    });
+    return out.filter(z=>z.d||z.f);
+  }
   const bornes=(r,tache)=>({
     d:Number(tache?r[c.colTacheDebut]:r[c.colDebut])||null,
     f:Number(tache?r[c.colTacheFin]:(r[c.colFin]||r[c.colEch]))||null
   });
-  const avecTaches=!!IMPR.planningTaches;
+  const avecTaches=!!IMPR.planningTaches || !acts.length;
   const pousser=(r,niv,tache,prefixe)=>{
     if(tache && !avecTaches) return;
     const b=bornes(r,tache);
@@ -11088,9 +11119,20 @@ function rangsGantt(p,acts,numeros){
   };
   pousser(p,0,false,"");
   tachesDe(p).forEach(t=>pousser(t,1,true,""));
-  acts.forEach(a=>{
-    pousser(a,1,false,(numeros.get(a.id)||"")+".");
-    tachesDe(a).forEach(t=>pousser(t,2,true,""));
+  const groupes=groupesParAxe(acts);
+  const poserActions=(l,niv)=>l.forEach(a=>{
+    pousser(a,niv,false,(numeros.get(a.id)||"")+".");
+    tachesDe(a).forEach(t=>pousser(t,niv+1,true,""));
+  });
+  if(!groupes) poserActions(acts,1);
+  else groupes.forEach(g=>{
+    /* rang d'axe : il couvre ses actions, avec leur avancement moyen */
+    const bs=g.acts.map(a=>({d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null}));
+    const ds=bs.map(b=>b.d||b.f).filter(Boolean), fs=bs.map(b=>b.f||b.d).filter(Boolean);
+    out.push({r:null,niv:1,tache:false,axe:true,
+      d:ds.length?Math.min(...ds):null, f:fs.length?Math.max(...fs):null,
+      lib:g.axe||"Sans axe", av:moyenneAxe(g.acts), inter:false});
+    poserActions(g.acts,2);
   });
   return out.filter(z=>z.d||z.f);
 }
@@ -11133,11 +11175,13 @@ function dessinerDescriptif(ctx,p,x,y,w){
   return y+12;
 }
 
-function dessinerGantt(ctx,p,acts,numeros,x,y,w){
-  const pdf=ctx.pdf;
+function dessinerGantt(ctx,p,acts,numeros,x,y,w,o){
+  o=o||{};
+  const pdf=ctx.pdf, titreG=o.titre||"Planning";
   ctx.ganttPagine=false;
-  const datees=rangsGantt(p,acts,numeros);
-  const ins=reperesGantt(p);
+  const datees=rangsGantt(p,acts,numeros,o);
+  const ins=o.action?[]:reperesGantt(p);
+  if(!datees.length && y+fz(40)>ctx.yBas){ docPage(ctx); x=MX; w=PW-2*MX; y=ctx.y; }
 
   /* Il faut de la place pour le titre, l'échelle et au moins deux rangs.
      Sinon seul l'en-tête s'écrivait en bas de page et tout le planning
@@ -11151,11 +11195,12 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
     }
   }
 
-  pTexte(pdf,x,y+fz(10),"Planning",{taille:12,style:"bold",couleur:PDFC.bleu});
+  pTexte(pdf,x,y+fz(10),titreG,{taille:12,style:"bold",couleur:PDFC.bleu});
   y+=fz(14)+6;
 
   if(!datees.length){
-    pTexte(pdf,x,y+fz(8),"Aucune date renseignée sur le projet, ses actions ou ses tâches.",
+    pTexte(pdf,x,y+fz(8),o.action?"Aucune date renseignée sur l'action ou ses tâches."
+      :"Aucune date renseignée sur le projet, ses actions ou ses tâches.",
       {taille:11,couleur:PDFC.vide});
     return y+fz(22);
   }
@@ -11225,16 +11270,17 @@ function dessinerGantt(ctx,p,acts,numeros,x,y,w){
       docPage(ctx);
       cx=MX; cw=PW-2*MX; poser();
       ctx.ganttPagine=true;              // la colonne d'identité est restée page 1
-      pTexte(pdf,cx,ctx.y+fz(10),"Planning (suite)",
+      pTexte(pdf,cx,ctx.y+fz(10),titreG+" (suite)",
         {taille:12,style:"bold",couleur:PDFC.bleu});
       y=enTete(ctx.y+fz(14)+6);
       yHaut=y;
     }
     const co=bandesImpr(z.av,z.inter);
-    const lib=pDecoupe(pdf,z.lib||"(sans libellé)",xn-6-z.niv*8,tl,z.niv===0?"bold":"normal")[0];
+    const gras=z.niv===0||z.axe;
+    const lib=pDecoupe(pdf,z.lib||"(sans libellé)",xn-6-z.niv*8,tl,gras?"bold":"normal")[0];
     pTexte(pdf,cx+z.niv*8,y+hl/2,lib,
-      {taille:tl,style:z.niv===0?"bold":"normal",
-       couleur:z.niv===0?PDFC.bleu:(z.tache?PDFC.gris:PDFC.encre),baseline:"middle"});
+      {taille:tl,style:gras?"bold":"normal",
+       couleur:z.niv===0?PDFC.bleu:(z.axe?PDFC.traitFort:(z.tache?PDFC.gris:PDFC.encre)),baseline:"middle"});
     const g=pos(z.d||z.f);
     const lb=Math.max(6,Math.min(wp-g,pos(z.f||z.d)-g));
     pAplat(pdf,xp+g,y+db,lb,hb,co.pale,3);
@@ -11665,6 +11711,7 @@ function dessinerRessourcesPdf(ctx,p){
    cliquables et reprises en signets dans le volet de navigation du PDF. */
 const SOMMAIRE_LIB={synthese:"Synthèse",strategie:"Stratégie SDACR / PE",
   instances:"Instances",journal:"Journal de bord",budget:"Budget",
+  planActions:"Planning par action MEO",
   analyse:"Analyse du projet",ressources:"Inventaire des pièces jointes",
   sup:"Pages additionnelles"};
 function remplirSommaire(ctx,entrees){
@@ -11729,7 +11776,7 @@ function construireDoc(p){
         if(IMPR.sections.descriptif) ctx.y=dessinerDescriptif(ctx,p,xg,ctx.y,wg);
         /* le commentaire suivait la colonne d'identité : il passe en pleine
            largeur, avec le même report en page dédiée s'il est trop long */
-        ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
+        if(IMPR.sections.commentaire) ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
         if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
         const xa=xg, wa=wg;
         /* La liste des actions n'a plus de case à elle : elle découle du
@@ -11784,6 +11831,17 @@ function construireDoc(p){
         ctx.sommaire={page:ctx.pages,y:ctx.y,yBas:ctx.yBas};
       },
       strategie:()=>dessinerStrategiePdf(ctx,p),
+      /* un planning par action MEO, avec ses tâches ; les suivants
+         s'enchaînent sur la même page tant qu'il y a la place */
+      planActions:()=>{
+        if(!acts.length) return;
+        docPage(ctx);
+        acts.forEach(a=>{
+          const lib=lire(c.tblMain,a,c.colLibelle)||"(action sans libellé)";
+          ctx.y=dessinerGantt(ctx,p,acts,numeros,MX,ctx.y,PW-2*MX,
+            {action:a,titre:"Planning — "+(numeros.get(a.id)||"")+". "+lib})+6;
+        });
+      },
       instances:()=>dessinerInstancesPdf(ctx,p),
       budget:()=>dessinerBudgetPdf(ctx,p),
       ressources:()=>dessinerRessourcesPdf(ctx,p)
@@ -12609,7 +12667,7 @@ let sauveEnCours=null, sauveDemandee=false;
 
 function paquetOptions(){
   return {cfg:S.cfg,
-          impr:{sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,
+          impr:{versionDefauts:VERSION_DEFAUTS_IMPR,sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,
                 lisible:IMPR.lisible,planningTaches:IMPR.planningTaches,
                 taches:IMPR.taches,
                 sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
@@ -14936,7 +14994,8 @@ async function demarrer(){
     if(o && o.notifBase) S.notifBase=o.notifBase;
     if(o && o.impr){
       if(o.impr.sections) Object.assign(IMPR.sections,o.impr.sections);
-      if(Array.isArray(o.impr.ordre)) IMPR.ordre=ordreValide(o.impr.ordre);
+      if((o.impr.versionDefauts||0)<VERSION_DEFAUTS_IMPR) appliquerDefautsImpr();
+      else if(Array.isArray(o.impr.ordre)) IMPR.ordre=ordreValide(o.impr.ordre);
       if(o.impr.zoom) IMPR.zoom=Number(o.impr.zoom)||1;
       if(o.impr.lisible!==undefined) IMPR.lisible=!!o.impr.lisible;
       if(o.impr.planningTaches!==undefined) IMPR.planningTaches=!!o.impr.planningTaches;

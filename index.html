@@ -11356,7 +11356,7 @@ function nTable(ctx,titre,cols,lignes,o){
     cols.forEach(c=>{
       const t=nCoupe(pdf,String(c.t||"").toUpperCase(),c.lw-10,9.5,"bold",1)[0]||"";
       if(o.grille && cx===x) nR(pdf,x,ctx.y,W,19,NC.taupe);
-      nT(pdf,c.align==="right"?cx+c.lw-6:cx+6,ctx.y+12.5,t,{px:9.5,style:"bold",c:o.grille?"#ffffff":NC.taupe,align:c.align||"left"});
+      nT(pdf,c.align==="right"?cx+c.lw-6:cx+6+(c.pad||0),ctx.y+12.5,t,{px:9.5,style:"bold",c:o.grille?"#ffffff":NC.taupe,align:c.align||"left"});
       cx+=c.lw;
     });
     ctx.y+=19;
@@ -11389,8 +11389,9 @@ function nTable(ctx,titre,cols,lignes,o){
         }else if(v.type==="pastille"){
           if(v.t) nPastille(pdf,cx+6,ctx.y+5+px,v.t,v.fond,v.coul,10.5);
         }else if(v.type==="feu"){
-          nRond(pdf,cx+10,ctx.y+5+px-3.5,4,v.point||v.coul);
-          nT(pdf,cx+18,ctx.y+5+px,v.t,{px:10.5,style:"bold",c:v.coul});
+          /* décalé de la colonne précédente (pourcentage aligné à droite) */
+          nRond(pdf,cx+22,ctx.y+5+px-3.5,4,v.point||v.coul);
+          nT(pdf,cx+30,ctx.y+5+px,v.t,{px:10.5,style:"bold",c:v.coul});
         }else lignesDe(v,c).forEach((l,k)=>
           nT(pdf,c.align==="right"?cx+c.lw-6:cx+6,ctx.y+5+px+k*lh,l,{px:v.px||px,style:v.style,c:v.c||NC.encre,align:c.align||"left"}));
       }
@@ -11911,10 +11912,11 @@ function nPlanningActions(ctx,FX,acts){
     /* statut et délai prennent la largeur de leur contenu : la place gagnée
        revient au libellé de l'action */
     const pdf=ctx.pdf, act=lignes.filter(l=>l.cel);
-    const wStat=Math.max(nW(pdf,"STATUT",9.5,"bold")+14,...act.map(l=>nW(pdf,l.cel.stat.t||"",10.5,"bold")+30));
-    const wDel=Math.max(nW(pdf,"DÉLAI",9.5,"bold")+14,...act.map(l=>nW(pdf,l.cel.del.t||"",11.5,l.cel.del.style)+16));
+    /* largeur du contenu, plus une marge pour aérer les colonnes */
+    const wStat=Math.max(nW(pdf,"STATUT",9.5,"bold")+14,...act.map(l=>nW(pdf,l.cel.stat.t||"",10.5,"bold")+42))+18;
+    const wDel=Math.max(nW(pdf,"DÉLAI",9.5,"bold")+14,...act.map(l=>nW(pdf,l.cel.del.t||"",11.5,l.cel.del.style)+16))+16;
     nTable(ctx,"Actions MEO",[{k:"n",t:"",w:28},{k:"lib",t:"Action"},{k:"por",t:"Porteur",w:150},
-      {k:"ech",t:"Échéance",w:84},{k:"av",t:"Avancement",w:140},{k:"stat",t:"Statut",w:Math.ceil(wStat)},{k:"del",t:"Délai",w:Math.ceil(wDel)}],
+      {k:"ech",t:"Échéance",w:100},{k:"av",t:"Avancement",w:156},{k:"stat",t:"Statut",w:Math.ceil(wStat),pad:12},{k:"del",t:"Délai",w:Math.ceil(wDel)}],
       lignes,{});
   }else if(tachesP.length){
     nTable(ctx,"Tâches du projet",nColsTaches(),tachesP.map(nLigneTache),{});
@@ -15464,7 +15466,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-k — impression PDF, coup d'œil modifiable avant l'édition";
+const VERSION="2026-10-14-l — impression PDF, coup d'œil modifiable avant l'édition";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

@@ -67,8 +67,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   margin-right:8px;}
 /* les deux exports se distinguent par leur couleur : rouge pour le PDF,
    orange clair pour le diaporama */
-.btn-top.btn-pdf{background:#6A3D9A;color:#fff;border-color:#6A3D9A;}
-.btn-top.btn-pdf:hover{background:#552F7D;border-color:#552F7D;}
+.btn-top.btn-pdf{background:#F5A623;color:#3d2600;border-color:#F5A623;font-weight:bold;}
+.btn-top.btn-pdf:hover{background:#E0921A;border-color:#E0921A;}
 .btn-top.btn-diapo{background:#FBD9A8;color:#7A4A10;border-color:#FBD9A8;}
 .btn-top.btn-diapo:hover{background:#F7C87F;border-color:#F7C87F;}
 .btn-top.btn-pf{background:#C0504D;color:#fff;border-color:#C0504D;font-weight:bold;}
@@ -15721,7 +15721,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-o — PDF et diaporama issus du même gabarit, bouton unique";
+const VERSION="2026-10-14-p — PDF et diaporama issus du même gabarit, bouton unique";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

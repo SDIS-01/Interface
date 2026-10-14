@@ -1258,6 +1258,10 @@ tbody tr.ligne-com:hover{background:transparent;}
 /* ---------- Blocs et ordre des pages du PDF ---------- */
 .nr-raz-info{padding:6px 18px;font-size:11.5px;color:var(--gris);background:var(--fond);border-bottom:1px solid var(--trait);}
 .nr-raz-arme{background:#C0504D!important;color:#fff!important;border-color:#C0504D!important;}
+.impr-sortie{display:flex;border:1px solid var(--bleu);border-radius:7px;overflow:hidden;margin-bottom:14px;}
+.impr-sortie button{flex:1;border:0;background:#fff;color:var(--bleu);font:inherit;font-weight:bold;padding:8px;cursor:pointer;}
+.impr-sortie button+button{border-left:1px solid var(--bleu);}
+.impr-sortie button.sel{background:var(--bleu);color:#fff;}
 .impr-choix{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
 .impr-carte{display:flex;flex-direction:column;gap:5px;text-align:left;font:inherit;background:#fff;
   border:2px solid #e2ddd6;border-radius:8px;padding:12px 14px;cursor:pointer;color:var(--texte,#1c2330);}
@@ -1623,11 +1627,9 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
   <span id="btns-barre"></span>
   <!-- Visibilité pilotée par la case « Afficher le bouton PDF » des réglages. -->
   <button class="btn-top btn-impr btn-pdf" id="btn-imprimer" hidden
-          title="Générer le PDF de la fiche du projet sélectionné"><svg width="13" height="13" viewBox="0 0 24 24"
+          title="Imprimer en PDF ou exporter en diaporama le projet sélectionné"><svg width="13" height="13" viewBox="0 0 24 24"
     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-    aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg> PDF</button>
-  <button class="btn-top btn-impr btn-diapo" id="btn-pptx"
-    title="Exporter en diaporama Impress">Diaporama</button>
+    aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg> PDF / Diaporama</button>
   <button class="btn-top btn-pf" id="btn-ana-pf"
     title="Analyse de tous les projets affichés : météo, score, retards, charge">Analyse portefeuille</button>
   <button class="btn-top btn-xlsx" id="btn-xlsx-ech"
@@ -1879,8 +1881,12 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
 
 <div class="voile" id="voile-impr">
   <div class="modale" style="width:min(580px,100%)">
-    <header>Imprimer le projet</header>
+    <header>Imprimer ou exporter le projet</header>
     <div class="corps-modale">
+      <div class="impr-sortie" role="radiogroup" aria-label="Sortie">
+        <button type="button" data-sortie="pdf" role="radio">PDF</button>
+        <button type="button" data-sortie="odp" role="radio">Diaporama Impress</button>
+      </div>
       <div class="impr-choix" role="radiogroup" aria-label="Document à produire">
         <button type="button" class="impr-carte" data-doc="codir" role="radio">
           <span class="ic-t">Note CODIR <em id="impr-nb-codir">2 pages</em></span>
@@ -1902,11 +1908,11 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
       </div>
     </div>
     <footer class="impr-pied">
-      <label class="impr-pj" id="impr-pj-lab"><input type="checkbox" id="impr-pj"> Joindre le PDF au projet</label>
+      <label class="impr-pj" id="impr-pj-lab"><input type="checkbox" id="impr-pj"> Joindre le fichier au projet</label>
       <span class="ap-espace"></span>
       <button class="btn-2" id="impr-annuler">Annuler</button>
       <button class="btn-2" id="impr-apercu">Aperçu</button>
-      <button class="btn" id="impr-lancer">Générer le PDF</button>
+      <button class="btn" id="impr-lancer">Générer</button>
     </footer>
   </div>
 </div>
@@ -10372,6 +10378,7 @@ const IMPR={
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
   instancesGarde:null,
+  sortie:"pdf",          // "pdf" ou "odp" (diaporama Impress)
   doc:"codir",           // document PDF : "codir" (note de 2 pages) ou "complet"
   optsPdf:{instances:true,journal:true,budget:true,sup:true}   // options du dossier complet
 };
@@ -10379,6 +10386,7 @@ const IMPR={
 function reprendreReglagesPdf(o){
   if(!o) return;
   if(o.doc==="codir"||o.doc==="complet") IMPR.doc=o.doc;
+  if(o.sortie==="pdf"||o.sortie==="odp") IMPR.sortie=o.sortie;
   if(o.optsPdf && typeof o.optsPdf==="object") Object.assign(IMPR.optsPdf,o.optsPdf);
 }
 
@@ -10430,7 +10438,7 @@ function enregistrerOptionsImpr(){
     {versionDefauts:VERSION_DEFAUTS_IMPR,sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
      planningTaches:IMPR.planningTaches, taches:IMPR.taches,
      sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
-     pieceJointe:IMPR.pieceJointe,portee:IMPR.portee,doc:IMPR.doc,optsPdf:IMPR.optsPdf})); }catch(e){}
+     pieceJointe:IMPR.pieceJointe,portee:IMPR.portee,doc:IMPR.doc,optsPdf:IMPR.optsPdf,sortie:IMPR.sortie})); }catch(e){}
 }
 
 
@@ -10459,6 +10467,8 @@ function ouvrirImpression(){
   lab.classList.toggle("desactive",!dispo);
   lab.title=dispo?"":"Aucune colonne « Pièces jointes » paramétrée sur la table principale.";
   document.querySelectorAll(".impr-carte").forEach(b=>b.onclick=()=>choisirDocImpr(b.dataset.doc));
+  document.querySelectorAll(".impr-sortie [data-sortie]").forEach(b=>b.onclick=()=>choisirSortieImpr(b.dataset.sortie));
+  choisirSortieImpr(IMPR.sortie);
   choisirDocImpr(IMPR.doc);
   majNbPagesComplet();
   majBadgesCdo(p);
@@ -10475,6 +10485,16 @@ function majBadgesCdo(p){
   el.innerHTML=(n?'<em class="ic-mod">'+n+' retouche'+s(n)+'</em>':'')+
     (C.retouche && C.nbNeuf?'<em class="ic-neuf">'+C.nbNeuf+' nouveau'+(C.nbNeuf>1?"x":"")+'</em>':'');
 }
+function choisirSortieImpr(s){
+  IMPR.sortie=s==="odp"?"odp":"pdf";
+  document.querySelectorAll(".impr-sortie [data-sortie]").forEach(b=>{
+    const sel=b.dataset.sortie===IMPR.sortie;
+    b.classList.toggle("sel",sel); b.setAttribute("aria-checked",sel?"true":"false");
+  });
+  const l=$("#impr-lancer");
+  if(l) l.textContent=IMPR.sortie==="odp"?"Générer le diaporama":"Générer le PDF";
+  majNbPagesComplet();
+}
 function choisirDocImpr(doc){
   IMPR.doc=doc==="complet"?"complet":"codir";
   document.querySelectorAll(".impr-carte").forEach(b=>{
@@ -10490,9 +10510,10 @@ function majNbPagesComplet(){
   el.textContent="";
   if(!window.jspdf || !S.projetSel) return;
   try{
-    const d=construireDoc(S.projetSel,{doc:"complet"}); el.textContent=d.pages+" pages";
-    const n=construireDoc(S.projetSel,{doc:"codir"}).pages, ec=$("#impr-nb-codir");
-    if(ec) ec.textContent=n+" page"+(n>1?"s":"");
+    const f=IMPR.sortie==="odp", u=f?" diapositive":" page";
+    const d=construireDoc(S.projetSel,{doc:"complet",format43:f}); el.textContent=d.pages+u+"s";
+    const n=construireDoc(S.projetSel,{doc:"codir",format43:f}).pages, ec=$("#impr-nb-codir");
+    if(ec) ec.textContent=n+u+(n>1?"s":"");
   }catch(e){ console.warn("Comptage des pages : "+e.message); }
 }
 
@@ -10721,7 +10742,7 @@ function actionsImpression(p){
 
 /* --- primitives de dessin ------------------------------------------------ */
 
-const PW=1123, PH=794, MX=30;                 // page et marges latérales
+let PW=1123, PH=794; const MX=30;   // page (PW passe à 1059 pour le format 28 x 21 du diaporama)                 // page et marges latérales
 const H_BANDEAU=122.93, H_PIED_IMG=119.64;
 
 /* Facteur d'échelle du texte. La pagination étant calculée à partir des
@@ -10957,8 +10978,9 @@ function cdoDessinerPage(cv,ops){
       g.textBaseline=o.bl==="middle"?"middle":"alphabetic";
       g.fillText(o.t,o.x,o.y);
     }else if(o.o==="i"){
-      logo.onload=()=>g.drawImage(logo,o.x,o.y,o.w,o.h);
-      logo.src=IMG_LOGO_SDIS;
+      const im=new Image();
+      im.onload=()=>g.drawImage(im,o.x,o.y,o.w,o.h);
+      im.src=o.src||IMG_LOGO_SDIS;
     }
   });
 }
@@ -11097,6 +11119,179 @@ function cdoRendre(){
   };
 }
 
+/* =======================================================================
+   Sortie diaporama (Impress, .odp) du même document que le PDF
+   =======================================================================
+   Le diaporama n'a pas de mise en page à lui : la mise en page du PDF est
+   rejouée sur un « faux » jsPDF qui, au lieu d'écrire un PDF, collecte les
+   tracés (textes, aplats, filets, images) page par page. Ils deviennent
+   ensuite des formes Impress, une diapositive par page, au format 28 x 21 cm
+   du modèle. Les lignes consécutives d'un même paragraphe sont regroupées
+   dans un seul bloc de texte, pour rester faciles à corriger dans Impress.
+   Les mesures de texte sont confiées à un vrai jsPDF (Helvetica) ; les
+   diapositives sont écrites en Arial, de mêmes largeurs, pour que les
+   retours à la ligne tombent au même endroit. */
+const ODPS={W:28, H:21, police:"Arial"};
+function odpSortieNouvelle(){
+  const m=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",format:[PW,PH]});
+  const B={internal:{scaleFactor:m.internal.scaleFactor},pages:[[]],cur:0,
+    st:"normal",taille:12,coulT:"#000000",fill:"#000000",draw:"#000000",lw:1};
+  const pousser=o=>B.pages[B.cur].push(o);
+  B.setFont=(f,st)=>{ m.setFont(f,st); B.st=st||"normal"; };
+  B.setFontSize=s=>{ m.setFontSize(s); B.taille=s; };
+  B.setTextColor=c=>{ B.coulT=c; };
+  B.getTextWidth=t=>m.getTextWidth(t);
+  B.splitTextToSize=(t,w)=>m.splitTextToSize(t,w);
+  B.setFillColor=c=>{ B.fill=c; };
+  B.setDrawColor=c=>{ B.draw=c; };
+  B.setLineWidth=w=>{ B.lw=w; };
+  B.setLineDashPattern=()=>{};
+  B.text=(t,x,y,o)=>{ o=o||{};
+    pousser({o:"t",t:String(t),x,y,px:B.taille/B.internal.scaleFactor,st:B.st,c:B.coulT,
+      al:o.align||"left",bl:o.baseline||"alphabetic",w:m.getTextWidth(String(t))}); };
+  B.rect=(x,y,w,h,mode)=>pousser({o:"r",x,y,w,h,r:0,f:mode!=="S"?B.fill:null,s:mode==="S"||mode==="FD"?B.draw:null,lw:B.lw});
+  B.roundedRect=(x,y,w,h,rx,ry,mode)=>pousser({o:"r",x,y,w,h,r:rx,f:mode!=="S"?B.fill:null,s:mode==="S"||mode==="FD"?B.draw:null,lw:B.lw});
+  B.line=(x1,y1,x2,y2)=>pousser({o:"l",x1,y1,x2,y2,s:B.draw,lw:B.lw});
+  B.circle=(x,y,r,mode)=>pousser({o:"c",x,y,r,f:mode!=="S"?B.fill:null});
+  B.lines=(segs,x,y,ech,mode)=>{
+    const pts=[[x,y]]; let cx=x, cy=y;
+    segs.forEach(s=>{ cx+=s[0]; cy+=s[1]; pts.push([cx,cy]); });
+    pousser({o:"p",pts,f:B.fill});
+  };
+  B.addImage=(data,fmt,x,y,w,h)=>pousser({o:"i",data:String(data),x,y,w,h});
+  B.addPage=()=>{ B.pages.push([]); B.cur=B.pages.length-1; };
+  B.setPage=n=>{ B.cur=Math.max(0,Math.min(B.pages.length-1,n-1)); };
+  B.getNumberOfPages=()=>B.pages.length;
+  B.link=()=>{};
+  B.outline={add:()=>null};
+  B.estOdp=true;
+  return B;
+}
+/* --- écriture du fichier ------------------------------------------------- */
+function odpsCm(v){ return (v*ODPS.H/PH).toFixed(3)+"cm"; }
+function odpsPt(px){ return (px*ODPS.H/PH/0.0352778).toFixed(2)+"pt"; }
+/* les espaces multiples ou en bord de ligne doivent être écrits explicitement en ODF */
+function odpsEspaces(s){
+  return s.replace(/^ +| +$| {2,}/g,m=>'<text:s text:c="'+m.length+'"/>');
+}
+function odpsEsc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+/* regroupe les lignes successives d'un même paragraphe */
+function odpsBlocs(ops){
+  const out=[]; let bloc=null;
+  ops.forEach(o=>{
+    if(o.o!=="t"){ bloc=null; out.push(o); return; }
+    if(!String(o.t).trim()){ return; }
+    const y=o.bl==="middle"?o.y+0.3465*o.px:o.y;
+    const dernier=bloc&&bloc.lignes[bloc.lignes.length-1];
+    const suite=bloc && Math.abs(o.x-bloc.x)<0.6 && o.al===bloc.al && Math.abs(o.px-bloc.px)<0.01 &&
+      o.st===bloc.st && o.c===bloc.c && (y-dernier.y)>o.px*0.95 && (y-dernier.y)<o.px*1.9 &&
+      (bloc.lignes.length<2 || Math.abs((y-dernier.y)-bloc.pas)<0.6);
+    if(suite){
+      if(bloc.lignes.length===1) bloc.pas=y-dernier.y;
+      bloc.lignes.push({t:o.t,y,w:o.w});
+    }else{
+      bloc={o:"b",x:o.x,al:o.al,px:o.px,st:o.st,c:o.c,lignes:[{t:o.t,y,w:o.w}],pas:0};
+      out.push(bloc);
+    }
+  });
+  return out;
+}
+function odpsEcrire(B,nom){
+  const styles=new Map(), styleDe=(cle,xml)=>{ if(!styles.has(cle)) styles.set(cle,{nom:"a"+styles.size,xml}); return styles.get(cle).nom; };
+  const images=new Map(); const imageDe=data=>{
+    if(!images.has(data)){ const ext=/^data:image\/jpe?g/.test(data)?"jpg":"png"; images.set(data,"Pictures/i"+images.size+"."+ext); }
+    return images.get(data);
+  };
+  const gr=(f,s,lw)=>styleDe("g|"+f+"|"+s+"|"+lw,
+    '<style:style style:name="§" style:family="graphic"><style:graphic-properties '+
+    (f?'draw:fill="solid" draw:fill-color="'+f+'"':'draw:fill="none"')+' '+
+    (s?'draw:stroke="solid" svg:stroke-color="'+s+'" svg:stroke-width="'+odpsCm(lw||0.8)+'"':'draw:stroke="none"')+
+    ' draw:shadow="hidden"/></style:style>');
+  const grTexte=()=>styleDe("gt",
+    '<style:style style:name="§" style:family="graphic"><style:graphic-properties draw:fill="none" draw:stroke="none" '+
+    'draw:auto-grow-height="false" draw:auto-grow-width="false" fo:min-height="0cm" fo:padding-top="0cm" fo:padding-bottom="0cm" '+
+    'fo:padding-left="0cm" fo:padding-right="0cm" draw:textarea-vertical-align="top" draw:shadow="hidden"/></style:style>');
+  const para=(al,pas)=>styleDe("p|"+al+"|"+pas,
+    '<style:style style:name="§" style:family="paragraph"><style:paragraph-properties fo:text-align="'+
+    (al==="right"?"end":(al==="center"?"center":"start"))+'" fo:line-height="'+odpsCm(pas)+'" fo:margin-top="0cm" fo:margin-bottom="0cm"/></style:style>');
+  const texte=(px,st,c)=>styleDe("t|"+px.toFixed(2)+"|"+st+"|"+c,
+    '<style:style style:name="§" style:family="text"><style:text-properties fo:font-family="'+ODPS.police+'" '+
+    'style:font-family-generic="swiss" fo:font-size="'+odpsPt(px)+'" fo:color="'+c+'"'+
+    (/bold/.test(st)?' fo:font-weight="bold"':' fo:font-weight="normal"')+(/italic/.test(st)?' fo:font-style="italic"':'')+'/></style:style>');
+  const pages=B.pages.map((ops,ip)=>{
+    let x='<draw:page draw:name="page'+(ip+1)+'" draw:master-page-name="Standard">';
+    odpsBlocs(ops).forEach(o=>{
+      if(o.o==="r"){
+        x+='<draw:rect draw:style-name="'+gr(o.f,o.s,o.lw)+'" svg:x="'+odpsCm(o.x)+'" svg:y="'+odpsCm(o.y)+
+          '" svg:width="'+odpsCm(o.w)+'" svg:height="'+odpsCm(o.h)+'"'+(o.r?' draw:corner-radius="'+odpsCm(o.r)+'"':'')+'/>';
+      }else if(o.o==="l"){
+        x+='<draw:line draw:style-name="'+gr(null,o.s,o.lw)+'" svg:x1="'+odpsCm(o.x1)+'" svg:y1="'+odpsCm(o.y1)+
+          '" svg:x2="'+odpsCm(o.x2)+'" svg:y2="'+odpsCm(o.y2)+'"/>';
+      }else if(o.o==="c"){
+        x+='<draw:ellipse draw:style-name="'+gr(o.f,null)+'" svg:x="'+odpsCm(o.x-o.r)+'" svg:y="'+odpsCm(o.y-o.r)+
+          '" svg:width="'+odpsCm(2*o.r)+'" svg:height="'+odpsCm(2*o.r)+'"/>';
+      }else if(o.o==="p"){
+        const xs=o.pts.map(p=>p[0]), ys=o.pts.map(p=>p[1]);
+        const x0=Math.min(...xs), y0=Math.min(...ys), w=Math.max(...xs)-x0, h=Math.max(...ys)-y0;
+        const k=1000;
+        x+='<draw:polygon draw:style-name="'+gr(o.f,null)+'" svg:x="'+odpsCm(x0)+'" svg:y="'+odpsCm(y0)+
+          '" svg:width="'+odpsCm(w)+'" svg:height="'+odpsCm(h)+'" svg:viewBox="0 0 '+k+' '+k+'" draw:points="'+
+          o.pts.map(p=>Math.round((p[0]-x0)/(w||1)*k)+","+Math.round((p[1]-y0)/(h||1)*k)).join(" ")+'"/>';
+      }else if(o.o==="i"){
+        x+='<draw:frame svg:x="'+odpsCm(o.x)+'" svg:y="'+odpsCm(o.y)+'" svg:width="'+odpsCm(o.w)+'" svg:height="'+odpsCm(o.h)+
+          '"><draw:image xlink:href="'+imageDe(o.data)+'" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame>';
+      }else if(o.o==="b"){
+        const pas=o.pas||o.px*1.25, n=o.lignes.length;
+        const w=Math.max(...o.lignes.map(l=>l.w))*1.05+4;
+        const y0=o.lignes[0].y-((pas-1.117*o.px)/2+0.905*o.px);
+        const x0=o.al==="right"?o.x-w:(o.al==="center"?o.x-w/2:o.x);
+        x+='<draw:frame draw:style-name="'+grTexte()+'" svg:x="'+odpsCm(x0)+'" svg:y="'+odpsCm(y0)+
+          '" svg:width="'+odpsCm(w)+'" svg:height="'+odpsCm(n*pas)+'"><draw:text-box>'+
+          '<text:p text:style-name="'+para(o.al,pas)+'"><text:span text:style-name="'+texte(o.px,o.st,o.c)+'">'+
+          o.lignes.map(l=>odpsEspaces(odpsEsc(l.t))).join('<text:line-break/>')+'</text:span></text:p></draw:text-box></draw:frame>';
+      }
+    });
+    return x+'</draw:page>';
+  });
+  const ns='xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" '+
+    'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" '+
+    'xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" '+
+    'xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0" office:version="1.2"';
+  const auto=[...styles.values()].map(s=>s.xml.replace('style:name="§"','style:name="'+s.nom+'"')).join("");
+  const contenu='<?xml version="1.0" encoding="UTF-8"?>\n<office:document-content '+ns+'><office:automatic-styles>'+auto+
+    '</office:automatic-styles><office:body><office:presentation>'+pages.join("")+'</office:presentation></office:body></office:document-content>';
+  const stylesXml='<?xml version="1.0" encoding="UTF-8"?>\n<office:document-styles '+ns+'><office:styles/><office:automatic-styles>'+
+    '<style:page-layout style:name="PM1"><style:page-layout-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" '+
+    'fo:margin-right="0cm" fo:page-width="'+ODPS.W+'cm" fo:page-height="'+ODPS.H+'cm" style:print-orientation="landscape"/></style:page-layout>'+
+    '<style:style style:name="dp1" style:family="drawing-page"><style:drawing-page-properties draw:fill="solid" draw:fill-color="#ffffff" presentation:background-visible="true" presentation:background-objects-visible="true"/></style:style>'+
+    '</office:automatic-styles><office:master-styles><style:master-page style:name="Standard" style:page-layout-name="PM1" draw:style-name="dp1"/>'+
+    '</office:master-styles></office:document-styles>';
+  const Zip=window.JSZip;
+  if(!Zip) throw new Error("JSZip non chargé");
+  const z=new Zip();
+  z.file("mimetype","application/vnd.oasis.opendocument.presentation",{compression:"STORE"});
+  z.file("META-INF/manifest.xml",'<?xml version="1.0" encoding="UTF-8"?>\n<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">'+
+    '<manifest:file-entry manifest:full-path="/" manifest:version="1.2" manifest:media-type="application/vnd.oasis.opendocument.presentation"/>'+
+    '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>'+
+    '<manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>'+
+    '<manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/>'+
+    [...images.values()].map(f=>'<manifest:file-entry manifest:full-path="'+f+'" manifest:media-type="image/'+(f.endsWith("jpg")?"jpeg":"png")+'"/>').join("")+
+    '</manifest:manifest>');
+  z.file("styles.xml",stylesXml);
+  z.file("meta.xml",'<?xml version="1.0" encoding="UTF-8"?>\n<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '+
+    'xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" office:version="1.2"><office:meta>'+
+    '<meta:generator>Console projets - SDIS de l\'Ain</meta:generator></office:meta></office:document-meta>');
+  z.file("content.xml",contenu);
+  images.forEach((f,data)=>z.file(f,data.split(",")[1],{base64:true}));
+  return z.generateAsync({type:"blob",mimeType:"application/vnd.oasis.opendocument.presentation"}).then(blob=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=nom;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500);
+    return blob;
+  });
+}
+
 /* --- gabarit des pages (refonte d'octobre 2026) ---------------------------
    Deux documents :
    - la note CODIR : situation du projet, puis planning et actions (2 pages) ;
@@ -11233,28 +11428,53 @@ function libelleColonneBrut(tableId,colId){
 function nDateFR(v){ return v?dateVersFR(v):""; }
 
 /* --- contexte, pages, sections ------------------------------------------- */
-function nCtx(p,mode){
+function nCtx(p,mode,sortie){
   const c=S.cfg;
-  const pdf=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",format:[PW,PH],compress:true});
-  return {pdf,p,mode,titre:lire(c.tblMain,p,c.colLibelle)||"(sans libellé)",
-    pages:0,y:0,yBas:0,garde:0,secs:{},som:[],sec:""};
+  const pdf=sortie==="odp" ? odpSortieNouvelle()
+    : new window.jspdf.jsPDF({orientation:"landscape",unit:"px",format:[PW,PH],compress:true});
+  return {pdf,p,mode,sortie,titre:lire(c.tblMain,p,c.colLibelle)||"(sans libellé)",
+    pages:0,y:0,yBas:0,garde:0,secs:{},som:[],sec:"",yFin:{},decal:{},
+    bandeauHaut:true};      // bandeau du haut sur la première page de contenu
 }
 function nPage(ctx){
   const pdf=ctx.pdf, m=NP.m;
-  if(ctx.pages>0) pdf.addPage([PW,PH],"landscape");
+  if(ctx.pages>0){ ctx.yFin[ctx.pages]=ctx.y; pdf.addPage([PW,PH],"landscape"); }
   ctx.pages++;
-  if(N_ENREG){ N_ENREG.length=0; N_ENREG.push({o:"i",x:m,y:12,w:N_LOGO_W,h:34}); }   // nouvelle page
+  /* première page de contenu : le bandeau du SDIS en haut, l'en-tête dessous */
+  let dh=0;
+  if(ctx.bandeauHaut){
+    ctx.bandeauHaut=false;
+    dh=Math.round(PW*140/1279);
+    if(N_ENREG) N_ENREG.length=0;
+    pdf.addImage(IMG_BANDEAU_HAUT,"PNG",0,0,PW,dh,"bandeauHaut","FAST");
+    if(N_ENREG) N_ENREG.push({o:"i",src:IMG_BANDEAU_HAUT,x:0,y:0,w:PW,h:dh});
+  }
+  ctx.decal[ctx.pages]=dh;
+  if(N_ENREG && !dh){ N_ENREG.length=0; }                       // nouvelle page
+  ctx.secs[ctx.pages]=ctx.sec?[ctx.sec]:[];
+  ctx.yBas=PH-NP.hPied-14;
+  if(dh){
+    /* page à bandeau : le titre du projet dans un cartouche blanc posé sur la
+       photo (la section s'y inscrit à droite, une fois connue) ; pas d'en-tête
+       séparé, le contenu démarre juste sous le bandeau */
+    const cx=Math.round(PW*0.185), cw=PW-16-cx, chh=40, cy=Math.round(dh/2-chh/2);
+    nR(pdf,cx,cy,cw,chh,"#ffffff",4);
+    /* un titre long réduit sa taille avant d'être raccourci */
+    let tp=16;
+    while(tp>11.5 && nW(pdf,ctx.titre,tp,"bold")>cw-28-200) tp-=0.5;
+    const lt=nCoupe(pdf,ctx.titre,cw-28-200,tp,"bold",1);
+    nT(pdf,cx+14,cy+chh/2+tp*0.34,lt[0]||"",{px:tp,style:"bold",c:NC.rouge});
+    ctx.cartouche={x:cx,y:cy,w:cw,h:chh};
+    ctx.y=dh+20;
+    return;
+  }
+  if(N_ENREG) N_ENREG.push({o:"i",src:IMG_LOGO_SDIS,x:m,y:12,w:N_LOGO_W,h:34});
   try{ pdf.addImage(IMG_LOGO_SDIS,"PNG",m,12,N_LOGO_W,34,"logo","FAST"); }catch(e){}
   const xT=m+N_LOGO_W+14;
   const lt=nCoupe(pdf,ctx.titre,PW-m-340-xT,12,"bold",1);
   nT(pdf,xT,34,lt[0]||"",{px:12,style:"bold"});
   nL(pdf,m,NP.hEnt,PW-m,NP.hEnt,NC.filet,1);
-  nL(pdf,m,PH-NP.hPied,PW-m,PH-NP.hPied,NC.filet,1);
-  nT(pdf,m,PH-NP.hPied/2+3.5,"SDIS de l'Ain · "+
-    (ctx.mode==="codir"?"Note CODIR":"Dossier projet")+" édité le "+new Date().toLocaleDateString("fr-FR"),
-    {px:9.5,c:NC.gris2});
-  ctx.secs[ctx.pages]=ctx.sec?[ctx.sec]:[];
-  ctx.y=NP.yCorps; ctx.yBas=PH-NP.hPied-14;
+  ctx.y=NP.yCorps;
 }
 /* Ouvre une section : sur la page en cours s'il reste assez de place,
    sinon sur une nouvelle. lib = libellé du sommaire (facultatif). */
@@ -11279,14 +11499,30 @@ function nTitre(ctx,txt,sous,min){
   ctx.y+=28;
 }
 /* en-têtes de section et numéros de page, posés une fois tout écrit */
+/* En-têtes de section, pieds de page et numéros, posés une fois tout écrit.
+   Le bandeau photo du bas s'ajoute aux pages dont le contenu lui laisse la
+   place ; le pied de page se loge alors dans sa partie claire. */
 function nFinaliser(ctx){
   const pdf=ctx.pdf, n=ctx.pages;
+  ctx.yFin[n]=ctx.y;
+  const hb=Math.round(PW*106/995);
+  const pied="SDIS de l'Ain · "+(ctx.mode==="codir"?"Note CODIR":"Dossier projet")+" édité le "+new Date().toLocaleDateString("fr-FR");
   for(let i=1;i<=n;i++){
     if(ctx.secs[i]===null) continue;              // page de garde
     pdf.setPage(i);
+    const dh=ctx.decal[i]||0;
     const sec=(ctx.secs[i]||[]).join(" · ").toUpperCase();
-    if(sec) nT(pdf,PW-NP.m,34,sec,{px:10.5,style:"bold",c:NC.taupe,align:"right"});
-    nT(pdf,PW-NP.m,PH-NP.hPied/2+3.5,i+" / "+n,{px:9.5,c:NC.gris2,align:"right"});
+    if(sec){
+      if(dh && ctx.cartouche){ const k=ctx.cartouche; nT(pdf,k.x+k.w-14,k.y+k.h/2+4,sec,{px:10.5,style:"bold",c:NC.taupe,align:"right"}); }
+      else nT(pdf,PW-NP.m,34,sec,{px:10.5,style:"bold",c:NC.taupe,align:"right"});
+    }
+    let yp=PH-NP.hPied/2+3.5;
+    if((ctx.yFin[i]||PH)<=PH-hb-6){
+      pdf.addImage(IMG_BANDEAU_BAS,"PNG",0,PH-hb,PW,hb,"bandeauBas","FAST");
+      yp=PH-hb+14;
+    }else nL(pdf,NP.m,PH-NP.hPied,PW-NP.m,PH-NP.hPied,NC.filet,1);
+    nT(pdf,NP.m,yp,pied,{px:9.5,c:NC.gris2});
+    nT(pdf,PW-NP.m,yp,i+" / "+n,{px:9.5,c:NC.gris2,align:"right"});
   }
 }
 
@@ -11732,12 +11968,16 @@ function nSituation(ctx,FX){
     xx+=w+6;
   };
   const nat=txt(lire(t,p,c.colNature)).trim(), stat=txt(lire(t,p,c.colStatut)).trim();
+  const bandeau=!!ctx.decal[ctx.pages];      // le titre est déjà dans le bandeau
   etiquette(nat,NC.rouge,"#ffffff");
   if(stat){ const pc=pastillePleineCouleurs(stat,av,inter); xx+=nStatutPoint(pdf,xx+2,y0+12.8,stat,pc,11)+8; }
-  let y=y0+(nat||stat?26:0);
-  const lt=nCoupe(pdf,ctx.titre,wt,23,"bold",2);
-  lt.forEach((l,i)=>nT(pdf,x,y+21+i*28,l,{px:23,style:"bold"}));
-  y+=lt.length*28+6;
+  let y=y0;
+  if(!bandeau){
+    y+=(nat||stat?26:0);
+    const lt=nCoupe(pdf,ctx.titre,wt,23,"bold",2);
+    lt.forEach((l,i)=>nT(pdf,x,y+21+i*28,l,{px:23,style:"bold"}));
+    y+=lt.length*28+6;
+  }else y-=0.8;
   /* porteur · groupement · priorité · sponsor CODIR, valeurs en gras ; un
      élément qui ne tient plus sur la ligne passe à la suivante */
   const seg=[];
@@ -11747,7 +11987,7 @@ function nSituation(ctx,FX){
   if(grp) seg.push(["",grp]);
   if(pri) seg.push(["Priorité ",pri,pastillePleineCouleurs(pri)]);
   if(spo) seg.push(["Sponsor CODIR ",spo]);
-  let xs=x;
+  let xs=bandeau?xx+12:x;
   const sep="  ·  ";
   seg.forEach((s,i)=>{
     const st=s[0]?"bold":"normal";
@@ -12327,10 +12567,16 @@ function nStrategie(ctx){
 function construireDoc(p,o){
   o=o||{};
   const mode=(o.doc||IMPR.doc)==="complet"?"complet":"codir";
-  const ctx=nCtx(p,mode);
-  ctx.capture=!!o.capture;
-  try{ return construireDocSuite(ctx,p,mode); }
-  finally{ N_ENREG=null; }
+  /* diaporama (ou son aperçu) : même mise en page, au format 28 x 21 cm */
+  const sortie=o.sortie||"pdf", w43=sortie==="odp"||o.format43;
+  PW=w43?1059:1123;
+  try{
+    const ctx=nCtx(p,mode,sortie);
+    ctx.capture=!!o.capture;
+    const d=construireDocSuite(ctx,p,mode);
+    if(sortie==="odp") d.nom=d.nom.replace(/\.pdf$/,".odp");
+    return d;
+  }finally{ N_ENREG=null; PW=1123; }
 }
 function construireDocSuite(ctx,p,mode){
   let acts=actionsDe(p);
@@ -12414,12 +12660,20 @@ function genererFichePDF(p){
     toast("Bibliothèque PDF non chargée : vérifiez l'accès à Internet.",true); return;
   }
   try{
+    if(IMPR.sortie==="odp"){
+      const d=construireDoc(p,{sortie:"odp"});
+      odpsEcrire(d.pdf,d.nom).then(blob=>{
+        toast("Diaporama enregistré ("+d.pages+" diapositives)");
+        if(IMPR.pieceJointe) deposerPDF(p,blob,d.nom);
+      }).catch(e=>{ toast("Erreur lors de la génération du diaporama : "+e.message,true); console.error(e); });
+      return;
+    }
     const d=construireDoc(p);
     d.pdf.save(d.nom);
     toast("PDF enregistré ("+d.pages+" pages)");
     if(IMPR.pieceJointe) deposerPDF(p,d.pdf.output("blob"),d.nom);
   }catch(e){
-    toast("Erreur lors de la génération du PDF : "+e.message,true);
+    toast("Erreur lors de la génération : "+e.message,true);
     console.error(e);
   }
 }
@@ -12434,12 +12688,12 @@ function rafraichirApercu(){
   }
   const cadre=$("#apercu-cadre"), info=$("#apercu-info");
   try{
-    const d=construireDoc(S.projetSel);
+    const d=construireDoc(S.projetSel,{format43:IMPR.sortie==="odp"});
     if(urlApercu) URL.revokeObjectURL(urlApercu);
     urlApercu=URL.createObjectURL(d.pdf.output("blob"));
     cadre.src=urlApercu+"#toolbar=0&navpanes=0&view=FitH";
-    info.textContent=d.pages+" page"+(d.pages>1?"s":"");
-    $("#apercu-titre").textContent=d.nom.replace(/\.pdf$/,"").replace(/_/g," ");
+    info.textContent=d.pages+(IMPR.sortie==="odp"?" diapositive":" page")+(d.pages>1?"s":"");
+    $("#apercu-titre").textContent=d.nom.replace(/\.pdf$/,"").replace(/_/g," ")+(IMPR.sortie==="odp"?" (diaporama)":"");
   }catch(e){
     info.textContent="Erreur : "+e.message;
     console.error(e);
@@ -13157,7 +13411,7 @@ function paquetOptions(){
                 lisible:IMPR.lisible,planningTaches:IMPR.planningTaches,
                 taches:IMPR.taches,
                 sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
-                pieceJointe:IMPR.pieceJointe,portee:IMPR.portee,doc:IMPR.doc,optsPdf:IMPR.optsPdf},
+                pieceJointe:IMPR.pieceJointe,portee:IMPR.portee,doc:IMPR.doc,optsPdf:IMPR.optsPdf,sortie:IMPR.sortie},
           pages:S.pagesParProjet||{},
           cdo:S.cdoParProjet||{},
           notifBase:S.notifBase||null};
@@ -15466,7 +15720,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-l — impression PDF, coup d'œil modifiable avant l'édition";
+const VERSION="2026-10-14-m — PDF et diaporama issus du même gabarit, bouton unique";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -15550,6 +15804,7 @@ document.addEventListener("fullscreenchange",()=>{
     btn.textContent="⛶ Plein écran";
 });
 $("#ap-telecharger").onclick=()=>genererFichePDF(S.projetSel);
+/* le bouton de téléchargement de l'aperçu suit la sortie choisie */
 $("#ap-options").onclick=()=>{ fermerApercu(); ouvrirImpression(); };
 $("#impr-cdo-btn").onclick=()=>{
   retenirOptionsImpr();
@@ -15833,7 +16088,7 @@ $("#btn-xlsx-ech").onclick=()=>{
   if(enMobile()){ toast("L'export Excel n'est disponible que sur ordinateur.",true); return; }
   exporterEcheancesExcel();
 };
-$("#btn-pptx").onclick=()=>{
+if($("#btn-pptx")) $("#btn-pptx").onclick=()=>{
   if(enMobile()){ toast("L'export du diaporama n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet.",true); return; }
   majFormulairePptx();

@@ -11183,6 +11183,15 @@ function nPastille(pdf,x,yb,texte,fond,coul,px){
   return w;
 }
 function nCoulStatut(statut,av,inter){ return pastillePleineCouleurs(statut,av,inter); }
+/* statut écrit en couleur, précédé d'une pastille ronde : la couleur est
+   celle de la pastille de la console, foncée quand elle est trop claire
+   pour être lue en texte (jaune) */
+function nCoulTexteStatut(pc){ return nFonce(pc.fond,/^#(fff|ffffff)$/i.test(pc.coul)?0.18:0.35); }
+function nStatutPoint(pdf,x,yb,texte,pc,px){
+  px=px||10.5;
+  nRond(pdf,x+4,yb-px*0.34,4,pc.fond);
+  return 12+nT(pdf,x+12,yb,texte,{px,style:"bold",c:nCoulTexteStatut(pc)});
+}
 function nCoulAvct(av,inter){
   if(inter) return {fond:"#595959",coul:"#ffffff"};
   if(av==null) return {fond:"#DDD9D0",coul:"#26221F"};
@@ -11355,7 +11364,7 @@ function nTable(ctx,titre,cols,lignes,o){
         }else if(v.type==="pastille"){
           if(v.t) nPastille(pdf,cx+6,ctx.y+5+px,v.t,v.fond,v.coul,10.5);
         }else if(v.type==="feu"){
-          nRond(pdf,cx+10,ctx.y+5+px-3.5,4,v.coul);
+          nRond(pdf,cx+10,ctx.y+5+px-3.5,4,v.point||v.coul);
           nT(pdf,cx+18,ctx.y+5+px,v.t,{px:10.5,style:"bold",c:v.coul});
         }else lignesDe(v,c).forEach((l,k)=>
           nT(pdf,c.align==="right"?cx+c.lw-6:cx+6,ctx.y+5+px+k*lh,l,{px:v.px||px,style:v.style,c:v.c||NC.encre,align:c.align||"left"}));
@@ -11628,13 +11637,17 @@ function nSommaireIdentite(ctx){
   champs.filter(ch=>txt(ch[1]).trim()).forEach(([k,v])=>{
     const val=txt(v).trim();
     let pc=null;
-    if(k==="Statut") pc=nCoulStatut(val,av,interP);
+    if(k==="Statut"){
+      nT(pdf,xd,y+6+12.5,k,{px:12.5,c:NC.gris});
+      nStatutPoint(pdf,xd+130,y+6+12.5,val,nCoulStatut(val,av,interP),12.5);
+      y+=17+12; nL(pdf,xd,y,xd+wc,y,NC.filet,0.8); return;
+    }
     else if(k==="Priorité") pc=pastillePleineCouleurs(val);
     else if(k==="Avancement") pc=nCoulAvct(av,interP);
     if(pc){
       nT(pdf,xd,y+6+12.5,k,{px:12.5,c:NC.gris});
-      nPastille(pdf,xd+130,y+6+12.5,val,pc.fond,pc.coul,11.5);
-      y+=17+14;
+      nStatutPoint(pdf,xd+130,y+6+12.5,val,pc,12.5);
+      y+=17+12;
     }else{
       const l=nCoupe(pdf,val,wc-140,12.5,"bold");
       nT(pdf,xd,y+6+12.5,k,{px:12.5,c:NC.gris});
@@ -11705,7 +11718,7 @@ function nSituation(ctx,FX){
   };
   const nat=txt(lire(t,p,c.colNature)).trim(), stat=txt(lire(t,p,c.colStatut)).trim();
   etiquette(nat,NC.rouge,"#ffffff");
-  if(stat){ const pc=pastillePleineCouleurs(stat,av,inter); etiquette(stat,pc.fond,pc.coul); }
+  if(stat){ const pc=pastillePleineCouleurs(stat,av,inter); xx+=nStatutPoint(pdf,xx+2,y0+12.8,stat,pc,11)+8; }
   let y=y0+(nat||stat?26:0);
   const lt=nCoupe(pdf,ctx.titre,wt,23,"bold",2);
   lt.forEach((l,i)=>nT(pdf,x,y+21+i*28,l,{px:23,style:"bold"}));
@@ -11868,7 +11881,7 @@ function nPlanningActions(ctx,FX,acts){
         ech:{t:nDateFR(a[c.colEch])||"—"},
         av:{type:"barre",av,coul:nBarreCoul(av,inter)},
         stat:(()=>{ const s=txt(lire(c.tblMain,a,c.colStatut)).trim(), pc=nCoulStatut(s,av,inter);
-          return {type:"pastille",t:s,fond:pc.fond,coul:pc.coul}; })(),
+          return {type:"feu",t:s,coul:nCoulTexteStatut(pc),point:pc.fond}; })(),
         del:{t:fe.delai,c:fe.rouge?NC.rouge:NC.gris,style:fe.rouge?"bold":undefined}
       }};
     };
@@ -11930,10 +11943,10 @@ function nFicheAction(ctx,FX,a,i){
   let xx=x, yy=ctx.y+15;
   champs.filter(ch=>txt(ch[1]).trim()).forEach(([k,v])=>{
     const pill=k==="Statut";
-    const wk=nW(pdf,k+" ",11.5)+nW(pdf,txt(v),pill?10.5:11.5,"bold")+(pill?16:0);
+    const wk=nW(pdf,k+" ",11.5)+nW(pdf,txt(v),11.5,"bold")+(pill?12:0);
     if(xx+wk>x+W-200){ xx=x; yy+=19; }
     xx+=nT(pdf,xx,yy,k+" ",{px:11.5,c:NC.gris});
-    if(pill){ const pc=nCoulStatut(txt(v).trim(),av,inter); xx+=nPastille(pdf,xx,yy,txt(v).trim(),pc.fond,pc.coul,10.5)+24; }
+    if(pill){ const pc=nCoulStatut(txt(v).trim(),av,inter); xx+=nStatutPoint(pdf,xx,yy,txt(v).trim(),pc,11.5)+24; }
     else xx+=nT(pdf,xx,yy,txt(v),{px:11.5,style:"bold"})+24;
   });
   if(xx+190>x+W){ xx=x; yy+=17; }
@@ -15431,7 +15444,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-g — impression PDF, coup d'œil modifiable avant l'édition";
+const VERSION="2026-10-14-i — impression PDF, coup d'œil modifiable avant l'édition";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

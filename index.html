@@ -10974,6 +10974,7 @@ function nTable(ctx,titre,cols,lignes,o){
   cols.forEach(c=>c.lw=c.w||Math.max(70,(W-fixe)/Math.max(1,libres)));
   const lignesDe=(v,c)=>v && !v.type && v.t ? nCoupe(pdf,v.t,c.lw-12,v.px||px,v.style) : [];
   const haut=li=>{
+    if(li.groupe) return nCoupe(pdf,li.groupe.t,W-220,11.5,"bold").length*15+13;
     let n=1;
     cols.forEach(c=>{ n=Math.max(n,lignesDe(li.cel[c.k],c).length); });
     return n*lh+11;
@@ -10990,12 +10991,19 @@ function nTable(ctx,titre,cols,lignes,o){
     nL(pdf,x,ctx.y,x+W,ctx.y,NC.taupe,1.4);
     ctx.y+=1;
   };
-  const h0=(titre?28:0)+20+haut(lignes[0]);
+  const h0=(titre?28:0)+20+haut(lignes[0])+(lignes[0].groupe&&lignes[1]?haut(lignes[1]):0);
   if(ctx.y+h0>ctx.yBas) nPage(ctx);
   entete(false);
-  lignes.forEach(li=>{
+  lignes.forEach((li,il)=>{
     const h=haut(li);
-    if(ctx.y+h>ctx.yBas){ nPage(ctx); entete(true); }
+    /* une famille ne reste pas seule en bas de page : elle suit sa première ligne */
+    const hSuite=li.groupe&&lignes[il+1]?haut(lignes[il+1]):0;
+    if(ctx.y+h+hSuite>ctx.yBas){ nPage(ctx); entete(true); }
+    if(li.groupe){
+      nBandeAxe(pdf,x,ctx.y+3,W,h-5,li.groupe);
+      ctx.y+=h;
+      return;
+    }
     if(li.fond) nR(pdf,x,ctx.y,W,h,li.fond);
     if(li.bordHaut) nL(pdf,x,ctx.y,x+W,ctx.y,NC.gris2,1);
     let cx=x;
@@ -11020,6 +11028,16 @@ function nTable(ctx,titre,cols,lignes,o){
   ctx.y+=o.apres!=null?o.apres:20;
 }
 
+/* bandeau d'une famille d'actions (axe) : fond teinté, filet de la teinte */
+function nBandeAxe(pdf,x,y,w,h,g){
+  const tt=g.teinte||AXE_SANS;
+  nR(pdf,x,y,w,h,tt[1]);
+  nR(pdf,x,y,4,h,tt[0]);
+  const l=nCoupe(pdf,g.t,w-230,11.5,"bold");
+  l.forEach((s,k)=>nT(pdf,x+14,y+h/2-(l.length-1)*7.5+4+k*15,s,{px:11.5,style:"bold",c:tt[2]}));
+  if(g.resume) nT(pdf,x+w-10,y+h/2+4,g.resume,{px:10.5,c:tt[3],align:"right"});
+}
+
 /* --- planning ------------------------------------------------------------ */
 /* colonnes de temps : trimestres, ou mois pour une durée courte */
 function nColonnesTemps(min,max,mois){
@@ -11035,18 +11053,26 @@ function nColonnesTemps(min,max,mois){
     }
     return out;
   }
-  for(let a=d0.getUTCFullYear(); a<=d1.getUTCFullYear(); a++)
+  /* trimestres pour l'année en cours et la suivante seulement ; les autres
+     années tiennent chacune dans une colonne */
+  const cur=new Date().getUTCFullYear();
+  for(let a=d0.getUTCFullYear(); a<=d1.getUTCFullYear(); a++){
+    if(a!==cur && a!==cur+1){
+      out.push({deb:Date.UTC(a,0,1)/1000,fin:Date.UTC(a+1,0,1)/1000,lab:String(a),court:"'"+String(a).slice(2),an:true});
+      continue;
+    }
     for(let q=0;q<4;q++){
       const deb=Date.UTC(a,q*3,1)/1000, fin=Date.UTC(a,q*3+3,1)/1000;
-      out.push({deb,fin,lab:"T"+(q+1)+" "+a,court:"T"+(q+1)+" '"+String(a).slice(2),an:q===0});
+      out.push({deb,fin,lab:"T"+(q+1)+" '"+String(a).slice(2),court:"T"+(q+1),an:q===0});
     }
+  }
   return out;
 }
 /* rows : [{lib, niv (0 projet, 1 action, 2 tâche), d, f, av, inter}]
    o : {titre, sous, mois, jalons:[{ts,lib,coul}], gh} */
 function nGantt(ctx,rows,o){
   o=o||{};
-  const pdf=ctx.pdf, x=NP.m, W=PW-2*NP.m, gl=o.gl||260, xp=x+gl, wp=W-gl;
+  const pdf=ctx.pdf, x=NP.m, W=PW-2*NP.m, gl=o.gl||320, xp=x+gl, wp=W-gl;
   rows=rows.filter(r=>r.d||r.f);
   if(!rows.length) return false;
   const jal=(o.jalons||[]).filter(j=>j.ts);
@@ -11071,6 +11097,17 @@ function nGantt(ctx,rows,o){
   const dispo=ctx.yBas-NP.yCorps-28-22-(jal.length?34:0);
   if(rows.length*gh>dispo) gh=Math.max(18,Math.floor(dispo/rows.length));
   const hb=gh>=22?12:9;
+  /* libellés en entier : un libellé long passe à la ligne et la ligne du
+     planning s'agrandit d'autant */
+  const styleDe=r=>r.axe?{ind:0,st:"bold",c:r.teinte[2],px:11}
+    :({ind:r.niv===2?14:(r.sousAxe?14:0), st:r.niv===0?"bold":"normal",
+      c:r.niv===0?NC.rouge:(r.niv===2?NC.gris:NC.encre), px:r.niv===2?10.5:11});
+  rows.forEach(r=>{
+    const s=styleDe(r);
+    r._l=nCoupe(pdf,r.lib||"(sans libellé)",gl-14-s.ind-(r.axe?10:0),s.px,s.st);
+    if(!r._l.length) r._l=["(sans libellé)"];
+    r._h=Math.max(gh,r._l.length*s.px*1.25+10);
+  });
 
   const enTete=()=>{
     per.forEach((u,i)=>{
@@ -11088,20 +11125,23 @@ function nGantt(ctx,rows,o){
   let i=0;
   while(i<rows.length){
     enTete();
-    const place=Math.max(1,Math.floor((ctx.yBas-ctx.y-(i+1>=rows.length?0:0)-16)/gh));
-    const bloc=rows.slice(i,i+place), y0=ctx.y, y1=y0+bloc.length*gh;
+    const bloc=[]; let hTot=0;
+    for(let k=i;k<rows.length;k++){
+      if(bloc.length && ctx.y+hTot+rows[k]._h>ctx.yBas-16) break;
+      bloc.push(rows[k]); hTot+=rows[k]._h;
+    }
+    const y0=ctx.y, y1=y0+hTot;
     /* grille d'abord, pour rester sous les barres */
     for(let k=1;k<n;k++) nL(pdf,xp+lu*k,y0-19,xp+lu*k,y1,NC.filetPale,0.6);
-    bloc.forEach((r,k)=>{
-      const yy=y0+k*gh, yc=yy+gh/2;
-      const ind=r.niv===2?14:0;
-      const st=r.niv===0?"bold":"normal", coulT=r.niv===0?NC.rouge:(r.niv===2?NC.gris:NC.encre);
-      const pxl=r.niv===2?10.5:11;
-      const lib=nCoupe(pdf,r.lib||"(sans libellé)",gl-14-ind,pxl,st,1)[0]||"";
-      nT(pdf,x+ind,yc+3.8,lib,{px:pxl,style:st,c:coulT});
+    let yy=y0;
+    bloc.forEach(r=>{
+      const h=r._h, yc=yy+h/2, s=styleDe(r), lhl=s.px*1.25;
+      const yl=yc-(r._l.length-1)*lhl/2+3.8;
+      if(r.axe){ nR(pdf,x,yy,W,h,nPale(r.teinte[1],0.35)); nR(pdf,x,yy,3,h,r.teinte[0]); }
+      r._l.forEach((l,k)=>nT(pdf,x+s.ind+(r.axe?10:0),yl+k*lhl,l,{px:s.px,style:s.st,c:s.c}));
       const g=pos(r.d||r.f), lb=Math.max(5,pos(r.f||r.d)-g);
-      const fond=r.niv===0?"#F3E3E2":"#EEEAE4";
-      const plein=r.inter?"#9A948E":(r.niv===0?NC.rouge:nBarreCoul(r.av));
+      const fond=r.axe?r.teinte[1]:(r.niv===0?"#F3E3E2":"#EEEAE4");
+      const plein=r.inter?"#9A948E":(r.axe?r.teinte[0]:(r.niv===0?NC.rouge:nBarreCoul(r.av)));
       nR(pdf,xp+g,yc-hb/2,lb,hb,fond,3);
       if(r.av) nR(pdf,xp+g,yc-hb/2,Math.max(Math.min(6,lb),lb*Math.min(100,r.av)/100),hb,plein,3);
       const lt=r.inter?"interrompu":(r.av==null?"":r.av+" %");
@@ -11109,8 +11149,10 @@ function nGantt(ctx,rows,o){
         const wt=nW(pdf,lt,9.5);
         if(xp+g+lb+5+wt<=x+W) nT(pdf,xp+g+lb+5,yc+3.3,lt,{px:9.5,c:NC.gris});
         else if(xp+g-5-wt>=xp) nT(pdf,xp+g-5,yc+3.3,lt,{px:9.5,c:NC.gris,align:"right"});
+        else if(lb>wt+10) nT(pdf,xp+g+lb-5,yc+3.3,lt,{px:9.5,c:NC.encre,align:"right"});
       }
-      nL(pdf,x,yy+gh,x+W,yy+gh,NC.filetPale,0.6);
+      yy+=h;
+      nL(pdf,x,yy,x+W,yy,NC.filetPale,0.6);
     });
     /* trait « aujourd'hui » */
     if(auj>=per[0].deb && auj<per[n-1].fin){
@@ -11434,8 +11476,18 @@ function nPlanningActions(ctx,FX,acts){
   const rows=[{lib:ctx.titre,niv:0,d:Number(p[c.colDebut])||null,f:Number(p[c.colFin]||p[c.colEch])||null,
     av:pct(p[c.colAvancement]),inter:interrompu(p)}];
   const tachesP=(c.tblTache&&c.colTacheLien)?tachesDe(p):[];
-  if(acts.length) acts.forEach((a,i)=>rows.push({lib:(i+1)+". "+nLibAction(a),niv:1,
-    d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null,av:pct(a[c.colAvancement]),inter:interrompu(a)}));
+  const groupes=acts.length?groupesParAxe(acts):null;
+  const ligneAct=(a,sous)=>({lib:(acts.indexOf(a)+1)+". "+nLibAction(a),niv:1,sousAxe:sous,
+    d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null,av:pct(a[c.colAvancement]),inter:interrompu(a)});
+  if(groupes) groupes.forEach(g=>{
+    /* ligne de famille : l'étendue de ses actions et leur avancement moyen */
+    const ds=g.acts.map(a=>Number(a[c.colDebut])||Number(a[c.colEch])||null).filter(Boolean);
+    const fs=g.acts.map(a=>Number(a[c.colFin]||a[c.colEch])||Number(a[c.colDebut])||null).filter(Boolean);
+    rows.push({lib:g.axe||"Sans axe",axe:true,teinte:teinteAxe(p,g.axe),niv:1,
+      d:ds.length?Math.min(...ds):null,f:fs.length?Math.max(...fs):null,av:moyenneAxe(g.acts)});
+    g.acts.forEach(a=>rows.push(ligneAct(a,true)));
+  });
+  else if(acts.length) acts.forEach(a=>rows.push(ligneAct(a,false)));
   else tachesP.forEach(k=>rows.push({lib:lire(c.tblTache,k,c.colTacheLibelle),niv:2,
     d:Number(k[c.colTacheDebut])||null,f:Number(k[c.colTacheFin])||null,av:pct(k[c.colTacheAvancement]),
     inter:statutInterrompu(c.tblTache,k,c.colTacheStatut)}));
@@ -11448,7 +11500,8 @@ function nPlanningActions(ctx,FX,acts){
   }
   ctx.y+=6;
   if(acts.length){
-    const lignes=acts.map((a,i)=>{
+    const ligneTab=a=>{
+      const i=acts.indexOf(a);
       const fe=nFeuAction(FX.parId.get(a.id),a), av=pct(a[c.colAvancement]), inter=interrompu(a);
       return {cel:{
         n:{t:String(i+1),style:"bold",c:NC.gris2},
@@ -11459,7 +11512,13 @@ function nPlanningActions(ctx,FX,acts){
         feu:{type:"feu",t:fe.t,coul:fe.coul},
         del:{t:fe.delai,c:fe.rouge?NC.rouge:NC.gris,style:fe.rouge?"bold":undefined}
       }};
+    };
+    const lignes=[];
+    if(groupes) groupes.forEach(g=>{
+      lignes.push({groupe:{t:g.axe||"Sans axe",teinte:teinteAxe(p,g.axe),resume:resumeAxe(g.acts)}});
+      g.acts.forEach(a=>lignes.push(ligneTab(a)));
     });
+    else acts.forEach(a=>lignes.push(ligneTab(a)));
     nTable(ctx,"Actions MEO",[{k:"n",t:"",w:28},{k:"lib",t:"Action"},{k:"por",t:"Porteur",w:150},
       {k:"ech",t:"Échéance",w:92},{k:"av",t:"Avancement",w:160},{k:"feu",t:"État",w:160},{k:"del",t:"Délai",w:150}],
       lignes,{sous:"feu calculé par l'analyse"});
@@ -11512,7 +11571,6 @@ function nFicheAction(ctx,FX,a,i){
   /* ligne d'identité */
   const av=pct(a[c.colAvancement]), inter=interrompu(a);
   const champs=[];
-  if(axe) champs.push(["Axe",axe]);
   champs.push(["Porteur",lire(t,a,c.colPorteur)],["Statut",lire(t,a,c.colStatut)],
     ["Début",nDateFR(a[c.colDebut])],["Échéance",nDateFR(a[c.colEch])]);
   if(a[c.colFin]) champs.push(["Fin",nDateFR(a[c.colFin])]);
@@ -11737,7 +11795,9 @@ function construireDoc(p,o){
   o=o||{};
   const mode=(o.doc||IMPR.doc)==="complet"?"complet":"codir";
   const ctx=nCtx(p,mode);
-  const acts=actionsDe(p);
+  let acts=actionsDe(p);
+  const gr=groupesParAxe(acts);
+  if(gr) acts=[].concat(...gr.map(g=>g.acts));
   const FX=nFeux(p);
   chargerPagesSup(p);
   if(mode==="complet"){
@@ -11751,7 +11811,18 @@ function construireDoc(p,o){
       ctx.sec="Fiches des actions MEO";
       nPage(ctx);
       ctx.som.push({lib:"Fiches des actions MEO",page:ctx.pages});
-      acts.forEach((a,i)=>nFicheAction(ctx,FX,a,i));
+      const groupes=groupesParAxe(acts);
+      if(groupes) groupes.forEach(g=>g.acts.forEach((a,k)=>{
+        if(k===0){
+          const bande={t:g.axe||"Sans axe",teinte:teinteAxe(p,g.axe),resume:resumeAxe(g.acts)};
+          const hb=nCoupe(ctx.pdf,bande.t,PW-2*NP.m-230,11.5,"bold").length*15+12;
+          if(ctx.y+hb+12+64+60>ctx.yBas) nPage(ctx);
+          nBandeAxe(ctx.pdf,NP.m,ctx.y,PW-2*NP.m,hb,bande);
+          ctx.y+=hb+14;
+        }
+        nFicheAction(ctx,FX,a,acts.indexOf(a));
+      }));
+      else acts.forEach((a,i)=>nFicheAction(ctx,FX,a,i));
     }
     const op=IMPR.optsPdf||{};
     if(op.instances!==false) nInstances(ctx);
@@ -14852,7 +14923,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-a — refonte de l'impression PDF (note CODIR et dossier complet)";
+const VERSION="2026-10-14-c — refonte de l'impression PDF (note CODIR et dossier complet)";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

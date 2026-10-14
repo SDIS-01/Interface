@@ -1861,7 +1861,7 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
 const DEF = {
   tblMain:"", colProjKey:"ID_Projet_Action_AV", colActKey:"ID_Action_MEO", colAxe:"Axe",
   colNature:"Nature", colLibelle:"", colGroupement:"Groupement", colPorteur:"Porteur",
-  colPriorite:"Priorité", colAvancement:"Avancement", colStatut:"Statut",
+  colPriorite:"Priorité", colSponsor:"Sponsor_CODIR", colAvancement:"Avancement", colStatut:"Statut",
   colArchive:"Archive_Projet",
   colCommentaire:"Commentaire", colDescriptif:"Descriptif_initiative", colBudget:"Budget", colDebut:"Date_Début", colEch:"Ech_Prev", colFin:"Date_Fin",
   colPJ:"Pièce_Jointe",
@@ -1914,6 +1914,7 @@ const CHAMPS_REGLAGES = [
     ["colActKey","Identifiant de l'action"],
     ["colAxe","Axe de l'action (texte, facultatif)"],
     ["colGroupement","Groupement"],["colPorteur","Porteur"],["colPriorite","Priorité"],
+    ["colSponsor","Sponsor CODIR"],
     ["colAvancement","Avancement"],["colStatut","Statut"],
     ["colArchive","Archivage (case à cocher)"],["colCommentaire","Commentaire"],
     ["colDescriptif","Descriptif du projet"],["colBudget","Budget (texte libre et tableaux)"],
@@ -2306,7 +2307,7 @@ async function charger(){
 
   // libellés des colonnes de type Référence utilisées à l'écran
   const aResoudre=[
-    [c.tblMain,["colPorteur","colGroupement","colPriorite","colStatut","colNature","colLibelle","colSup","colMillesime"]],
+    [c.tblMain,["colPorteur","colGroupement","colPriorite","colSponsor","colStatut","colNature","colLibelle","colSup","colMillesime"]],
     [c.tblTache,["colTachePorteur","colTacheStatut","colTacheLibelle"]],
     [c.tblJournal,["colJnlAuteur","colJnlNature","colJnlAction","colJnlCollab","colJnlReponse"]],
     [c.tblInstance,["colInsLibelle","colInsHisto","colInsType","colInsRapporteur","colInsAction"]],
@@ -5063,6 +5064,7 @@ function vueSynthese(p){
       ch("Groupement",lect(c.colGroupement))+
       ch("Porteur",lect(c.colPorteur))+
       ch("Priorité",lect(c.colPriorite))+
+      (c.colSponsor?ch("Sponsor CODIR",lect(c.colSponsor)):"")+
       ch("Statut",lect(c.colStatut))+
       ch("Avancement",avct)+
       (c.colSup?ch(libelleColonne(t,c.colSup),lect(c.colSup),true):"")+
@@ -10669,7 +10671,7 @@ function fclamp(t){ return Math.min(PMAX,Math.max(PMIN,t)); }
    espacées et les largeurs mal calculées qui débordent des colonnes. On les
    remplace donc avant toute mesure comme avant tout tracé. */
 const PDF_SUP="€‚ƒ„…†‡ˆ‰Š‹ŒŽ''“”•–—˜™š›œžŸ";
-const PDF_REMPL={"↳":"»","→":"->","←":"<-","▸":"•","▪":"•","●":"•","◆":"•",
+const PDF_REMPL={"‘":"'","’":"'","‛":"'","″":"\"","↳":"»","→":"->","←":"<-","▸":"•","▪":"•","●":"•","◆":"•",
                  "✓":"v","✔":"v","✕":"x","✗":"x","⏱":"","⚠":"!","№":"n°",
                  "≤":"<=","≥":">=","×":"x","·":"•","…":"…"};
 function pSafe(v){
@@ -10984,7 +10986,8 @@ function nTable(ctx,titre,cols,lignes,o){
     let cx=x;
     cols.forEach(c=>{
       const t=nCoupe(pdf,String(c.t||"").toUpperCase(),c.lw-10,9.5,"bold",1)[0]||"";
-      nT(pdf,cx+6,ctx.y+12,t,{px:9.5,style:"bold",c:NC.taupe});
+      if(o.grille && cx===x) nR(pdf,x,ctx.y,W,19,NC.taupe);
+      nT(pdf,c.align==="right"?cx+c.lw-6:cx+6,ctx.y+12.5,t,{px:9.5,style:"bold",c:o.grille?"#ffffff":NC.taupe,align:c.align||"left"});
       cx+=c.lw;
     });
     ctx.y+=19;
@@ -11018,10 +11021,12 @@ function nTable(ctx,titre,cols,lignes,o){
           nRond(pdf,cx+10,ctx.y+5+px-3.5,4,v.coul);
           nT(pdf,cx+18,ctx.y+5+px,v.t,{px:10.5,style:"bold",c:v.coul});
         }else lignesDe(v,c).forEach((l,k)=>
-          nT(pdf,cx+6,ctx.y+5+px+k*lh,l,{px:v.px||px,style:v.style,c:v.c||NC.encre}));
+          nT(pdf,c.align==="right"?cx+c.lw-6:cx+6,ctx.y+5+px+k*lh,l,{px:v.px||px,style:v.style,c:v.c||NC.encre,align:c.align||"left"}));
       }
       cx+=c.lw;
+      if(o.grille) nL(pdf,cx,ctx.y,cx,ctx.y+h,NC.filet,0.8);
     });
+    if(o.grille) nL(pdf,x,ctx.y,x,ctx.y+h,NC.filet,0.8);
     ctx.y+=h;
     nL(pdf,x,ctx.y,x+W,ctx.y,NC.filet,0.8);
   });
@@ -11140,8 +11145,10 @@ function nGantt(ctx,rows,o){
       if(r.axe){ nR(pdf,x,yy,W,h,nPale(r.teinte[1],0.35)); nR(pdf,x,yy,3,h,r.teinte[0]); }
       r._l.forEach((l,k)=>nT(pdf,x+s.ind+(r.axe?10:0),yl+k*lhl,l,{px:s.px,style:s.st,c:s.c}));
       const g=pos(r.d||r.f), lb=Math.max(5,pos(r.f||r.d)-g);
-      const fond=r.axe?r.teinte[1]:(r.niv===0?"#F3E3E2":"#EEEAE4");
-      const plein=r.inter?"#9A948E":(r.axe?r.teinte[0]:(r.niv===0?NC.rouge:nBarreCoul(r.av)));
+      /* avec des axes, une action prend la couleur de sa famille ; la ligne
+         de famille, plus foncée, résume ses actions */
+      const fond=r.axe?r.teinte[1]:(r.teinteAxe?r.teinteAxe[1]:(r.niv===0?"#F3E3E2":"#EEEAE4"));
+      const plein=r.inter?"#9A948E":(r.axe?r.teinte[2]:(r.teinteAxe?r.teinteAxe[0]:(r.niv===0?NC.rouge:nBarreCoul(r.av))));
       nR(pdf,xp+g,yc-hb/2,lb,hb,fond,3);
       if(r.av) nR(pdf,xp+g,yc-hb/2,Math.max(Math.min(6,lb),lb*Math.min(100,r.av)/100),hb,plein,3);
       const lt=r.inter?"interrompu":(r.av==null?"":r.av+" %");
@@ -11269,6 +11276,7 @@ function nSommaireIdentite(ctx){
   const av=pct(p[c.colAvancement]);
   const champs=[["Nature",lire(t,p,c.colNature)],["Statut",lire(t,p,c.colStatut)],
     ["Priorité",lire(t,p,c.colPriorite)],["Porteur",lire(t,p,c.colPorteur)],
+    ["Sponsor CODIR",c.colSponsor?lire(t,p,c.colSponsor):""],
     ["Groupement",lire(t,p,c.colGroupement)]];
   if(c.colSup) champs.push([libelleColonneBrut(t,c.colSup),lire(t,p,c.colSup)]);
   if(c.colMillesime) champs.push(["Millésime P2A",lire(t,p,c.colMillesime)]);
@@ -11353,19 +11361,26 @@ function nSituation(ctx,FX){
   const lt=nCoupe(pdf,ctx.titre,wt,23,"bold",2);
   lt.forEach((l,i)=>nT(pdf,x,y+21+i*28,l,{px:23,style:"bold"}));
   y+=lt.length*28+6;
-  /* porteur · groupement · priorité, valeurs en gras */
+  /* porteur · groupement · priorité · sponsor CODIR, valeurs en gras ; un
+     élément qui ne tient plus sur la ligne passe à la suivante */
   const seg=[];
   const por=txt(lire(t,p,c.colPorteur)).trim(), grp=txt(lire(t,p,c.colGroupement)).trim(), pri=txt(lire(t,p,c.colPriorite)).trim();
+  const spo=c.colSponsor?txt(lire(t,p,c.colSponsor)).trim():"";
   if(por) seg.push(["Porteur ",por]);
   if(grp) seg.push(["",grp]);
   if(pri) seg.push(["Priorité ",pri]);
+  if(spo) seg.push(["Sponsor CODIR ",spo]);
   let xs=x;
+  const sep="  ·  ";
   seg.forEach((s,i)=>{
-    if(i){ xs+=nT(pdf,xs,y+12,"  ·  ",{px:12,c:NC.gris}); }
+    const st=s[0]?"bold":"normal";
+    const wSeg=(i?nW(pdf,sep,12):0)+(s[0]?nW(pdf,s[0],12):0)+nW(pdf,s[1],12,st);
+    let debut=i===0;
+    if(i && xs+wSeg>x+wt){ y+=18; xs=x; debut=true; }
+    if(!debut) xs+=nT(pdf,xs,y+12,sep,{px:12,c:NC.gris});
     if(s[0]) xs+=nT(pdf,xs,y+12,s[0],{px:12,c:NC.gris});
-    const reste=x+wt-xs;
-    const v=nCoupe(pdf,s[1],Math.max(40,reste),12,s[0]?"bold":"normal",1)[0]||"";
-    xs+=nT(pdf,xs,y+12,v,{px:12,style:s[0]?"bold":"normal",c:s[0]?NC.encre:NC.gris});
+    const v=nCoupe(pdf,s[1],Math.max(40,x+wt-xs),12,st,1)[0]||"";
+    xs+=nT(pdf,xs,y+12,v,{px:12,style:st,c:s[0]?NC.encre:NC.gris});
   });
   y+=22;
   ctx.y=Math.max(y,y0+hm)+14;
@@ -11478,6 +11493,7 @@ function nPlanningActions(ctx,FX,acts){
   const tachesP=(c.tblTache&&c.colTacheLien)?tachesDe(p):[];
   const groupes=acts.length?groupesParAxe(acts):null;
   const ligneAct=(a,sous)=>({lib:(acts.indexOf(a)+1)+". "+nLibAction(a),niv:1,sousAxe:sous,
+    teinteAxe:sous?teinteAxe(p,axeDe(a)):null,
     d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null,av:pct(a[c.colAvancement]),inter:interrompu(a)});
   if(groupes) groupes.forEach(g=>{
     /* ligne de famille : l'étendue de ses actions et leur avancement moyen */
@@ -11653,60 +11669,201 @@ function nJournal(ctx){
     }};
   }));
 }
+/* --- budget : reproduction fidèle de la saisie ---------------------------
+   Le contenu de l'onglet Budget est repris tel qu'il est saisi : paragraphes
+   (gras, italique, souligné compris, même au milieu d'une phrase), listes à
+   puces ou numérotées, et tableaux refaits cellule par cellule — lignes
+   d'en-tête là où la saisie en porte, largeurs calculées comme à l'écran
+   (au contenu pour un tableau libre, aux largeurs réglées pour un tableau
+   de budget), montants alignés à droite et ligne de total. */
+const NB={px:11.5, lh:16.5, padX:10, padY:5, fondTh:"#EFEBE6", zebre:"#FBFAF8", bord:"#D9D3CB"};
+function nStyleRun(r){ return r.b&&r.i?"bolditalic":(r.b?"bold":(r.i?"italic":"normal")); }
+/* texte enrichi d'un élément : lignes (coupées aux <br>) de segments stylés */
+function nRunsDe(el,gras){
+  const lignes=[[]];
+  const marche=(n,st)=>{
+    if(n.nodeType===3){
+      /* les espaces insécables (milliers d'un montant) ne coupent pas la ligne */
+      const t=n.nodeValue.replace(/[\u00a0\u202f]/g,"\u00a0").replace(/[ \t\r\n]+/g," ");
+      if(t) lignes[lignes.length-1].push({t,b:st.b,i:st.i,u:st.u});
+      return;
+    }
+    if(n.nodeType!==1) return;
+    const tag=n.tagName;
+    if(tag==="BR"){ lignes.push([]); return; }
+    if(tag==="UL"||tag==="OL"||tag==="TABLE") return;          // traités à part
+    const s2={b:st.b||tag==="B"||tag==="STRONG", i:st.i||tag==="I"||tag==="EM", u:st.u||tag==="U"};
+    n.childNodes.forEach(c=>marche(c,s2));
+  };
+  el.childNodes.forEach(c=>marche(c,{b:!!gras,i:false,u:false}));
+  return lignes;
+}
+/* coupe les segments à la largeur ; renvoie des lignes [{t,st,u,x,w}] */
+function nCouperRuns(pdf,lignes,w,px){
+  const out=[];
+  lignes.forEach(runs=>{
+    let cur=[], cx=0;
+    const fin=()=>{ while(cur.length && cur[cur.length-1].t===" "){ cx-=cur.pop().w; } out.push(cur); cur=[]; cx=0; };
+    runs.forEach(r=>{
+      const st=nStyleRun(r);
+      String(r.t).split(/( )/).forEach(tk=>{
+        if(!tk) return;
+        if(tk===" "){
+          if(!cur.length) return;
+          const ws=nW(pdf," ",px,st); cur.push({t:" ",st,u:r.u,x:cx,w:ws}); cx+=ws; return;
+        }
+        let mot=tk, tw=nW(pdf,mot,px,st);
+        if(cx+tw>w && cur.length) fin();
+        /* mot plus long que la colonne : coupé lettre à lettre */
+        while(tw>w && mot.length>1){
+          let k=mot.length-1;
+          while(k>1 && nW(pdf,mot.slice(0,k),px,st)>w-cx) k--;
+          const bout=mot.slice(0,k), wb=nW(pdf,bout,px,st);
+          cur.push({t:bout,st,u:r.u,x:cx,w:wb}); cx+=wb; fin();
+          mot=mot.slice(k); tw=nW(pdf,mot,px,st);
+        }
+        cur.push({t:mot,st,u:r.u,x:cx,w:tw}); cx+=tw;
+      });
+    });
+    fin();
+  });
+  return out;
+}
+function nLargeurLigne(l){ return l.length?l[l.length-1].x+l[l.length-1].w:0; }
+function nDessinerLigneRuns(pdf,l,x,y,px,c,align,w){
+  const dx=align==="right"?w-nLargeurLigne(l):(align==="center"?(w-nLargeurLigne(l))/2:0);
+  l.forEach(s=>{
+    if(s.t!==" ") nT(pdf,x+dx+s.x,y,s.t,{px,style:s.st,c});
+    if(s.u) nL(pdf,x+dx+s.x,y+2,x+dx+s.x+s.w,y+2,c||NC.encre,0.6);
+  });
+}
+/* largeur naturelle (sans retour) et plus long mot d'un élément */
+function nMesureCellule(pdf,el,px,gras){
+  let nat=0, mot=0;
+  nRunsDe(el,gras).forEach(runs=>{
+    let lg=0;
+    runs.forEach(r=>{
+      const st=nStyleRun(r);
+      lg+=nW(pdf,r.t,px,st);
+      r.t.split(" ").forEach(m=>{ if(m) mot=Math.max(mot,nW(pdf,m,px,st)); });
+    });
+    nat=Math.max(nat,lg);
+  });
+  return {nat,mot};
+}
+/* paragraphe enrichi, paginé ligne à ligne */
+function nParaRuns(ctx,el,o){
+  o=o||{};
+  const pdf=ctx.pdf, px=NB.px, lh=NB.lh, x=NP.m+(o.retrait||0), w=PW-2*NP.m-(o.retrait||0);
+  const dxm=o.marque?Math.max(18,nW(pdf,o.marque+" ",px)+4):0;
+  const lignes=nCouperRuns(pdf,nRunsDe(el,o.gras),w-dxm,px);
+  lignes.forEach((l,k)=>{
+    if(ctx.y+lh>ctx.yBas) nPage(ctx);
+    if(o.marque && k===0) nT(pdf,x,ctx.y+px,o.marque,{px});
+    nDessinerLigneRuns(pdf,l,x+dxm,ctx.y+px,px,NC.encre,"left",w-dxm);
+    ctx.y+=lh;
+  });
+}
+function nListeBudget(ctx,el,niveau){
+  const ol=el.tagName==="OL";
+  [...el.children].filter(li=>li.tagName==="LI").forEach((li,i)=>{
+    nParaRuns(ctx,li,{marque:ol?(i+1)+".":(niveau%2?"–":"•"),retrait:6+niveau*22});
+    li.querySelectorAll(":scope > ul, :scope > ol").forEach(sub=>nListeBudget(ctx,sub,niveau+1));
+  });
+}
+function nTableauBudget(ctx,el){
+  const pdf=ctx.pdf, px=NB.px, lh=NB.lh, W=PW-2*NP.m;
+  const rows=[...el.rows];
+  if(!rows.length) return;
+  const nbCol=Math.max(...rows.map(r=>r.cells.length));
+  if(!nbCol) return;
+  const bdg=bdgEstBudget(el), types=bdg?bdgTypes(el):[];
+  /* largeurs : réglées pour un tableau de budget, au contenu sinon */
+  let larg;
+  if(bdg){
+    larg=[...Array(nbCol)].map((_,i)=>{ const th=rows[0].cells[i]; return Number(th&&th.dataset.w)||BDG_LARG[types[i]]||150; });
+    const tot=larg.reduce((a,b)=>a+b,0);
+    if(tot>W) larg=larg.map(v=>v*W/tot);
+  }else{
+    const nat=Array(nbCol).fill(0), min=Array(nbCol).fill(0);
+    rows.forEach(r=>[...r.cells].forEach((td,i)=>{
+      const m=nMesureCellule(pdf,td,px,td.tagName==="TH");
+      nat[i]=Math.max(nat[i],m.nat+2*NB.padX+1); min[i]=Math.max(min[i],Math.min(m.mot,W/nbCol)+2*NB.padX+1);
+    }));
+    const sNat=nat.reduce((a,b)=>a+b,0), sMin=min.reduce((a,b)=>a+b,0);
+    if(sNat<=W) larg=nat;
+    else if(sMin>=W) larg=min.map(v=>v*W/sMin);
+    else larg=min.map((v,i)=>v+(nat[i]-v)*(W-sMin)/((sNat-sMin)||1));
+  }
+  const wTab=larg.reduce((a,b)=>a+b,0);
+  /* préparation des lignes : texte coupé, hauteur, style */
+  const L=rows.map((r,ir)=>{
+    const total=r.getAttribute("data-total")==="1";
+    const cel=[...r.cells].map((td,i)=>{
+      const th=td.tagName==="TH";
+      const num=bdg && types[i]==="eur" && !th;
+      /* comme à l'écran : la ligne de total est en gras, sauf le détail par section */
+      const gras=th||(total && !(bdg && types[i]==="sec"));
+      const lignes=nCouperRuns(pdf,nRunsDe(td,gras),larg[i]-2*NB.padX,px);
+      return {th,num,lignes};
+    });
+    const n=Math.max(1,...cel.map(c=>c.lignes.length));
+    return {cel,total,h:n*lh+2*NB.padY+1,entete:cel.length>0&&cel.every(c=>c.th),zebre:(ir+1)%2===0};
+  });
+  const tete=L[0]&&L[0].entete?L[0]:null;
+  const dessinerLigne=(li)=>{
+    let cx=NP.m;
+    for(let i=0;i<nbCol;i++){
+      const c=li.cel[i], w=larg[i];
+      const fond=li.total||(c&&c.th)?NB.fondTh:(li.zebre?NB.zebre:null);
+      if(fond) nR(pdf,cx,ctx.y,w,li.h,fond);
+      pdf.setDrawColor(NB.bord); pdf.setLineWidth(0.8); pdf.rect(cx,ctx.y,w,li.h,"S");
+      if(c){
+        const coul=(c.th||li.total)?NC.encre:NC.encre;
+        c.lignes.forEach((l,k)=>nDessinerLigneRuns(pdf,l,cx+NB.padX,ctx.y+NB.padY+px+k*lh,px,coul,
+          c.num?"right":"left",w-2*NB.padX));
+      }
+      cx+=w;
+    }
+    if(li.total) nL(pdf,NP.m,ctx.y,NP.m+wTab,ctx.y,NC.taupe,1.6);
+    ctx.y+=li.h;
+  };
+  if(ctx.y+(tete?tete.h:0)+(L[tete?1:0]?L[tete?1:0].h:0)>ctx.yBas) nPage(ctx);
+  L.forEach((li,i)=>{
+    if(ctx.y+li.h>ctx.yBas){
+      nPage(ctx);
+      if(tete && i>0) dessinerLigne(tete);
+    }
+    dessinerLigne(li);
+  });
+  ctx.y+=10;
+}
 function nBudget(ctx){
   if(typeof budgetPret!=="function" || !budgetPret()) return;
   const h=budgetDe(ctx.p);
   if(budgetVide(h)) return;
   const racine=document.createElement("div");
   racine.innerHTML=h;
-  bdgPreparer(racine,false);
-  const W=PW-2*NP.m;
-  const texteDe=el=>{
-    const cl=el.cloneNode(true);
-    if(cl.querySelectorAll) cl.querySelectorAll("br").forEach(b=>b.replaceWith("\n"));
-    return String(cl.textContent||"").replace(/[ \t  ]+/g," ").replace(/ *\n */g,"\n").trim();
-  };
-  const toutGras=el=>{
-    const t=String(el.textContent||"").replace(/\s/g,"");
-    if(!t||!el.querySelectorAll) return false;
-    let g=""; el.querySelectorAll("b,strong").forEach(b=>g+=b.textContent);
-    return g.replace(/\s/g,"")===t;
-  };
-  nSection(ctx,"Budget","Budget",{min:150});
+  bdgPreparer(racine,false);        // montants mis en forme, total recalculé
+  nSection(ctx,"Budget","Budget",{page:true});
   nTitre(ctx,"Budget");
   [...racine.childNodes].forEach(el=>{
-    const tag=el.nodeType===1?el.tagName:"";
-    if(tag==="TABLE"){
-      const rows=[...el.rows];
-      if(rows.length<2) return;
-      const bdg=bdgEstBudget(el), types=bdg?bdgTypes(el):[];
-      const nbCol=Math.max(...rows.map(r=>r.cells.length));
-      const larg=[...Array(nbCol)].map((_,i)=>{
-        const th=rows[0].cells[i];
-        return bdg?(Number(th&&th.dataset.w)||BDG_LARG[types[i]]||150):1;
-      });
-      const tot=larg.reduce((a,b)=>a+b,0)||1;
-      const cols=larg.map((w,i)=>({k:"c"+i,t:rows[0].cells[i]?texteDe(rows[0].cells[i]).replace(/\n/g," "):"",w:w*W/tot}));
-      const lignes=rows.slice(1).map(r=>{
-        const total=r.getAttribute("data-total")==="1", cel={};
-        [...r.cells].forEach((td,i)=>{ cel["c"+i]={t:texteDe(td),style:total?"bold":undefined}; });
-        return {fond:total?NC.fond:undefined,bordHaut:total,cel};
-      }).filter(l=>Object.values(l.cel).some(v=>v.t));
-      nTable(ctx,null,cols,lignes,{apres:14});
-    }else if(tag==="UL"||tag==="OL"){
-      [...el.children].forEach((li,i)=>{
-        const t=texteDe(li);
-        if(t) nPara(ctx,t,{puce:tag==="OL"?(i+1)+".":"•",retrait:12,style:toutGras(li)?"bold":undefined});
-      });
-      ctx.y+=6;
-    }else{
-      const t=texteDe(el);
-      if(!t){ ctx.y+=6; return; }
-      nPara(ctx,t,{style:toutGras(el)?"bold":undefined});
-      ctx.y+=4;
+    if(el.nodeType===3){
+      if(el.nodeValue.trim()){ const p=document.createElement("p"); p.textContent=el.nodeValue; nParaRuns(ctx,p); ctx.y+=6; }
+      return;
+    }
+    if(el.nodeType!==1) return;
+    const tag=el.tagName;
+    if(tag==="TABLE"){ ctx.y+=4; nTableauBudget(ctx,el); }
+    else if(tag==="UL"||tag==="OL"){ nListeBudget(ctx,el,0); ctx.y+=6; }
+    else{
+      const vide=!String(el.textContent||"").replace(/[\s ]/g,"");
+      if(vide){ ctx.y+=NB.lh*0.6; return; }
+      nParaRuns(ctx,el); ctx.y+=6;
     }
   });
 }
+
 function nPagesSup(ctx){
   if(!pagesSup.length) return;
   const pdf=ctx.pdf;
@@ -11769,7 +11926,7 @@ function nStrategie(ctx){
     return {st,res:lignesStrat(st).filter(r=>ids.has(r.id))};
   }).filter(b=>b.res.length);
   if(!blocs.length) return;
-  nSection(ctx,"Stratégie SDACR / PE","Stratégie",{min:150});
+  nSection(ctx,"Stratégie SDACR / PE","Stratégie",{page:true});
   blocs.forEach(({st,res})=>{
     const lignes=[];
     grouperStrat(st,res).forEach(g=>{
@@ -12685,6 +12842,11 @@ function devineDefauts(){
     clesMain.forEach(k=>{
       if(!c[k] && DEF[k] && ids.includes(DEF[k])) c[k]=DEF[k];
     });
+    /* sponsor CODIR : à défaut du nom attendu, toute colonne qui en parle */
+    if(!c.colSponsor){
+      const s=colonnesDe(c.tblMain).find(x=>/sponsor/i.test(x.colId)||/sponsor/i.test(x.label||""));
+      if(s) c.colSponsor=s.colId;
+    }
     if(!c.colLibelle){
       const pref=["Libelle","Libellé","Libelle_Action","Titre","Projet_Action","Nom","Intitule"];
       c.colLibelle = pref.find(p=>ids.includes(p)) || ids.find(i=>/libell|titre|nom|action/i.test(i)) || "";
@@ -14385,6 +14547,7 @@ function mbSynthese(p){
         champ("Porteur",lire(c.tblMain,p,c.colPorteur))+
         champ("Nature",lire(c.tblMain,p,c.colNature))+
         champ("Priorité",lire(c.tblMain,p,c.colPriorite))+
+        (c.colSponsor?champ("Sponsor CODIR",lire(c.tblMain,p,c.colSponsor)):"")+
         champ("Échéance",dateVersFR(p[c.colEch]||p[c.colFin]))+
       '</div></div>'+
 
@@ -14923,7 +15086,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-c — refonte de l'impression PDF (note CODIR et dossier complet)";
+const VERSION="2026-10-14-d — refonte de l'impression PDF (note CODIR et dossier complet)";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

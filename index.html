@@ -67,8 +67,8 @@ input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
   margin-right:8px;}
 /* les deux exports se distinguent par leur couleur : rouge pour le PDF,
    orange clair pour le diaporama */
-.btn-top.btn-pdf{background:#E30613;color:#fff;border-color:#E30613;}
-.btn-top.btn-pdf:hover{background:#c40510;border-color:#c40510;}
+.btn-top.btn-pdf{background:#6A3D9A;color:#fff;border-color:#6A3D9A;}
+.btn-top.btn-pdf:hover{background:#552F7D;border-color:#552F7D;}
 .btn-top.btn-diapo{background:#FBD9A8;color:#7A4A10;border-color:#FBD9A8;}
 .btn-top.btn-diapo:hover{background:#F7C87F;border-color:#F7C87F;}
 .btn-top.btn-pf{background:#C0504D;color:#fff;border-color:#C0504D;font-weight:bold;}
@@ -12182,7 +12182,8 @@ function nFicheAction(ctx,FX,a,i){
   const pdf=ctx.pdf, c=S.cfg, t=c.tblMain, x=NP.m, W=PW-2*NP.m;
   const ts=(c.tblTache&&c.colTacheLien)?tachesDe(a):[];
   const datees=ts.filter(k=>Number(k[c.colTacheDebut])||Number(k[c.colTacheFin]));
-  const avecPlanning=datees.length>=4;
+  /* un planning pour chaque action datée : avec ses tâches, ou sa seule barre */
+  const avecPlanning=!!(Number(a[c.colDebut])||Number(a[c.colEch])||Number(a[c.colFin])||datees.length);
   const com=c.colCommentaire?txt(lire(t,a,c.colCommentaire)).trim():"";
   /* une fiche démarre sur une nouvelle page si son en-tête et la suite
      immédiate (planning, premières tâches ou commentaire) ne tiennent pas */
@@ -15720,7 +15721,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-n — PDF et diaporama issus du même gabarit, bouton unique";
+const VERSION="2026-10-14-o — PDF et diaporama issus du même gabarit, bouton unique";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

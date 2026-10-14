@@ -11517,7 +11517,7 @@ function nFinaliser(ctx){
       else nT(pdf,PW-NP.m,34,sec,{px:10.5,style:"bold",c:NC.taupe,align:"right"});
     }
     let yp=PH-NP.hPied/2+3.5;
-    if((ctx.yFin[i]||PH)<=PH-hb-6){
+    if(i===n && (ctx.yFin[i]||PH)<=PH-hb-6){       // bandeau du bas : dernière page seulement
       pdf.addImage(IMG_BANDEAU_BAS,"PNG",0,PH-hb,PW,hb,"bandeauBas","FAST");
       yp=PH-hb+14;
     }else nL(pdf,NP.m,PH-NP.hPied,PW-NP.m,PH-NP.hPied,NC.filet,1);
@@ -15720,7 +15720,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-m — PDF et diaporama issus du même gabarit, bouton unique";
+const VERSION="2026-10-14-n — PDF et diaporama issus du même gabarit, bouton unique";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);

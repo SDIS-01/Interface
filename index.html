@@ -1258,6 +1258,25 @@ tbody tr.ligne-com:hover{background:transparent;}
 /* ---------- Blocs et ordre des pages du PDF ---------- */
 .nr-raz-info{padding:6px 18px;font-size:11.5px;color:var(--gris);background:var(--fond);border-bottom:1px solid var(--trait);}
 .nr-raz-arme{background:#C0504D!important;color:#fff!important;border-color:#C0504D!important;}
+.impr-choix{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.impr-carte{display:flex;flex-direction:column;gap:5px;text-align:left;font:inherit;background:#fff;
+  border:2px solid #e2ddd6;border-radius:8px;padding:12px 14px;cursor:pointer;color:var(--texte,#1c2330);}
+.impr-carte:hover{border-color:#d4a9a7;}
+.impr-carte.sel{border-color:#C0504D;background:#fdf6f5;}
+.impr-carte .ic-t{font-weight:bold;font-size:14px;display:flex;justify-content:space-between;gap:8px;}
+.impr-carte .ic-t em{font-style:normal;font-size:11px;color:#C0504D;}
+.impr-carte .ic-s{font-size:12px;color:var(--gris);line-height:1.45;}
+.impr-opts{border-top:1px solid var(--trait);padding-top:12px;}
+.impr-opts.off{opacity:.45;pointer-events:none;}
+.impr-opts-t{font-size:12px;color:var(--gris);margin-bottom:6px;}
+.impr-opts label{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 2px;}
+.impr-opts input{margin:0;}
+.impr-n{color:#9a948e;font-size:12px;}
+.impr-lien{border:0;background:none;color:var(--bleu);text-decoration:underline;cursor:pointer;font:inherit;font-size:12px;padding:0;}
+.impr-pied{align-items:center;}
+.impr-pj{display:flex;align-items:center;gap:6px;font-size:13px;}
+.impr-pj.desactive{opacity:.5;}
+@media (max-width:560px){.impr-choix{grid-template-columns:1fr;}}
 .impr-preset{display:flex;gap:6px;}
 .impr-preset button{flex:1;}
 .impr-preset button.actif{background:#C0504D;color:#fff;border-color:#C0504D;font-weight:bold;}
@@ -1762,7 +1781,7 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
       <button type="button" class="ap-croix" id="ap-fermer" title="Fermer l'aperçu">✕</button>
     </header>
     <div class="ap-barre">
-      <button type="button" class="btn-2" id="ap-options">Sections à imprimer</button>
+      <button type="button" class="btn-2" id="ap-options">Changer de document</button>
       <button type="button" class="btn-2" id="ap-pages">Pages additionnelles</button>
       <label class="ap-coche" id="ap-pj-lab">
         <input type="checkbox" id="ap-pj"> Enregistrer aussi le PDF en pièce jointe du projet</label>
@@ -1800,59 +1819,32 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
 </div>
 
 <div class="voile" id="voile-impr">
-  <div class="modale" style="width:min(430px,100%)">
+  <div class="modale" style="width:min(580px,100%)">
     <header>Imprimer le projet</header>
     <div class="corps-modale">
-      <div class="bloc-reglage">
-        <h3>Préréglage</h3>
-        <p>« Dossier complet » coche tous les blocs et retient toutes les actions du projet.
-           Vous pouvez ensuite ajuster bloc par bloc.</p>
-        <div class="impr-preset" role="group" aria-label="Préréglage">
-          <button type="button" class="btn-2" id="impr-pre-fiche">Fiche projet</button>
-          <button type="button" class="btn-2" id="impr-pre-complet">Dossier complet</button>
-        </div>
+      <div class="impr-choix" role="radiogroup" aria-label="Document à produire">
+        <button type="button" class="impr-carte" data-doc="codir" role="radio">
+          <span class="ic-t">Note CODIR <em id="impr-nb-codir">2 pages</em></span>
+          <span class="ic-s">Situation, planning et actions. Pour une réunion de direction.</span></button>
+        <button type="button" class="impr-carte" data-doc="complet" role="radio">
+          <span class="ic-t">Dossier complet <em id="impr-nb-complet"></em></span>
+          <span class="ic-s">La note, plus le sommaire, les fiches des actions et la stratégie. À archiver.</span></button>
       </div>
-      <div class="bloc-reglage">
-        <h3>Contenu et ordre des pages</h3>
-        <p>Décochez ce que vous ne voulez pas, déplacez les blocs avec ▲ et ▼.
-           Le premier bloc retenu porte le bandeau et le titre.</p>
-        <div id="impr-sections" class="bl-liste"></div>
-      </div>
-      <div class="bloc-reglage">
-        <h3>Tâches</h3>
-        <p>Ce réglage vaut pour le PDF comme pour le diaporama.</p>
-        <label class="impr-radio"><input type="checkbox" id="impr-taches" checked>
-          Détailler les tâches sous chaque action</label>
-        <label class="impr-radio"><input type="checkbox" id="impr-pl-taches">
-          Les faire figurer aussi dans le planning</label>
-      </div>
-      <div class="bloc-reglage">
-        <h3>Taille du texte</h3>
-        <p>Un texte plus grand se répartit sur davantage de pages, rien n'est tronqué.</p>
-        <label class="impr-radio"><input type="checkbox" id="impr-lisible"> Corps du texte à 16&nbsp;pt, titres plus gros</label>
-        <select id="impr-zoom" class="impr-select"></select>
-      </div>
-
-      <div class="bloc-reglage" id="impr-bloc-instances">
-        <h3>Instances sur la page de garde</h3>
-        <p>Elles s'affichent en bas à droite, triées par date.</p>
-        <div id="impr-instances" class="impr-liste"></div>
-      </div>
-      <div class="bloc-reglage">
-        <h3>Pages additionnelles</h3>
-        <p>Textes et images libres, ajoutés à la fin du document.</p>
-        <button type="button" class="btn-2" id="impr-pages">Ouvrir l'éditeur</button>
-      </div>
-      <div class="bloc-reglage" id="impr-bloc-portee">
-        <h3>Actions</h3>
-        <label class="impr-radio"><input type="radio" name="impr-portee" value="filtrees" checked> Celles affichées à l'écran (filtres en cours)</label>
-        <label class="impr-radio"><input type="radio" name="impr-portee" value="toutes"> Toutes les actions du projet</label>
+      <div class="impr-opts" id="impr-opts">
+        <div class="impr-opts-t">Ajouter au dossier complet :</div>
+        <label><input type="checkbox" data-opt="instances"> Instances <span class="impr-n" id="impr-n-instances"></span></label>
+        <label><input type="checkbox" data-opt="journal"> Journal de bord <span class="impr-n" id="impr-n-journal"></span></label>
+        <label><input type="checkbox" data-opt="budget"> Budget <span class="impr-n" id="impr-n-budget"></span></label>
+        <label><input type="checkbox" data-opt="sup"> Pages additionnelles <span class="impr-n" id="impr-n-sup"></span>
+          <button type="button" class="impr-lien" id="impr-pages">ouvrir l'éditeur</button></label>
       </div>
     </div>
-    <footer>
+    <footer class="impr-pied">
+      <label class="impr-pj" id="impr-pj-lab"><input type="checkbox" id="impr-pj"> Joindre le PDF au projet</label>
+      <span class="ap-espace"></span>
       <button class="btn-2" id="impr-annuler">Annuler</button>
       <button class="btn-2" id="impr-apercu">Aperçu</button>
-      <button class="btn" id="impr-lancer">Télécharger le PDF</button>
+      <button class="btn" id="impr-lancer">Générer le PDF</button>
     </footer>
   </div>
 </div>
@@ -7183,15 +7175,6 @@ function lignesAnalyse(A){
 const ANA_METEO={vert:"🟢",orange:"🟠",rouge:"🔴",gris:"⏸"};
 
 /* PDF : un tableau « Rubrique / Constat » */
-function lignesAnalysePdf(p){
-  const coul={rouge:"#993333",orange:"#a85a12",vert:"#3b6d11",gris:PDFC.gris};
-  return lignesAnalyse(analyseProjet(p)).map(l=>({cellules:{
-    rub:{type:"texte",t:l.r,style:"bold",couleur:PDFC.gris},
-    constat:{type:"texte",t:(l.r==="Météo"?"● ":"")+l.t,
-             style:(l.g==="rouge"||l.r==="Météo")?"bold":undefined,
-             couleur:coul[l.g]||PDFC.encre}}}));
-}
-
 /* Diaporama : même contenu, tableau natif paginé */
 function odpAnalyse(d,p){
   const z=odpZone("pied");
@@ -7735,87 +7718,6 @@ function pAnneau(pdf,cx,cy,rayon,ep,seg,total,libelle){
     pTexte(pdf,cx+rayon+22+fz(12),y,s.l+" : "+s.v,{taille:10});
     y+=fz(15);
   });
-}
-
-function pdfAnalyseTdb(ctx,A){
-  const pdf=ctx.pdf, lw=PW-2*MX;
-  docPage(ctx);
-  pTexte(pdf,MX,ctx.y+fz(10),"Analyse du projet — tableau de bord",{taille:12,style:"bold",couleur:PDFC.bleu});
-  ctx.y+=fz(14)+10;
-  /* météo et synthèse */
-  const fonds={vert:"#edf5e0",orange:"#fdeee1",rouge:"#fbebeb",gris:"#f1efe8"};
-  const lignes=pDecoupe(pdf,A.phr.join(" "),lw-40,11,"normal");
-  const h=fz(20)+lignes.length*fz(15)+16;
-  pAplat(pdf,MX,ctx.y,lw,h,fonds[A.meteo.n],4);
-  pAplat(pdf,MX,ctx.y,5,h,ANA_PUCE[A.meteo.n]);
-  pTexte(pdf,MX+18,ctx.y+fz(16),"● "+A.meteo.l,{taille:13,style:"bold",couleur:ANA_TXT[A.meteo.n]});
-  lignes.forEach((l,k)=>pTexte(pdf,MX+18,ctx.y+fz(20)+8+(k+1)*fz(15)-fz(4),l,{taille:11}));
-  ctx.y+=h+18;
-  /* jauges */
-  const cal=A.cal, jw=380, jx=MX+140;
-  const jauge=(lib,v,coul,note)=>{
-    pTexte(pdf,MX,ctx.y+fz(11),lib,{taille:11,style:"bold",couleur:PDFC.gris});
-    pAplat(pdf,jx,ctx.y,jw,fz(14),"#F1EFE9",fz(7));
-    if(v) pAplat(pdf,jx,ctx.y,Math.max(fz(14),jw*Math.min(100,v)/100),fz(14),coul,fz(7));
-    pTexte(pdf,jx+jw+10,ctx.y+fz(11),(v==null?"—":v+" %")+(note?"   "+note:""),{taille:11,style:"bold"});
-    ctx.y+=fz(14)+12;
-  };
-  const yJ=ctx.y;
-  jauge("Avancement",cal.av,bandesImpr(cal.av,A.meteo.n==="gris").fill);
-  pTexte(pdf,MX,ctx.y+fz(11),"Échéance",{taille:11,style:"bold",couleur:PDFC.gris});
-  pTexte(pdf,jx,ctx.y+fz(11),anaTexteEcheance(cal),
-    {taille:11,style:"bold",couleur:cal.depasse?ANA_TXT.rouge:PDFC.encre});
-  ctx.y+=fz(14)+12;
-  /* anneaux à droite des jauges */
-  const r=46;
-  if(A.acts.length) pAnneau(pdf,PW-MX-420,yJ+r+4,r,16,anaSegActions(A),A.acts.length,"actions");
-  if(A.taches.length) pAnneau(pdf,PW-MX-170,yJ+r+4,r,16,anaSegTaches(A),A.taches.length,"tâches");
-  ctx.y=Math.max(ctx.y,yJ+2*r+24);
-}
-
-function lignesFeuxPdf(A){
-  return A.feux.map(f=>({cellules:{
-    feu:{type:"texte",t:"●",couleur:ANA_PUCE[f.feu.n],style:"bold"},
-    lib:{type:"texte",t:f.lib},
-    av:{type:"texte",t:f.av+" %"},
-    ech:{type:"texte",t:dateVersFR(f.ech)||"—"},
-    delai:{type:"texte",t:anaDelaiAction(f),
-      couleur:f.feu.l==="Échéance dépassée"?ANA_TXT.rouge:PDFC.encre,
-      style:f.feu.l==="Échéance dépassée"?"bold":undefined},
-    taches:{type:"texte",t:f.nbT+(f.tRet?" ("+f.tRet+" en retard)":""),couleur:f.tRet?ANA_TXT.rouge:PDFC.encre},
-    etat:{type:"texte",t:f.feu.l,couleur:ANA_ETAT_TXT[f.feu.n],style:"bold"}}}));
-}
-function lignesRecosPdf(A){
-  const L=[];
-  A.recos.forEach(r=>L.push({cellules:{type:{type:"texte",t:"Recommandation",style:"bold",couleur:PDFC.gris},
-    t:{type:"texte",t:r.t,couleur:ANA_TXT[r.g],style:r.g==="rouge"?"bold":undefined}}}));
-  A.alertes.forEach(a=>L.push({cellules:{type:{type:"texte",t:"Point d'attention",style:"bold",couleur:PDFC.gris},
-    t:{type:"texte",t:a.t,couleur:ANA_TXT[a.g]}}}));
-  if(!L.length) L.push({cellules:{type:{type:"texte",t:"—"},t:{type:"texte",t:"Aucun point d'attention",couleur:ANA_TXT.vert}}});
-  return L;
-}
-function lignesEchPdf(A){
-  return A.frise.ev.map(e=>({cellules:{
-    date:{type:"texte",t:dateVersFR(e.ts)},type:{type:"texte",t:e.type},
-    lib:{type:"texte",t:e.lib},
-    etat:{type:"texte",t:{depasse:"Dépassée",proche:"Sous 7 jours",avenir:"À venir",passe:"Passée"}[e.etat],
-      couleur:ANA_ETAT_COUL[e.etat],style:"bold"}}}));
-}
-
-function dessinerAnalysePdf(ctx,p){
-  const A=analyseComplete(p), sec=IMPR.sections, lw=PW-2*MX;
-  if(sec.anaTdb) pdfAnalyseTdb(ctx,A);
-  if(sec.anaFeux && A.feux.length) dessinerTableau(ctx,"Feu par action",
-    [{cle:"feu",titre:"",w:26},{cle:"lib",titre:"Action",w:lw-26-70-95-140-150-140},
-     {cle:"av",titre:"Avct",w:70},{cle:"ech",titre:"Échéance",w:95},{cle:"delai",titre:"Délai",w:140},
-     {cle:"taches",titre:"Tâches",w:150},{cle:"etat",titre:"État",w:140}],
-    lignesFeuxPdf(A),MX,lw,!sec.anaTdb);
-  if(sec.anaReco) dessinerTableau(ctx,"Recommandations et points d'attention",
-    [{cle:"type",titre:"Type",w:160},{cle:"t",titre:"Constat / proposition",w:lw-160}],
-    lignesRecosPdf(A),MX,lw,false);
-  if(sec.anaEch && A.frise.ev.length) dessinerTableau(ctx,"Échéances à venir et en retard",
-    [{cle:"date",titre:"Date",w:100},{cle:"type",titre:"Type",w:110},{cle:"lib",titre:"Élément",w:lw-100-110-130},
-     {cle:"etat",titre:"État",w:130}],lignesEchPdf(A),MX,lw,false);
 }
 
 /* --- Diaporama --- */
@@ -10407,8 +10309,16 @@ const IMPR={
   triPptx:[],            // critères de tri de la revue, dans l'ordre
   pieceJointe:false,     // déposer le PDF en pièce jointe du projet
   portee:"filtrees",
-  instancesGarde:null
+  instancesGarde:null,
+  doc:"codir",           // document PDF : "codir" (note de 2 pages) ou "complet"
+  optsPdf:{instances:true,journal:true,budget:true,sup:true}   // options du dossier complet
 };
+/* reprise des réglages PDF enregistrés (localStorage ou options du widget) */
+function reprendreReglagesPdf(o){
+  if(!o) return;
+  if(o.doc==="codir"||o.doc==="complet") IMPR.doc=o.doc;
+  if(o.optsPdf && typeof o.optsPdf==="object") Object.assign(IMPR.optsPdf,o.optsPdf);
+}
 
 function chargerOptionsImpr(){
   try{
@@ -10431,6 +10341,7 @@ function chargerOptionsImpr(){
       IMPR.ordrePptx=ordrePptxValide(o.ordrePptx);
     if(o.pieceJointe!==undefined) IMPR.pieceJointe=!!o.pieceJointe;
     if(o.portee) IMPR.portee=o.portee;
+    reprendreReglagesPdf(o);
   }catch(e){}
 }
 /* garde les clés connues et complète les manquantes, pour survivre à une évolution */
@@ -10457,47 +10368,58 @@ function enregistrerOptionsImpr(){
     {versionDefauts:VERSION_DEFAUTS_IMPR,sections:IMPR.sections,ordre:IMPR.ordre,zoom:IMPR.zoom,lisible:IMPR.lisible,
      planningTaches:IMPR.planningTaches, taches:IMPR.taches,
      sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
-     pieceJointe:IMPR.pieceJointe,portee:IMPR.portee})); }catch(e){}
+     pieceJointe:IMPR.pieceJointe,portee:IMPR.portee,doc:IMPR.doc,optsPdf:IMPR.optsPdf})); }catch(e){}
 }
 
 
+/* Fenêtre d'impression : le choix du document, quatre options pour le
+   dossier complet, et la pièce jointe. Tout le reste est fixé par le gabarit. */
 function ouvrirImpression(){
   if(enMobile()){ toast("L'impression n'est disponible que sur ordinateur.",true); return; }
   if(!S.projetSel){ toast("Sélectionnez d'abord un projet à imprimer.",true); return; }
   if(nbModifs()){ toast("Enregistrez vos saisies avant de générer le PDF.",true); return; }
-
-  chargerPagesSup(S.projetSel);
+  const p=S.projetSel, c=S.cfg;
+  chargerPagesSup(p);
+  const n=(id,v)=>{ const el=$(id); if(el) el.textContent=v; };
+  const nbIns=instancesDe(p).length;
+  const nbJnl=(c.tblJournal&&c.colJnlLien)?journalDe(p).length:0;
+  const bdg=(typeof budgetPret==="function" && budgetPret()) ? !budgetVide(budgetDe(p)) : false;
+  n("#impr-n-instances",nbIns?String(nbIns):"aucune");
+  n("#impr-n-journal",nbJnl?nbJnl+" entrée"+(nbJnl>1?"s":""):"aucune entrée");
+  n("#impr-n-budget",bdg?"":"non renseigné");
   majBoutonPages();
-  rendreBlocsImpr();
-  const z=$("#impr-zoom");
-  if(z){
-    z.innerHTML=ZOOMS_IMPR.map(([v,l])=>'<option value="'+v+'">'+l+
-      ' ('+Math.round(Number(v)*100)+'&nbsp;%)</option>').join("");
-    z.value=String(IMPR.zoom);
-  }
-  const pt=$("#impr-pl-taches");
-  if(pt) pt.checked=IMPR.planningTaches;
-  const cta=$("#impr-taches");
-  if(cta) cta.checked=IMPR.taches!==false;
-  const cl=$("#impr-lisible");
-  if(cl){
-    cl.checked=IMPR.lisible;
-    const maj=()=>{ if(z) z.disabled=cl.checked; };
-    cl.onchange=maj; maj();
-  }
-
-  document.querySelectorAll('[name=impr-portee]').forEach(r=>r.checked=(r.value===IMPR.portee));
-
-  const xs=instancesDe(S.projetSel);
-  const sel=IMPR.instancesGarde;
-  $("#impr-instances").innerHTML = xs.length
-    ? xs.map(j=>'<label><input type="checkbox" data-ins="'+j.table+":"+j.id+'"'+
-        ((!sel || sel.includes(j.table+":"+j.id))?" checked":"")+'> '+
-        (j.date?'<span>'+esc(dateVersFR(j.date))+' — </span>':'')+
-        esc(j.libelle||"(sans libellé)")+'</label>').join("")
-    : '<div class="vide">Aucune instance enregistrée pour ce projet.</div>';
-
+  document.querySelectorAll("#impr-opts [data-opt]").forEach(cb=>{
+    cb.checked=IMPR.optsPdf[cb.dataset.opt]!==false;
+    cb.onchange=()=>{ IMPR.optsPdf[cb.dataset.opt]=cb.checked; majNbPagesComplet(); };
+  });
+  const cpj=$("#impr-pj"), lab=$("#impr-pj-lab"), dispo=!!c.colPJ;
+  cpj.checked=IMPR.pieceJointe && dispo; cpj.disabled=!dispo;
+  lab.classList.toggle("desactive",!dispo);
+  lab.title=dispo?"":"Aucune colonne « Pièces jointes » paramétrée sur la table principale.";
+  document.querySelectorAll(".impr-carte").forEach(b=>b.onclick=()=>choisirDocImpr(b.dataset.doc));
+  choisirDocImpr(IMPR.doc);
+  majNbPagesComplet();
   $("#voile-impr").classList.add("ouvert");
+}
+function choisirDocImpr(doc){
+  IMPR.doc=doc==="complet"?"complet":"codir";
+  document.querySelectorAll(".impr-carte").forEach(b=>{
+    const sel=b.dataset.doc===IMPR.doc;
+    b.classList.toggle("sel",sel); b.setAttribute("aria-checked",sel?"true":"false");
+  });
+  $("#impr-opts").classList.toggle("off",IMPR.doc!=="complet");
+}
+/* nombre de pages du dossier complet, calculé en construisant le document */
+function majNbPagesComplet(){
+  const el=$("#impr-nb-complet");
+  if(!el) return;
+  el.textContent="";
+  if(!window.jspdf || !S.projetSel) return;
+  try{
+    const d=construireDoc(S.projetSel,{doc:"complet"}); el.textContent=d.pages+" pages";
+    const n=construireDoc(S.projetSel,{doc:"codir"}).pages, ec=$("#impr-nb-codir");
+    if(ec) ec.textContent=n+" page"+(n>1?"s":"");
+  }catch(e){ console.warn("Comptage des pages : "+e.message); }
 }
 
 /* liste ordonnée des blocs effectivement imprimés */
@@ -10641,34 +10563,19 @@ function deplacerBloc(cle,sens){
 }
 
 function majBoutonPages(){
-  const b=$("#impr-pages");
-  if(b) b.textContent = pagesSup.length
-    ? "Ouvrir l'éditeur ("+pagesSup.length+" page"+(pagesSup.length>1?"s":"")+")"
-    : "Ouvrir l'éditeur";
+  const n=$("#impr-n-sup");
+  if(n) n.textContent=pagesSup.length?pagesSup.length+" page"+(pagesSup.length>1?"s":"")+" ·":"aucune ·";
 }
 
 function retenirOptionsImpr(){
-  document.querySelectorAll("[data-sec]").forEach(cb=>{
-    IMPR.sections[cb.dataset.sec]=cb.checked;
-  });
-  const z=$("#impr-zoom");
-  if(z) IMPR.zoom=Number(z.value)||1;
-  const cl=$("#impr-lisible");  if(cl)  IMPR.lisible=cl.checked;
-  const pt=$("#impr-pl-taches"); if(pt) IMPR.planningTaches=pt.checked;
-  const cta=$("#impr-taches");   if(cta) IMPR.taches=cta.checked;
-
-  const t=document.querySelector('[name=impr-portee]:checked');
-  if(t) IMPR.portee=t.value;
-  IMPR.instancesGarde=[...document.querySelectorAll('[data-ins]')]
-    .filter(cb=>cb.checked).map(cb=>cb.dataset.ins);
+  document.querySelectorAll("#impr-opts [data-opt]").forEach(cb=>{ IMPR.optsPdf[cb.dataset.opt]=cb.checked; });
+  const cpj=$("#impr-pj");
+  if(cpj && !cpj.disabled) IMPR.pieceJointe=cpj.checked;
   enregistrerOptionsImpr();
 }
 
 function lancerImpression(){
   retenirOptionsImpr();
-  if(!blocsRetenus().length){
-    toast("Choisissez au moins une section à imprimer.",true); return;
-  }
   $("#voile-impr").classList.remove("ouvert");
   genererFichePDF(S.projetSel);
 }
@@ -10857,784 +10764,858 @@ function pDonut(pdf,cx,cy,rayon,epaisseur,valeur,couleur){
     {taille:16,style:"bold",couleur:PDFC.encre,align:"center",baseline:"middle"});
 }
 
-/* --- gabarit des pages ---------------------------------------------------- */
+/* --- gabarit des pages (refonte d'octobre 2026) ---------------------------
+   Deux documents :
+   - la note CODIR : situation du projet, puis planning et actions (2 pages) ;
+   - le dossier complet : garde, sommaire et fiche d'identité, la note, les
+     fiches des actions MEO, les options cochées (instances, journal, budget,
+     pages additionnelles), puis la stratégie en fin de document.
+   Toutes les mesures sont en pixels de page (1123 x 794). Les tailles de
+   texte aussi : nF les convertit en points selon l'échelle interne de jsPDF,
+   si bien qu'un texte de 12 px a la même proportion que dans la maquette. */
 
-function docNouveau(titre){
-  const pdf=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",
-                                    format:[PW,PH],compress:true});
-  return {pdf,titre,pages:0,y:0,yBas:0,x0:MX,x1:PW-MX,premiere:true};
+const NP={m:40, hEnt:58, yCorps:76, hPied:34};
+const NC={rouge:"#C0504D", taupe:"#7f6f6c", encre:"#26221F", gris:"#6F6862", gris2:"#9A948E",
+  filet:"#E2DDD6", filetPale:"#F0EDE8", fond:"#F6F4F0", fond2:"#FBFAF8", rougeFonce:"#8a2020",
+  feu:{vert:"#5E8C31", orange:"#D9822B", rouge:"#C0504D", gris:"#9A948E"},
+  meteo:{vert:["#5E8C31","#EEF4E6","#3b6d11"], rouge:["#C0504D","#FBEBEB","#993333"],
+         orange:["#D9822B","#FDF3E8","#9a5a12"], gris:["#9A948E","#F1EFE8","#666660"]}};
+/* logo du SDIS, découpé dans le bandeau d'en-tête (187 x 127) */
+const IMG_LOGO_SDIS="data:image/png;base64,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+MIXvsAdd9xBT09PlesfX0dKiVLh7DPdmzN//nwuu+wyHMchn8+f5sk517wyM1qzT+e/tLS08O53v5tCocBXv/pV+vv7pxxfe2ztQOjv7+eOO+5g586dvO997+PVr341mUzmNG0p4o0GhICSxgQBps5DOyCDY1grkXIZx4c0+wZGWNyeZH5rMloYhtfp7+/n2LFjBIFfbZdSiubmZtra2qoktHK5zPj4OPl8Hq31lIFQKpW47777SKfTfPSjH2X58uUAUwbpqVOn2LdvXxW88TM0NzezcOFCUqkU6XSarVu38k//9E+MjIxM8ccnk0mWLVvGihUrSCaTGGMIgoCBgQF6enro6+tj3rx5LFy4EMdxyGTSOI5zTmr0WGY02Kfb1tZaFi1axP/8n/+Turo6/uVf/oWenp5qnmkstUzJWPtUKhUefPBBjh49yuHDh3nrW99KZ2dntQiSECLcL8mGjkObK4Lvk+xoRnkKUxjEopBuJ31jPkOlChuWzqElE3exwPcDent7GR4enqL16urq+OVf/mVe+9rXEgQBpVKJfD7Pgf372fb44+zevZvR0dEp5xSLRe6//37WrFnDu971Lpqamqb0TV9fH93d3VNMEiklra2tzJkzh2QySRAEPPzwwxw9enRKnyYSCa6//nre+973csEFF1QXnwCjo6Ps3r2bbdu2sWDBAtraWqvnnMtAhxkO9jNFP621LFy4kPe9733MnTuXO++8k927d1MsFqvfx3Im//rhw4f59Kc/zejoKO//rffR1dU1pU6MFRahDcFEDonEa5uDUA62MoR0PHzZyqnhChpYs6CNtOdWr10oFOju7qZYLE6ZlZqbm7n66qu5/vrr0VqTSCQwxjA2Msr+A/v51re/zV133cXJkyenLEAHBgZ44IHvs2XLK9i4cUMVlFprent7GRoammLaJJMpFi1aSltbO47j0td3kgMHDkwxPaSULFmyjN/7vd9n8+ZNFIvFKW7P+fPns3r1aq677rqqCSWlrH5/LsuMBvt0qQ2AdHZ28uu//uusXbuWz33uc2zdupWhoaHTiGLTgypCCAYHB/nSF7/InNY23vmud5Gty0bHAEIijI/MF4EsNLSACrD+CZSbpahbODFUJuUoFrYmUDLiwgjJRC7H8e7jNXZ0aBM3NTXR0NBAoVAAqPLsG5ua2Lx5M4sWLyYIAj772c9S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";
+const N_LOGO_W=34*187/127;
+
+/* --- primitives ---------------------------------------------------------- */
+function nF(pdf,px,style,c){
+  pdf.setFont("helvetica",style||"normal");
+  pdf.setFontSize(px*pdf.internal.scaleFactor);
+  pdf.setTextColor(c||NC.encre);
 }
-
-function pageGarde(ctx,p){
-  const pdf=ctx.pdf, c=S.cfg;
-  ctx.pages++;                                  // la garde n'est pas numérotée
-  /* l'image (794 x 595) est ajustée en hauteur et centrée, comme le récap */
-  const e=PH/595, w=794*e;
-  pdf.addImage(IMG_PAGE_GARDE,"PNG",(PW-w)/2,0,w,PH,undefined,"FAST");
-
-  /* Titre de la garde : on part de la taille voulue et on ne réduit que si le
-     texte déborde du bandeau, jusqu'à trois lignes. Le libellé reste donc
-     nettement plus gros que le corps du document, sans sortir du cadre. */
-  const titre=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
-  const LARG=621-28, HAUT=112, XC=471+621/2, YC=411+HAUT/2;
-  let tt=fz(24), lignes=pdf.splitTextToSize?null:null;
-  for(let n=0;n<24;n++){
-    pFont(pdf,tt,"bold");
-    lignes=pdf.splitTextToSize(titre,LARG);
-    if(lignes.length<=3 && lignes.length*tt*1.25<=HAUT) break;
-    tt=tt*0.92;
-    if(tt<12){ pFont(pdf,tt,"bold"); lignes=pdf.splitTextToSize(titre,LARG); break; }
+function nT(pdf,x,y,s,o){
+  o=o||{};
+  nF(pdf,o.px||11.5,o.style,o.c);
+  const t=pSafe(s);
+  pdf.text(t,x,y,{align:o.align||"left",baseline:o.base||"alphabetic"});
+  return pdf.getTextWidth(t);
+}
+function nW(pdf,s,px,style){ nF(pdf,px,style); return pdf.getTextWidth(pSafe(s)); }
+/* découpe à la largeur ; max lignes au plus, la dernière finit par « … » */
+function nCoupe(pdf,s,w,px,style,max){
+  nF(pdf,px,style);
+  const t=pSafe(s).replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").trim();
+  if(!t) return [];
+  let l=pdf.splitTextToSize(t,Math.max(10,w));
+  if(max && l.length>max){
+    l=l.slice(0,max);
+    let d=String(l[max-1]);
+    while(d.length && pdf.getTextWidth(d+"…")>w) d=d.slice(0,-1);
+    l[max-1]=d.replace(/\s+$/,"")+"…";
   }
-  const hl=tt*1.25, y0=YC-(lignes.length-1)*hl/2;
-  lignes.forEach((l,i)=>{
-    pFont(pdf,tt,"bold","#ffffff");
-    pdf.text(String(l),XC,y0+i*hl,{align:"center",baseline:"middle"});
-  });
-
-  const sel=IMPR.instancesGarde;
-  const xs=instancesDe(p).filter(j=>!sel || sel.includes(j.table+":"+j.id));
-  if(xs.length){
-    const t = xs.length>18 ? 9 : (xs.length>10 ? 10.5 : 12.5);
-    const hi= fz(xs.length>18 ? 11.7 : (xs.length>10 ? 14.7 : 19.4));
-    const xd=PW-60;
-    let y=PH-60-(xs.length-1)*hi;
-    /* Le libellé d'instance porte déjà sa date : la répéter en gras devant
-       faisait doublon sur la garde. On n'affiche la date que si le libellé
-       est vide, auquel cas elle est la seule information disponible. */
-    xs.forEach(j=>{
-      const lib=j.libelle||"";
-      const date=j.date?dateVersFR(j.date):"";
-      const texte=lib||date;
-      if(texte) pTexte(pdf,xd,y,texte,{taille:t,couleur:"#000000",align:"right"});
-      y+=hi;
-    });
-  }
+  return l;
 }
-
-/* ouvre une page de contenu et renvoie l'ordonnée du premier élément */
-function docPage(ctx){
-  const pdf=ctx.pdf;
-  /* repère de début de section pour le sommaire : si la section a déjà écrit
-     sur la page en cours avant d'en ouvrir une, c'est là qu'elle commence */
-  const m=ctx.marque;
-  if(m && m.page==null)
-    m.page=(ctx.pages===m.p0 && ctx.y!==m.y0) ? m.p0 : ctx.pages+1;
-  if(ctx.pages>0) pdf.addPage([PW,PH],"landscape");
-  ctx.pages++;
-  const premiere=ctx.premiere;
-
-  if(premiere){
-    pdf.addImage(IMG_BANDEAU_HAUT,"PNG",0,0,PW,H_BANDEAU,undefined,"FAST");
-    const hc=Math.max(33.5,fz(33.5)), yc=H_BANDEAU/2-hc/2;
-    pAplat(pdf,230,yc,PW-16-230,hc,"#ffffff",3);
-    pTexte(pdf,230+(PW-16-230)/2,yc+hc/2,ctx.titre,
-      {taille:15,style:"bold",couleur:PDFC.bleu,align:"center",baseline:"middle"});
-    pFiletH(pdf,MX,PW-MX,PH-29,PDFC.filet);
-    pTexte(pdf,MX,PH-11,"SDIS de l'Ain _ Version "+new Date().toLocaleDateString("fr-FR"),
-      {taille:10,couleur:PDFC.grisClair});
-    ctx.yBas=PH-29-20;
-    ctx.y=H_BANDEAU+12;
-  }else{
-    pTexte(pdf,PW/2,29,ctx.titre,{taille:15,style:"bold",couleur:PDFC.bleu,align:"center"});
-    pFiletH(pdf,0,PW,39.5,PDFC.filet);
-    pdf.addImage(IMG_BANDEAU_BAS,"PNG",0,PH-H_PIED_IMG,PW,H_PIED_IMG,undefined,"FAST");
-    ctx.yBas=PH-H_PIED_IMG-20;
-    ctx.y=59.5;
-  }
-  ctx.premiere=false;
-  ctx.numeros=ctx.numeros||[];
-  ctx.numeros.push({page:ctx.pages,y:ctx.y});     // repère interne, plus rien d'écrit
-  /* la ligne réservée au « Page n/N » n'a plus lieu d'être : le contenu
-     démarre directement sous le bandeau */
-  return ctx.y;
+function nL(pdf,x1,y1,x2,y2,c,ep){
+  pdf.setDrawColor(c||NC.filet); pdf.setLineWidth(ep||0.8); pdf.line(x1,y1,x2,y2);
 }
-
-/* --- colonne d'identité --------------------------------------------------- */
-
-
-/* Bandeau d'identité horizontal de la page 1, calqué sur la première
-   diapositive du diaporama : l'anneau d'avancement à gauche, puis les badges
-   sur trois colonnes. Le reste de la page s'écrit alors sur toute la largeur. */
-function bandeauIdentite(ctx,p,x,y,w,libAv){
-  const pdf=ctx.pdf, c=S.cfg, t=c.tblMain;
-  const zSauve=PZ, minSauve=PMIN;
-  if(IMPR.lisible){ PZ=14/12; PMIN=14; }   // badges à 14, comme la colonne d'avant
-  try{
-    const av=pct(p[c.colAvancement]), inter=interrompu(p);
-    pDonut(pdf,x+46,y+46,40,13,av,bandesImpr(av,inter).fill);
-    pTexte(pdf,x+102,y+46-fz(9),"Avancement",{taille:12,couleur:PDFC.gris});
-    pTexte(pdf,x+102,y+46+fz(9),libAv||"global",{taille:12,couleur:PDFC.gris});
-
-    const colonnes=[
-      [["Porteur",esc0(lire(t,p,c.colPorteur)),null]],
-      [["Nature",esc0(lire(t,p,c.colNature)),null],
-       ["Groupement",esc0(lire(t,p,c.colGroupement)),null],
-       ["Priorité",null,txt(lire(t,p,c.colPriorite)).trim()]],
-      [["Statut",null,txt(lire(t,p,c.colStatut)).trim()],
-       ["Début",esc0(dateVersFR(p[c.colDebut])),null],
-       ["Échéance",esc0(dateVersFR(p[c.colEch])),null],
-       ["Fin",esc0(dateVersFR(p[c.colFin])),null]]
-    ];
-    if(c.colSup) colonnes[0].push(
-      [txt(libelleColonneBrut(t,c.colSup)),esc0(lire(t,p,c.colSup)),null]);
-
-    const xb=x+225, gap=12;
-    const wc=(x+w-xb-gap*2)/3;
-    const hBadge=(b,lc)=>b[2] ? 7+7+fz(18)
-      : 7+7+pDecoupe(pdf,b[1],wc-22-lc,12,"bold").length*fz(15);
-    const lcDe=col=>col.filter(b=>b[1]||b[2])
-      .reduce((m,b)=>Math.max(m,pLargeur(pdf,b[0]+" ",12,"normal")),0);
-    const hCol=col=>{
-      const lc=lcDe(col);
-      return col.filter(b=>b[1]||b[2]).reduce((h,b)=>h+hBadge(b,lc)+7,0)-7;
-    };
-    const hMax=Math.max.apply(null,colonnes.map(hCol));
-
-    let bas=y;
-    colonnes.forEach((col,k)=>{
-      const cx=xb+k*(wc+gap), lc=lcDe(col);
-      /* une colonne courte se centre sur la hauteur du bandeau */
-      let cy=y+(hMax-hCol(col))/2;
-      col.forEach(b=>{
-        const [cle,valeur,pastille]=b;
-        if(!valeur && !pastille) return;
-        const h=hBadge(b,lc);
-        pAplat(pdf,cx,cy,wc,h,PDFC.fondBadge,6);
-        pTexte(pdf,cx+11,cy+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
-        if(pastille){
-          const pc=pastillePleineCouleurs(pastille,av,inter);
-          pPastille(pdf,cx+11+lc,cy+7+2,pastille,pc.fond,pc.coul,11);
-        }
-        else pDecoupe(pdf,valeur,wc-22-lc,12,"bold")
-          .forEach((l,i)=>pTexte(pdf,cx+11+lc,cy+7+fz(11)+i*fz(15),l,
-            {taille:12,style:"bold",couleur:PDFC.encre}));
-        cy+=h+7;
-      });
-      bas=Math.max(bas,cy-7);
-    });
-    return Math.max(bas,y+92)+16;
-  }finally{ PZ=zSauve; PMIN=minSauve; }
+function nR(pdf,x,y,w,h,c,r){
+  if(w<=0||h<=0) return;
+  pdf.setFillColor(c);
+  if(r) pdf.roundedRect(x,y,w,h,Math.min(r,w/2,h/2),Math.min(r,w/2,h/2),"F");
+  else pdf.rect(x,y,w,h,"F");
 }
-
-
-/* Le commentaire de la colonne d'identité garde le corps général du document :
-   c'est du texte à lire, pas une étiquette, et 14 pt le rendait pénible. */
-function commentaireIdentite(ctx,p,x,y,w){
-  const pdf=ctx.pdf, c=S.cfg, t=c.tblMain;
-  ctx.comReporte=null;
-  const com=lire(t,p,c.colCommentaire);
-  if(com){
-    const lignes=pDecoupe(pdf,com,w-22,11,"normal");
-    const hVoulue=9+9+lignes.length*fz(16);
-    const dispo=ctx.yBas-(y+9+fz(14)+6);
-    if(hVoulue<=dispo){
-      y+=9;
-      pTexte(pdf,x,y+fz(10),"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
-      y+=fz(14)+6;
-      pAplat(pdf,x,y,w,hVoulue,PDFC.fondCom,6);
-      pAplat(pdf,x,y,3,hVoulue,PDFC.bleu,0);
-      lignes.forEach((l,i)=>pTexte(pdf,x+11,y+9+fz(12)+i*fz(16),l,
-        {taille:11,couleur:"#333333"}));
-      y+=hVoulue+12;          /* le titre suivant ne colle plus au cadre */
-    }else{
-      ctx.comReporte=com;
-      if(y+fz(30)<ctx.yBas){
-        y+=9;
-        pTexte(pdf,x,y+fz(10),"Commentaire",{taille:12,style:"bold",couleur:PDFC.bleu});
-        y+=fz(14)+4;
-        pTexte(pdf,x,y+fz(9),"Voir la page suivante.",
-          {taille:11,style:"italic",couleur:PDFC.gris});
-        y+=fz(14)+12;
-      }
-    }
-  }
-  return y;
+function nRond(pdf,x,y,r,c){ pdf.setFillColor(c); pdf.circle(x,y,r,"F"); }
+function nLosange(pdf,x,y,r,c){
+  pdf.setFillColor(c);
+  pdf.lines([[r,r],[-r,r],[-r,-r],[r,-r]],x,y-r,[1,1],"F",true);
 }
-
-/* Commentaire reporté : pleine largeur, paginé, jamais rogné. */
-function dessinerCommentaireLong(ctx,texte){
-  const pdf=ctx.pdf;
-  docPage(ctx);
-  pTexte(pdf,MX,ctx.y+fz(12),"Commentaire",{taille:15,style:"bold",couleur:PDFC.bleu});
-  ctx.y+=fz(20)+8;
-  const w=PW-2*MX;
-  const lignes=pDecoupe(pdf,texte,w-22,11,"normal");
-  let i=0;
-  while(i<lignes.length){
-    const reste=Math.max(1,Math.floor((ctx.yBas-ctx.y-18)/fz(16)));
-    const bloc=lignes.slice(i,i+reste);
-    const h=9+9+bloc.length*fz(16);
-    pAplat(pdf,MX,ctx.y,w,h,PDFC.fondCom,6);
-    pAplat(pdf,MX,ctx.y,3,h,PDFC.bleu,0);
-    bloc.forEach((l,k)=>pTexte(pdf,MX+11,ctx.y+9+fz(12)+k*fz(16),l,
-      {taille:11,couleur:"#333333"}));
-    ctx.y+=h;
-    i+=bloc.length;
-    if(i<lignes.length) docPage(ctx);
-  }
+/* couleur éclaircie vers le blanc : t=0 la couleur, t=1 blanc */
+function nPale(hex,t){
+  const h=String(hex||"#888888").replace("#","");
+  const v=[0,2,4].map(i=>parseInt(h.substr(i,2),16)||0)
+    .map(x=>Math.round(x+(255-x)*t).toString(16).padStart(2,"0"));
+  return "#"+v.join("");
 }
-function esc0(v){ return txt(v).trim(); }
+/* couleur assombrie : t=0 la couleur, t=1 noir */
+function nFonce(hex,t){
+  const h=String(hex||"#888888").replace("#","");
+  return "#"+[0,2,4].map(i=>Math.round((parseInt(h.substr(i,2),16)||0)*(1-t)).toString(16).padStart(2,"0")).join("");
+}
+function nBarreCoul(av,inter){
+  if(inter) return "#9A948E";
+  if(av==null) return "#D8D3CC";
+  if(av>=76) return "#7FA23F";
+  if(av>=26) return "#E3A51A";
+  if(av>=1)  return "#F0904A";
+  return "#D8D3CC";
+}
+/* barre d'avancement : fond pâle, part réalisée colorée */
+function nBarre(pdf,x,y,w,h,av,coul){
+  nR(pdf,x,y,w,h,"#EEEAE4",h/2);
+  const v=Math.max(0,Math.min(100,av||0));
+  if(v>0) nR(pdf,x,y,Math.max(h,w*v/100),h,coul||nBarreCoul(av),h/2);
+}
+function nLibAction(r){
+  const c=S.cfg, lib=lire(c.tblMain,r,c.colLibelle)||"(action sans libellé)";
+  return decouperLibelleAction(lib).texte||lib;
+}
 function libelleColonneBrut(tableId,colId){
   const info=infoCol(tableId,colId);
   return info?(info.label||colId):colId;
 }
+function nDateFR(v){ return v?dateVersFR(v):""; }
 
-/* --- planning ------------------------------------------------------------- */
-
-/* Rangs du planning : le projet, ses tâches, puis chaque action et ses tâches.
-   Même construction qu'à l'écran (vuePlanning) — un projet sans action MEO mais
-   avec des tâches produit donc bien un planning, ce qui n'était pas le cas
-   auparavant : seules les actions étaient prises en compte. */
-/* Planning de synthèse : avec des actions MEO, le projet et ses actions (les
-   tâches seulement si la case « Les faire figurer aussi dans le planning »
-   est cochée) ; sans action MEO, le projet et ses tâches. Avec o.action : le
-   planning d'une seule action et de ses tâches (fiche de l'action). */
-function rangsGantt(p,acts,numeros,o){
+/* --- contexte, pages, sections ------------------------------------------- */
+function nCtx(p,mode){
+  const c=S.cfg;
+  const pdf=new window.jspdf.jsPDF({orientation:"landscape",unit:"px",format:[PW,PH],compress:true});
+  return {pdf,p,mode,titre:lire(c.tblMain,p,c.colLibelle)||"(sans libellé)",
+    pages:0,y:0,yBas:0,garde:0,secs:{},som:[],sec:""};
+}
+function nPage(ctx){
+  const pdf=ctx.pdf, m=NP.m;
+  if(ctx.pages>0) pdf.addPage([PW,PH],"landscape");
+  ctx.pages++;
+  try{ pdf.addImage(IMG_LOGO_SDIS,"PNG",m,12,N_LOGO_W,34,"logo","FAST"); }catch(e){}
+  const xT=m+N_LOGO_W+14;
+  const lt=nCoupe(pdf,ctx.titre,PW-m-340-xT,12,"bold",1);
+  nT(pdf,xT,34,lt[0]||"",{px:12,style:"bold"});
+  nL(pdf,m,NP.hEnt,PW-m,NP.hEnt,NC.filet,1);
+  nL(pdf,m,PH-NP.hPied,PW-m,PH-NP.hPied,NC.filet,1);
+  nT(pdf,m,PH-NP.hPied/2+3.5,"SDIS de l'Ain · DSI · "+
+    (ctx.mode==="codir"?"Note CODIR":"Dossier projet")+" édité le "+new Date().toLocaleDateString("fr-FR"),
+    {px:9.5,c:NC.gris2});
+  ctx.secs[ctx.pages]=ctx.sec?[ctx.sec]:[];
+  ctx.y=NP.yCorps; ctx.yBas=PH-NP.hPied-14;
+}
+/* Ouvre une section : sur la page en cours s'il reste assez de place,
+   sinon sur une nouvelle. lib = libellé du sommaire (facultatif). */
+function nSection(ctx,lib,sec,o){
   o=o||{};
-  const c=S.cfg, out=[];
-  if(o.action){
-    const a=o.action, b0={d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null};
-    out.push({r:a,niv:0,tache:false,d:b0.d,f:b0.f,
-      lib:(numeros.get(a.id)?numeros.get(a.id)+". ":"")+lire(c.tblMain,a,c.colLibelle),
-      av:pct(a[c.colAvancement]),inter:interrompu(a)});
-    tachesDe(a).forEach(t=>{
-      const d=Number(t[c.colTacheDebut])||null, f=Number(t[c.colTacheFin])||null;
-      out.push({r:t,niv:1,tache:true,d,f,lib:lire(c.tblTache,t,c.colTacheLibelle),
-        av:pct(t[c.colTacheAvancement]),inter:statutInterrompu(c.tblTache,t,c.colTacheStatut)});
-    });
-    return out.filter(z=>z.d||z.f);
+  ctx.sec=sec;
+  if(o.page || !ctx.pages || ctx.y+(o.min||140)>ctx.yBas || ctx.secs[ctx.pages]===null) nPage(ctx);
+  else{
+    const a=ctx.secs[ctx.pages];
+    if(!a.includes(sec)) a.push(sec);
+    ctx.y+=6;
   }
-  const bornes=(r,tache)=>({
-    d:Number(tache?r[c.colTacheDebut]:r[c.colDebut])||null,
-    f:Number(tache?r[c.colTacheFin]:(r[c.colFin]||r[c.colEch]))||null
-  });
-  const avecTaches=!!IMPR.planningTaches || !acts.length;
-  const pousser=(r,niv,tache,prefixe)=>{
-    if(tache && !avecTaches) return;
-    const b=bornes(r,tache);
-    out.push({r,niv,tache,d:b.d,f:b.f,
-      lib:(prefixe?prefixe+" ":"")+
-          (tache?lire(c.tblTache,r,c.colTacheLibelle):lire(c.tblMain,r,c.colLibelle)),
-      av:pct(tache?r[c.colTacheAvancement]:r[c.colAvancement]),
-      inter:tache?statutInterrompu(c.tblTache,r,c.colTacheStatut):interrompu(r)});
-  };
-  pousser(p,0,false,"");
-  tachesDe(p).forEach(t=>pousser(t,1,true,""));
-  acts.forEach(a=>{
-    pousser(a,1,false,(numeros.get(a.id)||"")+".");
-    tachesDe(a).forEach(t=>pousser(t,2,true,""));
-  });
-  return out.filter(z=>z.d||z.f);
+  if(lib) ctx.som.push({lib,page:ctx.pages});
+}
+function nPlace(ctx,h){ if(ctx.y+h>ctx.yBas){ nPage(ctx); return true; } return false; }
+function nTitre(ctx,txt,sous,min){
+  nPlace(ctx,min||70);
+  const pdf=ctx.pdf, x=NP.m;
+  nR(pdf,x,ctx.y+5,8,8,NC.rouge);
+  const w=nT(pdf,x+16,ctx.y+14,txt,{px:15,style:"bold",c:NC.rouge});
+  if(sous) nT(pdf,x+16+w+8,ctx.y+14,sous,{px:11,c:NC.gris2});
+  ctx.y+=28;
+}
+/* en-têtes de section et numéros de page, posés une fois tout écrit */
+function nFinaliser(ctx){
+  const pdf=ctx.pdf, n=ctx.pages;
+  for(let i=1;i<=n;i++){
+    if(ctx.secs[i]===null) continue;              // page de garde
+    pdf.setPage(i);
+    const sec=(ctx.secs[i]||[]).join(" · ").toUpperCase();
+    if(sec) nT(pdf,PW-NP.m,34,sec,{px:10.5,style:"bold",c:NC.taupe,align:"right"});
+    nT(pdf,PW-NP.m,PH-NP.hPied/2+3.5,i+" / "+n,{px:9.5,c:NC.gris2,align:"right"});
+  }
 }
 
-/* Repères du planning imprimé : même source qu'à l'écran, pour que les deux
-   rendus portent exactement les mêmes losanges aux mêmes dates. */
-function reperesGantt(p){
-  return reperesPlanning(p).filter(r=>r.genre!=="periode").map(r=>({
-    ts:r.ts, txt:r.titre,
-    contenu:[r.titre,r.detail,r.meta].filter(Boolean).join("\n"),
-    coul:r.genre==="delai"?"#0e9594":"#c62828",
-    pale:r.genre==="delai"?"#b3ddda":"#e0b3b3"
-  }));
+/* --- paragraphe et cartouche de texte ------------------------------------ */
+/* texte qui coule sur les pages suivantes ; o.x / o.w : colonne de la page
+   en cours (les pages suivantes reprennent toute la largeur) */
+function nPara(ctx,texte,o){
+  o=o||{};
+  const pdf=ctx.pdf, px=o.px||11.5, lh=px*1.45;
+  let x=o.x!=null?o.x:NP.m, w=o.w||PW-2*NP.m;
+  const dx=o.puce?nW(pdf,o.puce+" ",px,o.style):0;
+  const blocs=String(texte||"").split(/\r?\n/);
+  blocs.forEach((b,ib)=>{
+    if(!b.trim()){ ctx.y+=lh*0.5; return; }
+    const lignes=nCoupe(pdf,b,w-dx-(o.retrait||0),px,o.style);
+    lignes.forEach((l,k)=>{
+      if(ctx.y+lh>ctx.yBas){ nPage(ctx); x=NP.m; w=PW-2*NP.m; }
+      if(o.puce && k===0 && ib===0) nT(pdf,x+(o.retrait||0),ctx.y+px,o.puce,{px,style:o.style,c:o.c});
+      nT(pdf,x+(o.retrait||0)+dx,ctx.y+px,l,{px,style:o.style,c:o.c});
+      ctx.y+=lh;
+    });
+  });
 }
-
-/* Le planning imprimé ne tenait pas compte du bas de page : au-delà d'une
-   quinzaine de rangs, les dernières lignes étaient dessinées hors du cadre et
-   disparaissaient. Il se pagine désormais — les rangs suivants reprennent sur
-   une nouvelle page, en pleine largeur, avec leur échelle de temps redessinée. */
-/* Descriptif du projet, posé avant le planning. Paginé comme le commentaire :
-   un texte long pousse le planning sur la page suivante plutôt que d'être rogné. */
-function dessinerDescriptif(ctx,p,x,y,w){
-  const pdf=ctx.pdf, c=S.cfg;
-  const txt0=c.colDescriptif?lire(c.tblMain,p,c.colDescriptif):"";
-  if(!txt0) return y;
-  pTexte(pdf,x,y+fz(10),"Descriptif",{taille:12,style:"bold",couleur:PDFC.bleu});
-  y+=fz(14)+6;
-  const lignes=pDecoupe(pdf,txt0,w-22,11,"normal");
+/* commentaire en cartouche (fond très clair, filet à gauche), paginé */
+function nCartouche(ctx,texte){
+  const pdf=ctx.pdf, px=11.5, lh=16.5, x=NP.m, w=PW-2*NP.m;
+  const lignes=[];
+  String(texte||"").split(/\r?\n/).forEach(b=>{
+    if(!b.trim()){ if(lignes.length) lignes.push(""); return; }
+    nCoupe(pdf,b,w-24,px).forEach(l=>lignes.push(l));
+  });
+  while(lignes.length && lignes[lignes.length-1]==="") lignes.pop();
+  if(!lignes.length) return;
   let i=0;
   while(i<lignes.length){
-    const place=Math.floor((ctx.yBas-y-18)/fz(16));
-    if(place<1){ docPage(ctx); y=ctx.y; continue; }
-    const bloc=lignes.slice(i,i+place);
-    const h=9+9+bloc.length*fz(16);
-    pAplat(pdf,x,y,w,h,PDFC.fondCom,6);
-    pAplat(pdf,x,y,3,h,PDFC.bleu,0);
-    bloc.forEach((l,k)=>pTexte(pdf,x+11,y+9+fz(12)+k*fz(16),l,{taille:11,couleur:"#333333"}));
-    y+=h; i+=bloc.length;
+    let place=Math.floor((ctx.yBas-ctx.y-14)/lh);
+    if(place<2 && i<lignes.length){ nPage(ctx); place=Math.floor((ctx.yBas-ctx.y-14)/lh); }
+    const bloc=lignes.slice(i,i+place), h=bloc.length*lh+12;
+    nR(pdf,x,ctx.y,w,h,NC.fond2);
+    nR(pdf,x,ctx.y,3,h,NC.filet);
+    bloc.forEach((l,k)=>nT(pdf,x+12,ctx.y+6+px+k*lh,l,{px,c:"#3d3833"}));
+    ctx.y+=h; i+=bloc.length;
+    if(i<lignes.length) nPage(ctx);
   }
-  return y+12;
+  ctx.y+=10;
 }
 
-function dessinerGantt(ctx,p,acts,numeros,x,y,w,o){
+/* --- tableaux ------------------------------------------------------------ */
+/* cols : [{k, t, w}] (w absent = largeur restante partagée)
+   lignes : [{cel:{k:{t, style, c, px, type:"barre"|"feu", av, coul}}, fond, bordHaut}] */
+function nTable(ctx,titre,cols,lignes,o){
   o=o||{};
-  const pdf=ctx.pdf, titreG=o.titre||"Planning";
-  ctx.ganttPagine=false;
-  const datees=rangsGantt(p,acts,numeros,o);
-  const ins=o.action?[]:reperesGantt(p);
-  if(!datees.length && y+fz(40)>ctx.yBas){ docPage(ctx); x=MX; w=PW-2*MX; y=ctx.y; }
-
-  /* Il faut de la place pour le titre, l'échelle et au moins deux rangs.
-     Sinon seul l'en-tête s'écrivait en bas de page et tout le planning
-     repartait sur la suivante, sous un « Planning (suite) » orphelin. */
-  if(datees.length){
-    const mini=fz(14)+6 + fz(11)+5 + 2*fz(22)+10;
-    if(y+mini>ctx.yBas){
-      docPage(ctx);
-      x=MX; w=PW-2*MX; y=ctx.y;
-      ctx.ganttPagine=true;
-    }
-  }
-
-  pTexte(pdf,x,y+fz(10),titreG,{taille:12,style:"bold",couleur:PDFC.bleu});
-  y+=fz(14)+6;
-
-  if(!datees.length){
-    pTexte(pdf,x,y+fz(8),o.action?"Aucune date renseignée sur l'action ou ses tâches."
-      :"Aucune date renseignée sur le projet, ses actions ou ses tâches.",
-      {taille:11,couleur:PDFC.vide});
-    return y+fz(22);
-  }
-
-  const an=new Date().getUTCFullYear();
-  const tous=datees.map(z=>z.d||z.f).concat(datees.map(z=>z.f||z.d), ins.map(o=>o.ts));
-  const min=Math.min.apply(null,tous), max=Math.max.apply(null,tous);
-  const per=periodesPlanning(Math.min(new Date(min*1000).getUTCFullYear(),an),
-                             Math.max(new Date(max*1000).getUTCFullYear(),an+1));
-  const auj=aujourdHuiUTC();
-
-  const dense = datees.length>20, compact = !dense && datees.length>12;
-  const hl = fz(dense?13:(compact?17:22)), hb = dense?9:(compact?11:14), db = dense?2:(compact?3:4);
-  const mb = dense?1:(compact?2:3);
-  const tl = dense?9.5:10.5;
-
-  /* géométrie de la piste, recalculée à chaque page : la première partage la
-     largeur avec la colonne d'identité, les suivantes occupent toute la page */
-  let cx=x, cw=w, xn, xp, wp, yHaut;
-  const poser=()=>{
-    xn=Math.round(Math.max(110,Math.min(230,cw*0.26)));
-    xp=cx+xn; wp=cw-xn;
-  };
-  const pos=ts=>posPlanning(per,ts)/per.length*wp;
-
-  /* échelle de temps + filet, renvoie l'ordonnée du premier rang */
-  /* Étiquettes de période : à 16 pt, « T1 2026 » déborde d'une colonne étroite
-     et les libellés se chevauchent. On dégrade par paliers plutôt que de laisser
-     une bouillie : libellé complet, forme courte, puis une étiquette sur deux. */
-  const enTete=yy=>{
-    const lu=wp/per.length;
-    const court=u=>u.label.replace(/(\D*)(\d{2})(\d{2})$/,(m,a,b,c)=>a+"'"+c);
-    const large=t=>pLargeur(pdf,t,9.5,"normal");
-    let mode="long";
-    if(per.some(u=>large(u.label)>lu-6)) mode="court";
-    if(per.some(u=>large(court(u))>lu-6)) mode="alterne";
-    per.forEach((u,i)=>{
-      let t=(mode==="long")?u.label:court(u);
-      if(mode==="alterne"){
-        /* on ne garde qu'une étiquette sur deux, et seulement si elle tient */
-        if(i%2) return;
-        if(large(t)>lu*2-6) t=String(u.label).slice(-2);
-      }
-      pTexte(pdf,xp+lu*i+lu/2,yy+fz(8),t,
-        {taille:9.5,couleur:PDFC.gris,align:"center"});
-    });
-    yy+=fz(11);
-    pFiletH(pdf,xp,cx+cw,yy,PDFC.filet);
-    return yy+5;
-  };
-
-  /* trait « aujourd'hui » : tracé par tronçon, une fois par page */
-  const traitJour=(y1,y2)=>{
-    if(auj<per[0].debut || auj>=per[per.length-1].fin || y2<=y1) return;
-    pdf.setDrawColor("#d32f2f"); pdf.setLineWidth(1);
-    pdf.line(xp+pos(auj),y1,xp+pos(auj),y2);
-    pdf.setLineWidth(0.6);
-  };
-
-  poser();
-  y=enTete(y);
-  yHaut=y;
-
-  datees.forEach(z=>{
-    if(y+hl>ctx.yBas){
-      traitJour(yHaut-5,y-mb);
-      docPage(ctx);
-      cx=MX; cw=PW-2*MX; poser();
-      ctx.ganttPagine=true;              // la colonne d'identité est restée page 1
-      pTexte(pdf,cx,ctx.y+fz(10),titreG+" (suite)",
-        {taille:12,style:"bold",couleur:PDFC.bleu});
-      y=enTete(ctx.y+fz(14)+6);
-      yHaut=y;
-    }
-    const co=bandesImpr(z.av,z.inter);
-    const gras=z.niv===0||z.axe;
-    const lib=pDecoupe(pdf,z.lib||"(sans libellé)",xn-6-z.niv*8,tl,gras?"bold":"normal")[0];
-    pTexte(pdf,cx+z.niv*8,y+hl/2,lib,
-      {taille:tl,style:gras?"bold":"normal",
-       couleur:z.niv===0?PDFC.bleu:(z.axe?PDFC.traitFort:(z.tache?PDFC.gris:PDFC.encre)),baseline:"middle"});
-    const g=pos(z.d||z.f);
-    const lb=Math.max(6,Math.min(wp-g,pos(z.f||z.d)-g));
-    pAplat(pdf,xp+g,y+db,lb,hb,co.pale,3);
-    if(z.av) pAplat(pdf,xp+g,y+db,lb*Math.min(100,z.av)/100,hb,co.fill,3);
-    y+=hl+mb;
-  });
-
-  traitJour(yHaut-5,y-mb);
-  ctx.y=y+10;
-  return ctx.y;
-}
-
-/* --- tableaux paginés ----------------------------------------------------- */
-
-/* cols : [{cle, titre, w}] — lignes : [{cellules:{cle:valeur}, fond, bordHaut}]
-   nouvellePage : force le démarrage sur une page vierge (tableaux pleine largeur
-   qui suivent la page à deux colonnes). */
-/* Hauteur qu'occuperait le tableau entier, en-tête et titre compris. Sert à
-   décider s'il faut le repousser en bloc sur la page suivante. */
-function hauteurTableau(ctx,cols,lignes){
-  const pdf=ctx.pdf;
-  let nbEnt=1;
-  cols.forEach(co=>{
-    nbEnt=Math.max(nbEnt,pDecoupeTitre(pdf,co.titre,co.w-8,11,"bold").length);
-  });
-  let h=fz(14)+6+fz(18)+(nbEnt-1)*fz(13.5)+1;
-  lignes.forEach(li=>{
-    let nb=1;
-    cols.forEach(co=>{
-      const v=li.cellules[co.cle];
-      if(v && v.type!=="pastille" && v.t)
-        nb=Math.max(nb,pDecoupe(pdf,v.t,co.w-8,v.taille||11,v.style).length);
-    });
-    h+=nb*fz(13.5)+10;
-  });
-  return h;
-}
-
-function dessinerTableau(ctx,titre,cols,lignes,x,largeur,nouvellePage){
-  const pdf=ctx.pdf;
   if(!lignes.length) return;
-  let i=0, premierBloc=true;
-
-  while(i<lignes.length){
-    if(nouvellePage || !premierBloc || ctx.y+60>ctx.yBas) docPage(ctx);
-    nouvellePage=false;
-
-    /* titre de section */
-    pTexte(pdf,x,ctx.y+fz(10),premierBloc?titre:titre+" (suite)",
-      {taille:12,style:"bold",couleur:PDFC.bleu});
-    ctx.y+=fz(14)+6;
-
-    /* En-tête. Les intitulés sont découpés à la largeur de leur colonne : à
-       16 pt, « Collaborateur concerné » débordait sur la colonne voisine. */
-    let cx=x;
-    let nbEnt=1;
-    cols.forEach(co=>{
-      nbEnt=Math.max(nbEnt,pDecoupeTitre(pdf,co.titre,co.w-8,11,"bold").length);
-    });
-    /* bandeau d'en-tête taupe, texte blanc, comme les tableaux du diaporama */
-    pAplat(pdf,x,ctx.y,largeur,fz(18)+(nbEnt-1)*fz(13.5)+2,PDFC.entete,0);
-    cols.forEach(co=>{
-      pDecoupeTitre(pdf,co.titre,co.w-8,11,"bold").forEach((l,k)=>
-        pTexte(pdf,cx+4,ctx.y+fz(13)+k*fz(13.5),l,
-          {taille:11,style:"bold",couleur:PDFC.enteteTxt}));
-      cx+=co.w;
-    });
-    ctx.y+=fz(18)+(nbEnt-1)*fz(13.5);
-    pFiletH(pdf,x,x+largeur,ctx.y,PDFC.traitFort,1);
-    ctx.y+=1;
-
-    let posees=0;
-    while(i<lignes.length){
-      const li=lignes[i];
-      /* hauteur de la ligne */
-      let nb=1;
-      cols.forEach(co=>{
-        const v=li.cellules[co.cle];
-        if(v && v.type==="texte")
-          nb=Math.max(nb,pDecoupe(pdf,v.t,co.w-8,v.taille||11,v.style).length);
-      });
-      const hl=nb*fz(13.5)+10;
-      if(ctx.y+hl>ctx.yBas) break;
-
-      if(li.fond) pAplat(pdf,x,ctx.y,largeur,hl,li.fond,0);
-      if(li.bordHaut) pFiletH(pdf,x,x+largeur,ctx.y,PDFC.traitFort,1);
-
-      cx=x;
-      cols.forEach(co=>{
-        const v=li.cellules[co.cle];
-        if(v){
-          if(v.type==="pastille") pPastille(pdf,cx+4,ctx.y+5,v.t,v.fond,v.coul,11);
-          else pDecoupe(pdf,v.t,co.w-8,v.taille||11,v.style).forEach((l,k)=>
-            pTexte(pdf,cx+4,ctx.y+fz(15)+k*fz(13.5),l,
-              {taille:v.taille||11,style:v.style,couleur:v.couleur||PDFC.encre}));
-        }
-        cx+=co.w;
-      });
-      ctx.y+=hl;
-      pFiletH(pdf,x,x+largeur,ctx.y,PDFC.trait);
-      i++; posees++;
-    }
-    if(!posees) break;                       // une ligne seule ne tient pas : on arrête
-    premierBloc=false;
-    ctx.y+=12;
-  }
-}
-
-/* --- construction des sections ------------------------------------------- */
-
-function lignesActionsSynthese(p,acts,numeros){
-  const c=S.cfg, t=c.tblMain;
-  return acts.map(r=>{
-    const av=pct(r[c.colAvancement]), inter=interrompu(r), co=bandesImpr(av,inter);
-    return {cellules:{
-      num:{type:"texte",t:String(numeros.get(r.id)||"")},
-      action:{type:"texte",t:lire(t,r,c.colLibelle)||"(action sans libellé)"},
-      porteur:{type:"texte",t:lire(t,r,c.colPorteur)},
-      ech:{type:"texte",t:inter?"Interrompu":dateVersFR(r[c.colEch]),
-           couleur:inter?PDFC.gris:PDFC.encre},
-      avct:{type:"pastille",t:inter?"Interrompu":(av==null?"–":av+"%"),fond:co.pale,coul:co.txt}
-    }};
-  });
-}
-function lignesActionsDetail(p,acts){
-  const c=S.cfg, t=c.tblMain, out=[];
-  /* Même parti pris que le diaporama : les tâches sont détaillées à la demande,
-     et la ligne d'action ne se détache — gras, fond bleu très clair, numéro —
-     que lorsqu'elles le sont. Sans tâches, le tableau n'a qu'un niveau. */
-  const avecTaches=!!(c.tblTache && c.colTacheLien) && IMPR.taches!==false;
-  const tachesProjet=avecTaches?tachesDe(p):[];
-  const ligneTache=k=>{
-    const a2=pct(k[c.colTacheAvancement]);
-    const i2=statutInterrompu(c.tblTache,k,c.colTacheStatut);
-    const c2=bandesImpr(a2,i2);
-    return {cellules:{
-      num:{type:"texte",t:""},
-      lib:{type:"texte",t:"   "+(lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"),
-           couleur:PDFC.gris},
-      resp:{type:"texte",t:lire(c.tblTache,k,c.colTachePorteur),couleur:PDFC.gris},
-      avct:{type:"pastille",t:i2?"Interrompu":(a2==null?"–":a2+"%"),fond:c2.pale,coul:c2.txt},
-      com:{type:"texte",t:lire(c.tblTache,k,c.colTacheCommentaire),couleur:PDFC.gris}
-    }};
+  const pdf=ctx.pdf, x=NP.m, W=PW-2*NP.m, px=o.px||11.5, lh=px*1.38;
+  const fixe=cols.reduce((s,c)=>s+(c.w||0),0), libres=cols.filter(c=>!c.w).length;
+  cols.forEach(c=>c.lw=c.w||Math.max(70,(W-fixe)/Math.max(1,libres)));
+  const lignesDe=(v,c)=>v && !v.type && v.t ? nCoupe(pdf,v.t,c.lw-12,v.px||px,v.style) : [];
+  const haut=li=>{
+    let n=1;
+    cols.forEach(c=>{ n=Math.max(n,lignesDe(li.cel[c.k],c).length); });
+    return n*lh+11;
   };
-  tachesProjet.forEach(k=>out.push(ligneTache(k)));
-  acts.forEach((r,i)=>{
-    const av=pct(r[c.colAvancement]), inter=interrompu(r), co=bandesImpr(av,inter);
-    const g=avecTaches?"bold":undefined;
-    out.push({fond:avecTaches?PDFC.fondBadge:undefined,bordHaut:true,cellules:{
-      num:{type:"texte",t:String(i+1),style:"bold"},
-      lib:{type:"texte",t:lire(t,r,c.colLibelle)||"(action sans libellé)",style:g},
-      resp:{type:"texte",t:lire(t,r,c.colPorteur),style:g},
-      avct:{type:"pastille",t:inter?"Interrompu":(av==null?"–":av+"%"),fond:co.pale,coul:co.txt},
-      com:{type:"texte",t:lire(t,r,c.colCommentaire),style:g}
-    }});
-    if(avecTaches) tachesDe(r).forEach(k=>{
-      out.push(ligneTache(k));
+  const entete=suite=>{
+    if(titre) nTitre(ctx,titre+(suite?" (suite)":""),suite?null:o.sous,0);
+    let cx=x;
+    cols.forEach(c=>{
+      const t=nCoupe(pdf,String(c.t||"").toUpperCase(),c.lw-10,9.5,"bold",1)[0]||"";
+      nT(pdf,cx+6,ctx.y+12,t,{px:9.5,style:"bold",c:NC.taupe});
+      cx+=c.lw;
     });
+    ctx.y+=19;
+    nL(pdf,x,ctx.y,x+W,ctx.y,NC.taupe,1.4);
+    ctx.y+=1;
+  };
+  const h0=(titre?28:0)+20+haut(lignes[0]);
+  if(ctx.y+h0>ctx.yBas) nPage(ctx);
+  entete(false);
+  lignes.forEach(li=>{
+    const h=haut(li);
+    if(ctx.y+h>ctx.yBas){ nPage(ctx); entete(true); }
+    if(li.fond) nR(pdf,x,ctx.y,W,h,li.fond);
+    if(li.bordHaut) nL(pdf,x,ctx.y,x+W,ctx.y,NC.gris2,1);
+    let cx=x;
+    cols.forEach(c=>{
+      const v=li.cel[c.k];
+      if(v){
+        if(v.type==="barre"){
+          const wb=Math.max(30,c.lw-56);
+          nBarre(pdf,cx+6,ctx.y+5+lh/2-3,wb,6,v.av,v.coul);
+          nT(pdf,cx+c.lw-6,ctx.y+5+px,v.av==null?"–":v.av+" %",{px:10.5,align:"right",c:v.c||NC.encre});
+        }else if(v.type==="feu"){
+          nRond(pdf,cx+10,ctx.y+5+px-3.5,4,v.coul);
+          nT(pdf,cx+18,ctx.y+5+px,v.t,{px:10.5,style:"bold",c:v.coul});
+        }else lignesDe(v,c).forEach((l,k)=>
+          nT(pdf,cx+6,ctx.y+5+px+k*lh,l,{px:v.px||px,style:v.style,c:v.c||NC.encre}));
+      }
+      cx+=c.lw;
+    });
+    ctx.y+=h;
+    nL(pdf,x,ctx.y,x+W,ctx.y,NC.filet,0.8);
   });
+  ctx.y+=o.apres!=null?o.apres:20;
+}
+
+/* --- planning ------------------------------------------------------------ */
+/* colonnes de temps : trimestres, ou mois pour une durée courte */
+function nColonnesTemps(min,max,mois){
+  const out=[], d0=new Date(min*1000), d1=new Date(max*1000);
+  if(mois){
+    let a=d0.getUTCFullYear(), m=d0.getUTCMonth();
+    const fa=d1.getUTCFullYear(), fm=d1.getUTCMonth();
+    while(a<fa || (a===fa && m<=fm)){
+      const deb=Date.UTC(a,m,1)/1000, fin=Date.UTC(a,m+1,1)/1000;
+      const nom=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."][m];
+      out.push({deb,fin,lab:nom+((m===0||!out.length)?" "+a:""),court:nom,an:m===0});
+      m++; if(m>11){ m=0; a++; }
+    }
+    return out;
+  }
+  for(let a=d0.getUTCFullYear(); a<=d1.getUTCFullYear(); a++)
+    for(let q=0;q<4;q++){
+      const deb=Date.UTC(a,q*3,1)/1000, fin=Date.UTC(a,q*3+3,1)/1000;
+      out.push({deb,fin,lab:"T"+(q+1)+" "+a,court:"T"+(q+1)+" '"+String(a).slice(2),an:q===0});
+    }
   return out;
 }
-function lignesJournalPdf(p){
+/* rows : [{lib, niv (0 projet, 1 action, 2 tâche), d, f, av, inter}]
+   o : {titre, sous, mois, jalons:[{ts,lib,coul}], gh} */
+function nGantt(ctx,rows,o){
+  o=o||{};
+  const pdf=ctx.pdf, x=NP.m, W=PW-2*NP.m, gl=o.gl||260, xp=x+gl, wp=W-gl;
+  rows=rows.filter(r=>r.d||r.f);
+  if(!rows.length) return false;
+  const jal=(o.jalons||[]).filter(j=>j.ts);
+  const tous=[];
+  rows.forEach(r=>{ tous.push(r.d||r.f, r.f||r.d); });
+  jal.forEach(j=>tous.push(j.ts));
+  const min=Math.min.apply(null,tous), max=Math.max.apply(null,tous);
+  let per=nColonnesTemps(min,max,o.mois);
+  if(o.mois && per.length>18) per=nColonnesTemps(min,max,false);
+  const n=per.length, lu=wp/n;
+  const pos=ts=>{
+    if(ts<=per[0].deb) return 0;
+    for(let i=0;i<n;i++) if(ts<per[i].fin) return (i+(ts-per[i].deb)/(per[i].fin-per[i].deb))*lu;
+    return wp;
+  };
+  /* étiquettes de période : complètes, courtes, puis une sur deux */
+  let mode="long";
+  if(per.some(u=>nW(pdf,u.lab,9.5)>lu-6)) mode="court";
+  if(mode==="court" && per.some(u=>nW(pdf,u.court,9.5)>lu-4)) mode="alterne";
+  const auj=aujourdHuiUTC();
+  let gh=o.gh||26;
+  const dispo=ctx.yBas-NP.yCorps-28-22-(jal.length?34:0);
+  if(rows.length*gh>dispo) gh=Math.max(18,Math.floor(dispo/rows.length));
+  const hb=gh>=22?12:9;
+
+  const enTete=()=>{
+    per.forEach((u,i)=>{
+      if(mode==="alterne" && i%2) return;
+      const t=mode==="long"?u.lab:u.court;
+      nT(pdf,xp+lu*i+lu/2,ctx.y+12,t,{px:9.5,align:"center",style:u.an?"bold":"normal",c:u.an?NC.encre:NC.gris});
+    });
+    ctx.y+=18;
+    nL(pdf,xp,ctx.y,x+W,ctx.y,NC.taupe,1.2);
+    ctx.y+=1;
+  };
+  const avant=ctx.y+28+19+2*gh;
+  if(avant>ctx.yBas) nPage(ctx);
+  if(o.titre) nTitre(ctx,o.titre,o.sous,0);
+  let i=0;
+  while(i<rows.length){
+    enTete();
+    const place=Math.max(1,Math.floor((ctx.yBas-ctx.y-(i+1>=rows.length?0:0)-16)/gh));
+    const bloc=rows.slice(i,i+place), y0=ctx.y, y1=y0+bloc.length*gh;
+    /* grille d'abord, pour rester sous les barres */
+    for(let k=1;k<n;k++) nL(pdf,xp+lu*k,y0-19,xp+lu*k,y1,NC.filetPale,0.6);
+    bloc.forEach((r,k)=>{
+      const yy=y0+k*gh, yc=yy+gh/2;
+      const ind=r.niv===2?14:0;
+      const st=r.niv===0?"bold":"normal", coulT=r.niv===0?NC.rouge:(r.niv===2?NC.gris:NC.encre);
+      const pxl=r.niv===2?10.5:11;
+      const lib=nCoupe(pdf,r.lib||"(sans libellé)",gl-14-ind,pxl,st,1)[0]||"";
+      nT(pdf,x+ind,yc+3.8,lib,{px:pxl,style:st,c:coulT});
+      const g=pos(r.d||r.f), lb=Math.max(5,pos(r.f||r.d)-g);
+      const fond=r.niv===0?"#F3E3E2":"#EEEAE4";
+      const plein=r.inter?"#9A948E":(r.niv===0?NC.rouge:nBarreCoul(r.av));
+      nR(pdf,xp+g,yc-hb/2,lb,hb,fond,3);
+      if(r.av) nR(pdf,xp+g,yc-hb/2,Math.max(Math.min(6,lb),lb*Math.min(100,r.av)/100),hb,plein,3);
+      const lt=r.inter?"interrompu":(r.av==null?"":r.av+" %");
+      if(lt){
+        const wt=nW(pdf,lt,9.5);
+        if(xp+g+lb+5+wt<=x+W) nT(pdf,xp+g+lb+5,yc+3.3,lt,{px:9.5,c:NC.gris});
+        else if(xp+g-5-wt>=xp) nT(pdf,xp+g-5,yc+3.3,lt,{px:9.5,c:NC.gris,align:"right"});
+      }
+      nL(pdf,x,yy+gh,x+W,yy+gh,NC.filetPale,0.6);
+    });
+    /* trait « aujourd'hui » */
+    if(auj>=per[0].deb && auj<per[n-1].fin){
+      const xa=xp+pos(auj);
+      nL(pdf,xa,y0-19,xa,y1,NC.rouge,1.4);
+      nT(pdf,xa,y1+11,dateVersFR(auj).slice(0,5),{px:9,style:"bold",c:NC.rouge,align:"center"});
+    }
+    ctx.y=y1+14;
+    i+=bloc.length;
+    if(i<rows.length){
+      nPage(ctx);
+      if(o.titre) nTitre(ctx,o.titre+" (suite)",null,0);
+    }
+  }
+  /* repères (instances…) sous le planning, sur deux voies au besoin */
+  if(jal.length){
+    /* trois voies au plus ; un repère qui ne trouve pas de place garde son
+       losange, sans étiquette, plutôt que d'écrire par-dessus un voisin */
+    const voies=[-1e9,-1e9,-1e9];
+    const poses=jal.slice().sort((a,b)=>a.ts-b.ts).map(j=>{
+      const xj=xp+pos(j.ts);
+      const t=nCoupe(pdf,j.lib||"",150,9,"normal",1)[0]||"";
+      const w=nW(pdf,t,9);
+      const v=voies.findIndex(r=>xj-6>r+6);
+      if(v>=0) voies[v]=xj+9+w;
+      return {xj,t,v,coul:j.coul||NC.encre};
+    });
+    const nv=Math.max(1,...poses.map(q=>q.v+1));
+    ctx.y+=10;
+    if(ctx.y+nv*14+6>ctx.yBas) nPage(ctx);
+    poses.forEach(q=>{
+      const yy=ctx.y+6+Math.max(0,q.v)*14;
+      nLosange(pdf,q.xj,yy,4.5,q.coul);
+      if(q.v>=0) nT(pdf,q.xj+8,yy+3.2,q.t,{px:9,c:NC.encre});
+    });
+    ctx.y+=nv*14+10;
+  }
+  ctx.y+=8;
+  return true;
+}
+
+/* --- données communes ---------------------------------------------------- */
+function nFeux(p){
+  let A=null;
+  try{ A=analyseComplete(p); }catch(e){ console.warn("Analyse indisponible : "+e.message); }
+  const parId=new Map();
+  if(A) A.feux.forEach(f=>parId.set(f.a.id,f));
+  return {A,parId};
+}
+function nFeuAction(f,a){
   const c=S.cfg;
-  if(!(c.tblJournal && c.colJnlLien)) return [];
-  /* les fils sont mis à plat : une mère, puis ses réponses décalées */
-  const plat=[];
-  filsJournal(p).forEach(f=>{
-    plat.push({j:f.j,rep:false});
-    f.reponses.forEach(r=>plat.push({j:r,rep:true}));
+  if(!f) return {t:"—",coul:NC.gris2,delai:"—",rouge:false};
+  const coul=NC.feu[f.feu.n]||NC.gris2;
+  let delai=anaDelaiAction(f);
+  if(f.feu.n==="vert" && f.av>=100){
+    const fin=Number(a[c.colFin])||null;
+    delai=fin?"Terminée le "+dateVersFR(fin):"Terminée";
+  }
+  return {t:f.feu.l,coul,delai,rouge:f.feu.n==="rouge",f};
+}
+/* repères du planning de synthèse : les instances datées, nommées par leur
+   type (CODIR, Bureau…) ou, à défaut, par le début de leur libellé */
+function nJalons(p){
+  try{
+    return instancesDe(p).filter(j=>Number(j.date)).map(j=>{
+      let lib=txt(j.type).trim();
+      if(!lib) lib=txt(j.libelleSaisi||j.libelle).split(/\s+—\s+/)[0]
+        .replace(/\s+du\s+\d{1,2}\/\d{1,2}\/\d{4}/,"").trim();
+      return {ts:Number(j.date),lib:lib||"Instance",coul:NC.encre};
+    });
+  }catch(e){ return []; }
+}
+
+/* --- page de garde ------------------------------------------------------- */
+function nGarde(ctx){
+  const pdf=ctx.pdf, p=ctx.p;
+  if(ctx.pages>0) pdf.addPage([PW,PH],"landscape");
+  ctx.pages++;
+  ctx.secs[ctx.pages]=null;
+  const e=PH/595, w=794*e, x0=(PW-w)/2;
+  pdf.addImage(IMG_PAGE_GARDE,"PNG",x0,0,w,PH,undefined,"FAST");
+  /* bandeau rouge de l'image : 329..793 x 308..392 (repère 794 x 595) */
+  const bx=x0+329*e, by=308*e, bw=464*e, bh=84*e;
+  let px=26, lignes=[];
+  for(let k=0;k<20;k++){
+    lignes=nCoupe(pdf,ctx.titre,bw-40,px,"bold");
+    if(lignes.length<=3 && lignes.length*px*1.22<=bh-12) break;
+    px*=0.92;
+  }
+  const hl=px*1.22, yc=by+bh/2-(lignes.length-1)*hl/2;
+  lignes.forEach((l,i)=>nT(pdf,bx+bw/2,yc+i*hl,l,{px,style:"bold",c:"#ffffff",align:"center",base:"middle"}));
+  nT(pdf,60,PH-80,"Dossier projet · édité le "+new Date().toLocaleDateString("fr-FR"),{px:12,c:NC.gris});
+  /* instances à venir, en bas à droite */
+  const auj=aujourdHuiUTC();
+  const xs=instancesDe(p).filter(j=>j.aProgrammer || (j.date && j.date>=auj)).slice(0,6);
+  let y=PH-80-(xs.length-1)*19;
+  xs.forEach(j=>{
+    const t=j.aProgrammer?((j.libelleSaisi||"Instance à programmer")+" — "+(j.periode&&j.periode.libelle||"")):(j.libelle||dateVersFR(j.date));
+    nT(pdf,PW-60,y,nCoupe(pdf,t,520,12,"normal",1)[0]||"",{px:12,align:"right"});
+    y+=19;
   });
-  return plat.map(({j,rep})=>{
+}
+
+/* --- sommaire et fiche d'identité ---------------------------------------- */
+function nSommaireIdentite(ctx){
+  const pdf=ctx.pdf, p=ctx.p, c=S.cfg, t=c.tblMain;
+  nSection(ctx,null,"Sommaire",{page:true});
+  const W=PW-2*NP.m, wc=(W-40)/2, xd=NP.m+wc+40;
+  ctx.sommaire={page:ctx.pages,y:ctx.y,x:NP.m,w:wc};
+  /* colonne de droite : fiche d'identité */
+  nR(pdf,xd,ctx.y+5,8,8,NC.rouge);
+  nT(pdf,xd+16,ctx.y+14,"Fiche d'identité",{px:15,style:"bold",c:NC.rouge});
+  let y=ctx.y+30;
+  const av=pct(p[c.colAvancement]);
+  const champs=[["Nature",lire(t,p,c.colNature)],["Statut",lire(t,p,c.colStatut)],
+    ["Priorité",lire(t,p,c.colPriorite)],["Porteur",lire(t,p,c.colPorteur)],
+    ["Groupement",lire(t,p,c.colGroupement)]];
+  if(c.colSup) champs.push([libelleColonneBrut(t,c.colSup),lire(t,p,c.colSup)]);
+  if(c.colMillesime) champs.push(["Millésime P2A",lire(t,p,c.colMillesime)]);
+  champs.push(["Début",nDateFR(p[c.colDebut])],["Échéance",nDateFR(p[c.colEch])],
+    ["Fin",nDateFR(p[c.colFin])||"—"],["Avancement",av==null?"—":av+" %"]);
+  const st=strategies().map(s=>{
+    const n=idsStrat(p,s).length;
+    return n?s.libelle+" ("+n+" résultat"+(n>1?"s":"")+")":"";
+  }).filter(Boolean);
+  if(st.length) champs.push(["Stratégie",st.join(" · ")]);
+  champs.filter(ch=>txt(ch[1]).trim()).forEach(([k,v])=>{
+    const l=nCoupe(pdf,txt(v),wc-140,12.5,"bold");
+    const h=Math.max(1,l.length)*17+12;
+    nT(pdf,xd,y+6+12.5,k,{px:12.5,c:NC.gris});
+    l.forEach((s,i)=>nT(pdf,xd+130,y+6+12.5+i*17,s,{px:12.5,style:"bold"}));
+    y+=h;
+    nL(pdf,xd,y,xd+wc,y,NC.filet,0.8);
+  });
+  const desc=c.colDescriptif?txt(lire(t,p,c.colDescriptif)).trim():"";
+  ctx.y=y+16;
+  if(desc){
+    nT(pdf,xd,ctx.y+10,"DESCRIPTIF",{px:9.5,style:"bold",c:NC.taupe});
+    ctx.y+=18;
+    nPara(ctx,desc,{x:xd,w:wc,px:12,c:"#3d3833"});
+  }
+}
+function nRemplirSommaire(ctx){
+  const s=ctx.sommaire, pdf=ctx.pdf;
+  if(!s) return;
+  pdf.setPage(s.page);
+  nR(pdf,s.x,s.y+5,8,8,NC.rouge);
+  nT(pdf,s.x+16,s.y+14,"Sommaire",{px:15,style:"bold",c:NC.rouge});
+  let y=s.y+30;
+  ctx.som.forEach(e=>{
+    nT(pdf,s.x,y+22,e.lib,{px:14});
+    nT(pdf,s.x+s.w,y+22,String(e.page),{px:14,style:"bold",c:NC.rouge,align:"right"});
+    pdf.link(s.x,y,s.w,34,{pageNumber:e.page});
+    y+=34;
+    nL(pdf,s.x,y,s.x+s.w,y,NC.filet,0.8);
+  });
+  if(pdf.outline) ctx.som.forEach(e=>pdf.outline.add(null,pSafe(e.lib),{pageNumber:e.page}));
+}
+
+/* --- page « Situation » -------------------------------------------------- */
+function nSituation(ctx,FX){
+  const pdf=ctx.pdf, p=ctx.p, c=S.cfg, t=c.tblMain, A=FX.A;
+  nSection(ctx,"Situation du projet","Situation",{page:true});
+  const x=NP.m, W=PW-2*NP.m, y0=ctx.y;
+  const av=pct(p[c.colAvancement]), inter=interrompu(p);
+
+  /* météo, à droite */
+  const wm=260, xm=x+W-wm;
+  let hm=0;
+  if(A){
+    const cm=NC.meteo[A.meteo.n]||NC.meteo.gris;
+    const alertes=(A.alertes||[]).slice(0,2).map(a=>a.t);
+    const texte=alertes.length?alertes.join(". ")+".":"Aucun point d'alerte.";
+    const l=nCoupe(pdf,texte,wm-26,10.5,"normal",4);
+    hm=20+12+l.length*14.5+4;
+    nR(pdf,xm,y0,wm,hm,cm[1]);
+    nR(pdf,xm,y0,4,hm,cm[0]);
+    nRond(pdf,xm+17,y0+15.5,4.5,cm[0]);
+    nT(pdf,xm+26,y0+20,A.meteo.l,{px:13,style:"bold",c:cm[2]});
+    l.forEach((s,i)=>nT(pdf,xm+14,y0+38+i*14.5,s,{px:10.5,c:"#4a4541"}));
+  }
+
+  /* étiquettes, titre, ligne d'identité */
+  const wt=W-wm-28;
+  let xx=x;
+  const etiquette=(texte,fond,coul,bord)=>{
+    if(!texte) return;
+    const w=nW(pdf,texte,10.5,"bold")+16;
+    nR(pdf,xx,y0,w,18,fond,3);
+    if(bord){ pdf.setDrawColor(bord); pdf.setLineWidth(0.8); pdf.roundedRect(xx,y0,w,18,3,3,"S"); }
+    nT(pdf,xx+8,y0+12.8,texte,{px:10.5,style:"bold",c:coul});
+    xx+=w+6;
+  };
+  const nat=txt(lire(t,p,c.colNature)).trim(), stat=txt(lire(t,p,c.colStatut)).trim();
+  etiquette(nat,NC.rouge,"#ffffff");
+  if(stat){ const pc=pastillePleineCouleurs(stat,av,inter); etiquette(stat,nPale(pc.fond,0.85),nFonce(pc.fond,0.35),nPale(pc.fond,0.55)); }
+  let y=y0+(nat||stat?26:0);
+  const lt=nCoupe(pdf,ctx.titre,wt,23,"bold",2);
+  lt.forEach((l,i)=>nT(pdf,x,y+21+i*28,l,{px:23,style:"bold"}));
+  y+=lt.length*28+6;
+  /* porteur · groupement · priorité, valeurs en gras */
+  const seg=[];
+  const por=txt(lire(t,p,c.colPorteur)).trim(), grp=txt(lire(t,p,c.colGroupement)).trim(), pri=txt(lire(t,p,c.colPriorite)).trim();
+  if(por) seg.push(["Porteur ",por]);
+  if(grp) seg.push(["",grp]);
+  if(pri) seg.push(["Priorité ",pri]);
+  let xs=x;
+  seg.forEach((s,i)=>{
+    if(i){ xs+=nT(pdf,xs,y+12,"  ·  ",{px:12,c:NC.gris}); }
+    if(s[0]) xs+=nT(pdf,xs,y+12,s[0],{px:12,c:NC.gris});
+    const reste=x+wt-xs;
+    const v=nCoupe(pdf,s[1],Math.max(40,reste),12,s[0]?"bold":"normal",1)[0]||"";
+    xs+=nT(pdf,xs,y+12,v,{px:12,style:s[0]?"bold":"normal",c:s[0]?NC.encre:NC.gris});
+  });
+  y+=22;
+  ctx.y=Math.max(y,y0+hm)+14;
+
+  /* indicateurs */
+  const yk=ctx.y, hk=70, wk=W/4;
+  nL(pdf,x,yk,x+W,yk,NC.filet,1);
+  nL(pdf,x,yk+hk,x+W,yk+hk,NC.filet,1);
+  const kpi=(i,lab,val,sous,o)=>{
+    o=o||{};
+    const kx=x+i*wk+(i?16:0);
+    if(i) nL(pdf,x+i*wk,yk,x+i*wk,yk+hk,NC.filet,1);
+    nT(pdf,kx,yk+18,lab.toUpperCase(),{px:10,c:NC.gris});
+    nT(pdf,kx,yk+44,nCoupe(pdf,val,wk-26,23,"bold",1)[0]||"",{px:23,style:"bold"});
+    if(o.barre) nBarre(pdf,kx,yk+52,wk-40,7,av,nBarreCoul(av,inter));
+    else if(sous) nT(pdf,kx,yk+60,nCoupe(pdf,sous,wk-26,11,o.alerte?"bold":"normal",1)[0]||"",
+      {px:11,style:o.alerte?"bold":"normal",c:o.alerte?NC.rouge:NC.gris});
+  };
+  kpi(0,"Avancement",inter?"Interrompu":(av==null?"—":av+" %"),"",{barre:!inter});
+  if(A){
+    const cal=A.cal;
+    let sous="", alerte=false;
+    if(cal.fin) sous="clôturé le "+dateVersFR(cal.fin);
+    else if(cal.depasse){ sous="dépassée de "+anaJours(-cal.joursRestants); alerte=true; }
+    else if(cal.ech && cal.joursRestants!=null) sous=(cal.joursRestants>0?"dans "+anaJours(cal.joursRestants):"aujourd'hui");
+    if(cal.d0) sous+=(sous?" · ":"")+"début le "+dateVersFR(cal.d0);
+    kpi(1,"Échéance",cal.ech?dateVersFR(cal.ech):"Non renseignée",sous,{alerte});
+    const acts=A.acts||[];
+    if(acts.length){
+      const term=A.etatAct.terminees.length, ret=A.feux.filter(f=>f.feu.n==="rouge").length;
+      const s=[]; if(term) s.push(term+" terminée"+(term>1?"s":""));
+      if(ret) s.push(ret+" en retard");
+      const nint=A.etatAct.inter.length; if(nint) s.push(nint+" interrompue"+(nint>1?"s":""));
+      kpi(2,"Actions MEO",String(acts.length),s.join(" · ")||"aucune terminée",{alerte:ret>0});
+    }else{
+      const ts=tachesDe(p), term=ts.filter(k=>(pct(k[c.colTacheAvancement])||0)>=100).length;
+      kpi(2,"Tâches",String(ts.length),term+" terminée"+(term>1?"s":""));
+    }
+    const ip=A.insProchaine;
+    if(ip) kpi(3,"Prochaine instance",dateVersFR(ip.date),txt(ip.libelleSaisi||ip.libelle).replace(/^.*?—\s*/,""));
+    else{
+      const ap=instancesDe(p).find(j=>j.aProgrammer);
+      if(ap) kpi(3,"Prochaine instance","À programmer",ap.periode?ap.periode.libelle:"");
+      else kpi(3,"Prochaine instance","—","aucune instance prévue");
+    }
+  }
+  ctx.y=yk+hk+16;
+
+  /* descriptif, trois lignes au plus */
+  const desc=c.colDescriptif?txt(lire(t,p,c.colDescriptif)).trim():"";
+  if(desc){
+    nT(pdf,x,ctx.y+10,"DESCRIPTIF",{px:9.5,style:"bold",c:NC.taupe});
+    const l=nCoupe(pdf,desc.replace(/\s*\n\s*/g," "),W,12,"normal",3);
+    l.forEach((s,i)=>nT(pdf,x,ctx.y+28+i*17.5,s,{px:12,c:"#3d3833"}));
+    ctx.y+=22+l.length*17.5+12;
+  }
+
+  /* en un coup d'œil */
+  if(A) nCoupDoeil(ctx,A);
+}
+function nCoupDoeil(ctx,A){
+  const pdf=ctx.pdf, p=ctx.p, x=NP.m, W=PW-2*NP.m, gap=24, wc=(W-2*gap)/3;
+  let RA={faits:[],avenir:[]};
+  try{ RA=odpRealiseAVenir(p,A); }catch(e){}
+  const auj=aujourdHuiUTC();
+  const typeDe=(t,meo)=>({Journal:"Journal de bord"}[t]||t)+(meo?" · "+meo:"");
+  const libDe=(type,lib)=>type==="Action"?(decouperLibelleAction(lib).texte||lib):lib;
+  const faits=RA.faits.map(f=>({date:odpJM(f.ts),texte:libDe(f.t,f.lib),type:typeDe(f.t)}));
+  const suite=(RA.avenir.length?RA.avenir:A.frise.ev.filter(e=>e.ts>=auj))
+    .map(e=>({date:odpJM(e.ts),texte:libDe(e.type,e.lib),type:typeDe(e.type,e.meo)}));
+  const att=odpDemandesJournal(A).map(d=>({date:d.date,texte:d.texte,
+    type:d.type==="Arbitrage"?"Arbitrage demandé":"Exécution demandée"}));
+  const cols=[["Réalisé (30 jours)",faits,"Rien de terminé sur la période.",NC.taupe,NC.encre],
+              ["Prochaines étapes",suite,"Aucune échéance à venir.",NC.taupe,NC.encre],
+              ["Points d'attention",att,"Aucune demande d'arbitrage ou d'exécution en attente.",NC.rouge,NC.rouge]];
+  if(ctx.y+28+30+3*34>ctx.yBas) nPage(ctx);
+  nTitre(ctx,"En un coup d'œil",null,0);
+  const y0=ctx.y, bas=ctx.yBas, px=11, lh=15, wd=46;
+  cols.forEach(([titre,items,vide,cTrait,cTitre],k)=>{
+    const cx=x+k*(wc+gap);
+    nT(pdf,cx,y0+12,titre,{px:12,style:"bold",c:cTitre});
+    nT(pdf,cx+wc,y0+12,String(items.length),{px:12,style:"bold",c:NC.gris2,align:"right"});
+    nL(pdf,cx,y0+19,cx+wc,y0+19,cTrait,1.8);
+    let yy=y0+22;
+    if(!items.length){ nCoupe(pdf,vide,wc,11).forEach((l,i)=>nT(pdf,cx,yy+16+i*lh,l,{px:11,c:NC.gris2})); return; }
+    let nPose=0;
+    for(const it of items){
+      const l=nCoupe(pdf,String(it.texte||"").replace(/\s*\n\s*/g," ")||"—",wc-wd,px,"normal",4);
+      const h=l.length*lh+(it.type?12:0)+12;
+      const reste=items.length-nPose;
+      if(yy+h>bas-(reste>1?16:0)) break;
+      nT(pdf,cx,yy+6+px,it.date||"",{px,style:"bold"});
+      l.forEach((s,i)=>nT(pdf,cx+wd,yy+6+px+i*lh,s,{px}));
+      if(it.type) nT(pdf,cx+wd,yy+6+px+l.length*lh-1,it.type,{px:9.5,c:NC.gris2});
+      yy+=h; nPose++;
+      nL(pdf,cx,yy,cx+wc,yy,NC.filet,0.8);
+    }
+    if(nPose<items.length)
+      nT(pdf,cx,yy+14,"… et "+(items.length-nPose)+" autre"+(items.length-nPose>1?"s":""),{px:9.5,c:NC.gris});
+  });
+  ctx.y=bas;
+}
+
+/* --- page « Planning et actions » ---------------------------------------- */
+function nPlanningActions(ctx,FX,acts){
+  const p=ctx.p, c=S.cfg;
+  nSection(ctx,"Planning et actions","Planning et actions",{page:true});
+  const rows=[{lib:ctx.titre,niv:0,d:Number(p[c.colDebut])||null,f:Number(p[c.colFin]||p[c.colEch])||null,
+    av:pct(p[c.colAvancement]),inter:interrompu(p)}];
+  const tachesP=(c.tblTache&&c.colTacheLien)?tachesDe(p):[];
+  if(acts.length) acts.forEach((a,i)=>rows.push({lib:(i+1)+". "+nLibAction(a),niv:1,
+    d:Number(a[c.colDebut])||null,f:Number(a[c.colFin]||a[c.colEch])||null,av:pct(a[c.colAvancement]),inter:interrompu(a)}));
+  else tachesP.forEach(k=>rows.push({lib:lire(c.tblTache,k,c.colTacheLibelle),niv:2,
+    d:Number(k[c.colTacheDebut])||null,f:Number(k[c.colTacheFin])||null,av:pct(k[c.colTacheAvancement]),
+    inter:statutInterrompu(c.tblTache,k,c.colTacheStatut)}));
+  const ok=nGantt(ctx,rows,{titre:"Planning de synthèse",sous:acts.length?"projet et actions MEO":"projet et tâches",
+    jalons:nJalons(p),gh:acts.length>12?22:28});
+  if(!ok){
+    nTitre(ctx,"Planning de synthèse");
+    nT(ctx.pdf,NP.m,ctx.y+10,"Aucune date renseignée sur le projet, ses actions ou ses tâches.",{px:11.5,c:NC.gris2});
+    ctx.y+=30;
+  }
+  ctx.y+=6;
+  if(acts.length){
+    const lignes=acts.map((a,i)=>{
+      const fe=nFeuAction(FX.parId.get(a.id),a), av=pct(a[c.colAvancement]), inter=interrompu(a);
+      return {cel:{
+        n:{t:String(i+1),style:"bold",c:NC.gris2},
+        lib:{t:nLibAction(a)},
+        por:{t:lire(c.tblMain,a,c.colPorteur),c:NC.gris},
+        ech:{t:nDateFR(a[c.colEch])||"—"},
+        av:{type:"barre",av,coul:nBarreCoul(av,inter)},
+        feu:{type:"feu",t:fe.t,coul:fe.coul},
+        del:{t:fe.delai,c:fe.rouge?NC.rouge:NC.gris,style:fe.rouge?"bold":undefined}
+      }};
+    });
+    nTable(ctx,"Actions MEO",[{k:"n",t:"",w:28},{k:"lib",t:"Action"},{k:"por",t:"Porteur",w:150},
+      {k:"ech",t:"Échéance",w:92},{k:"av",t:"Avancement",w:160},{k:"feu",t:"État",w:160},{k:"del",t:"Délai",w:150}],
+      lignes,{sous:"feu calculé par l'analyse"});
+  }else if(tachesP.length){
+    nTable(ctx,"Tâches du projet",nColsTaches(),tachesP.map(nLigneTache),{});
+  }
+}
+function nColsTaches(){
+  return [{k:"lib",t:"Tâche",w:330},{k:"por",t:"Porteur",w:130},{k:"ech",t:"Échéance",w:90},
+          {k:"av",t:"Avancement",w:150},{k:"com",t:"Commentaire"}];
+}
+function nLigneTache(k){
+  const c=S.cfg, av=pct(k[c.colTacheAvancement]), inter=statutInterrompu(c.tblTache,k,c.colTacheStatut);
+  return {cel:{
+    lib:{t:lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"},
+    por:{t:c.colTachePorteur?lire(c.tblTache,k,c.colTachePorteur):"",c:NC.gris},
+    ech:{t:nDateFR(k[c.colTacheFin])||"—"},
+    av:{type:"barre",av:inter?null:av,coul:nBarreCoul(av,inter),c:inter?NC.gris:undefined},
+    com:{t:c.colTacheCommentaire?lire(c.tblTache,k,c.colTacheCommentaire):"",c:NC.gris}
+  }};
+}
+
+/* --- fiches des actions MEO ---------------------------------------------- */
+function nFicheAction(ctx,FX,a,i){
+  const pdf=ctx.pdf, c=S.cfg, t=c.tblMain, x=NP.m, W=PW-2*NP.m;
+  const ts=(c.tblTache&&c.colTacheLien)?tachesDe(a):[];
+  const datees=ts.filter(k=>Number(k[c.colTacheDebut])||Number(k[c.colTacheFin]));
+  const avecPlanning=datees.length>=4;
+  const com=c.colCommentaire?txt(lire(t,a,c.colCommentaire)).trim():"";
+  /* une fiche démarre sur une nouvelle page si son en-tête et la suite
+     immédiate (planning, premières tâches ou commentaire) ne tiennent pas */
+  const hTete=64, hSuite=avecPlanning?28+19+Math.min(ts.length+1,4)*22:(ts.length?20+2*27:(com?40:0));
+  if(ctx.y+hTete+hSuite>ctx.yBas) nPage(ctx);
+  const fe=nFeuAction(FX.parId.get(a.id),a);
+  let feuTxt=fe.t;
+  if(fe.f && fe.f.feu.n==="rouge" && fe.f.jours!=null) feuTxt="Échéance dépassée de "+anaJours(-fe.f.jours);
+  if(fe.f && fe.f.av>=100 && fe.delai.startsWith("Terminée")) feuTxt=fe.delai;
+  const wf=nW(pdf,feuTxt,10.5,"bold")+18;
+  const num=(i+1)+".", wn=nW(pdf,num+" ",18,"bold");
+  const lt=nCoupe(pdf,nLibAction(a),W-wn-wf-20,16,"bold",2);
+  const y0=ctx.y;
+  nT(pdf,x,y0+18,num,{px:18,style:"bold",c:NC.rouge});
+  lt.forEach((l,k)=>nT(pdf,x+wn,y0+18+k*20,l,{px:16,style:"bold"}));
+  nRond(pdf,x+W-wf+4,y0+14.5,4,fe.coul);
+  nT(pdf,x+W-wf+12,y0+18,feuTxt,{px:10.5,style:"bold",c:fe.coul});
+  ctx.y=y0+18+(lt.length-1)*20+8;
+  nL(pdf,x,ctx.y,x+W,ctx.y,NC.taupe,1.8);
+  ctx.y+=6;
+  const axe=axeDe(a);
+  /* ligne d'identité */
+  const av=pct(a[c.colAvancement]), inter=interrompu(a);
+  const champs=[];
+  if(axe) champs.push(["Axe",axe]);
+  champs.push(["Porteur",lire(t,a,c.colPorteur)],["Statut",lire(t,a,c.colStatut)],
+    ["Début",nDateFR(a[c.colDebut])],["Échéance",nDateFR(a[c.colEch])]);
+  if(a[c.colFin]) champs.push(["Fin",nDateFR(a[c.colFin])]);
+  let xx=x, yy=ctx.y+15;
+  champs.filter(ch=>txt(ch[1]).trim()).forEach(([k,v])=>{
+    const wk=nW(pdf,k+" ",11.5)+nW(pdf,txt(v),11.5,"bold");
+    if(xx+wk>x+W-200){ xx=x; yy+=17; }
+    xx+=nT(pdf,xx,yy,k+" ",{px:11.5,c:NC.gris});
+    xx+=nT(pdf,xx,yy,txt(v),{px:11.5,style:"bold"})+24;
+  });
+  if(xx+190>x+W){ xx=x; yy+=17; }
+  xx+=nT(pdf,xx,yy,"Avancement ",{px:11.5,c:NC.gris});
+  xx+=nT(pdf,xx,yy,inter?"Interrompu":(av==null?"—":av+" %"),{px:11.5,style:"bold"})+8;
+  if(!inter) nBarre(pdf,xx,yy-6,110,6,av,nBarreCoul(av,inter));
+  ctx.y=yy+14;
+
+  if(avecPlanning){
+    const rows=[{lib:(i+1)+". "+nLibAction(a),niv:0,d:Number(a[c.colDebut])||null,
+      f:Number(a[c.colFin]||a[c.colEch])||null,av,inter}];
+    ts.forEach(k=>rows.push({lib:lire(c.tblTache,k,c.colTacheLibelle),niv:2,
+      d:Number(k[c.colTacheDebut])||null,f:Number(k[c.colTacheFin])||null,
+      av:pct(k[c.colTacheAvancement]),inter:statutInterrompu(c.tblTache,k,c.colTacheStatut)}));
+    nGantt(ctx,rows,{mois:true,gh:22});
+  }
+  if(ts.length) nTable(ctx,null,nColsTaches(),ts.map(nLigneTache),{apres:10});
+  if(com) nCartouche(ctx,com);
+  ctx.y+=14;
+}
+
+/* --- options du dossier complet ------------------------------------------ */
+function nInstances(ctx){
+  const p=ctx.p, c=S.cfg, xs=instancesDe(p);
+  if(!xs.length) return;
+  nSection(ctx,"Instances","Instances",{min:150});
+  const auj=aujourdHuiUTC();
+  const cols=[{k:"date",t:"Date",w:150},{k:"lib",t:"Instance"}];
+  if(c.colInsType) cols.push({k:"type",t:"Type",w:130});
+  if(c.colInsRapporteur) cols.push({k:"rap",t:"Rapporteur",w:150});
+  if(c.colInsAction) cols.push({k:"act",t:"Action",w:250});
+  nTable(ctx,"Instances",cols,xs.map(j=>{
+    const passee=!!(j.date && j.date<auj), coul=passee?NC.gris2:NC.encre;
+    const lib=txt(j.libelleSaisi||"").replace(/^[^—]*\d{2}\/\d{2}\/\d{4}\s*—\s*/,"")||(j.aProgrammer?"À programmer":"(sans libellé)");
+    return {cel:{
+      date:{t:j.aProgrammer?(j.periode&&j.periode.libelle||"À programmer"):nDateFR(j.date),
+            style:j.aProgrammer?"italic":(passee?undefined:"bold"),c:coul},
+      lib:{t:lib,c:coul,style:j.aProgrammer?"italic":undefined},
+      type:{t:j.type||"",c:coul}, rap:{t:j.rapporteur||"",c:coul},
+      act:{t:j.action?(decouperLibelleAction(j.action).texte||j.action):"",c:coul}
+    }};
+  }));
+}
+function nJournal(ctx){
+  const p=ctx.p, c=S.cfg;
+  if(!(c.tblJournal && c.colJnlLien)) return;
+  const plat=[];
+  filsJournal(p).forEach(f=>{ plat.push({j:f.j,rep:false}); f.reponses.forEach(r=>plat.push({j:r,rep:true})); });
+  if(!plat.length) return;
+  nSection(ctx,"Journal de bord","Journal de bord",{min:150});
+  const avecAct=!!c.colJnlAction && plat.some(({j})=>actionUtile(c.tblJournal,j,c.colJnlAction,p));
+  const cols=[{k:"date",t:"Date",w:86}];
+  if(c.colJnlNature) cols.push({k:"nat",t:"Nature",w:118});
+  if(avecAct) cols.push({k:"act",t:"Action",w:170});
+  cols.push({k:"txt",t:"Commentaire"});
+  if(c.colJnlAuteur) cols.push({k:"aut",t:"Auteur",w:110});
+  if(c.colJnlCollab) cols.push({k:"col",t:"Collaborateur",w:120});
+  if(c.colJnlDelai) cols.push({k:"del",t:"Délai",w:96});
+  nTable(ctx,"Journal de bord",cols,plat.map(({j,rep})=>{
     const ech=!!(c.colJnlDelai && Number(j[c.colJnlDelai]));
     const clos=!!(c.colJnlTraite && j[c.colJnlTraite]===true);
-    return {cellules:{
-    date:{type:"texte",t:dateVersFR(j[c.colJnlDate])},
-    action:{type:"texte",t:c.colJnlAction?actionUtile(c.tblJournal,j,c.colJnlAction,p):""},
-    nature:{type:"texte",t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):""},
-    texte:{type:"texte",
-           /* une réponse est décalée par un chevron ; l'échéance, elle, se
-              signale par le gras et la couleur, sans glyphe supplémentaire */
-           t:(rep?"» ":"")+lire(c.tblJournal,j,c.colJnlTexte),
-           style:(ech&&!clos)?"bold":undefined,
-           couleur:(ech&&!clos)?"#8a2020":(rep?PDFC.gris:PDFC.encre)},
-    auteur:{type:"texte",t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):""},
-    collab:{type:"texte",t:c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):""},
-    delai:{type:"texte",
-           t:ech?(dateVersFR(j[c.colJnlDelai])+(clos?" (traité)":"")):"",
-           style:(ech&&!clos)?"bold":undefined,
-           couleur:(ech&&!clos)?"#8a2020":PDFC.gris}
-  }};
-  });
-}
-
-/* --- pages additionnelles ------------------------------------------------- */
-
-function dessinerPagesSup(ctx){
-  const pdf=ctx.pdf;
-  pagesSup.forEach(pg=>{
-    docPage(ctx);
-    const x0=MX, y0=ctx.y, lw=PW-2*MX, lh=ctx.yBas-ctx.y;
-    (pg.blocks||[]).forEach(b=>{
-      const bx=x0+b.x/MP_W*lw, by=y0+b.y/MP_H*lh;
-      const bw=b.w/MP_W*lw, bh=b.h/MP_H*lh;
-      if(b.type==="image"){
-        if(b.imageDataUrl){
-          const r=b.naturalRatio||1.5;
-          let w=bw, h=bw/r;
-          if(h>bh){ h=bh; w=bh*r; }
-          try{ pdf.addImage(b.imageDataUrl,(bx+(bw-w)/2),(by+(bh-h)/2),w,h); }catch(e){}
-        }
-      }else{
-        const taille=b.fontSize||13;
-        const style=(b.bold?"bold":"")+(b.italic?"italic":"") || "normal";
-        const coul=b.color||"#1a1a1a";
-        const inter=fz(taille)*1.5;
-        let n=0;
-        /* écrit une ligne déjà découpée ; renvoie false si le bloc est plein */
-        const poser=(l,dx,marque)=>{
-          const yy=by+fz(taille)+n*inter;
-          if(yy>by+bh+fz(taille)) return false;
-          const al=marque?"left":(b.align||"left");
-          const ax=marque?bx+dx
-                 :(b.align==="center"?bx+bw/2:(b.align==="right"?bx+bw:bx));
-          if(marque) pTexte(pdf,bx,yy,marque,{taille,style,couleur:coul});
-          pTexte(pdf,ax,yy,l,{taille,style,couleur:coul,align:al});
-          if(b.underline){
-            const lw2=pLargeur(pdf,l,taille,style);
-            const ux=al==="center"?ax-lw2/2:(al==="right"?ax-lw2:ax);
-            pFiletH(pdf,ux,ux+lw2,yy+2,coul,0.6);
-          }
-          n++;
-          return true;
-        };
-
-        if(b.puce){
-          /* retrait suspendu : la marque à gauche, les lignes de repli alignées
-             sous le texte et non sous la marque */
-          const dx=pLargeur(pdf,b.puce+" ",taille,style);
-          const lignes=String(b.text||"").split("\n");
-          for(const brut of lignes){
-            if(!brut.trim()){ if(!poser("",0,null)) break; continue; }
-            const net=brut.replace(/^\s*[-–•*]\s*/,"");
-            const morceaux=pDecoupe(pdf,net,bw-dx,taille,style);
-            let plein=false;
-            morceaux.forEach((m,k)=>{
-              if(plein) return;
-              if(!poser(m,dx,k===0?b.puce:"")) plein=true;
-            });
-            if(plein) break;
-          }
-        }else{
-          pDecoupe(pdf,b.text||"",bw,taille,style).forEach(l=>poser(l,0,null));
-        }
-      }
-    });
-  });
-}
-
-/* --- sections du dossier complet ------------------------------------------ */
-
-/* titre de section au fil du texte ; ouvre une page si la place manque */
-function titreSectionPdf(ctx,titre){
-  if(ctx.y+60>ctx.yBas) docPage(ctx);
-  pTexte(ctx.pdf,MX,ctx.y+fz(10),titre,{taille:12,style:"bold",couleur:PDFC.bleu});
-  ctx.y+=fz(14)+6;
-}
-/* paragraphe découpé à la largeur, reporté ligne à ligne sur les pages suivantes */
-function paragraphePdf(ctx,texte,o){
-  o=o||{};
-  const pdf=ctx.pdf, taille=o.taille||11, hl=fz(taille)*1.45;
-  const x=MX+(o.retrait||0);
-  const dx=o.puce?pLargeur(pdf,o.puce+" ",taille,o.style):0;
-  const w=PW-2*MX-(o.retrait||0)-dx;
-  pDecoupe(pdf,texte,w,taille,o.style).forEach((l,k)=>{
-    if(ctx.y+hl>ctx.yBas) docPage(ctx);
-    if(o.puce && k===0) pTexte(pdf,x,ctx.y+fz(taille),o.puce,{taille,style:o.style});
-    pTexte(pdf,x+dx,ctx.y+fz(taille),l,{taille,style:o.style,couleur:o.couleur});
-    ctx.y+=hl;
-  });
-}
-
-/* Stratégie : un tableau par stratégie (SDACR, PE…), résultats attendus
-   rattachés au projet, regroupés par objectif comme dans l'onglet */
-function dessinerStrategiePdf(ctx,p){
-  if(!estProjet(p)) return;
-  const lw=PW-2*MX;
-  const blocs=strategies().map(st=>{
-    const ids=new Set(idsStrat(p,st));
-    return {st,res:lignesStrat(st).filter(r=>ids.has(r.id))};
-  }).filter(b=>b.res.length);
-  let premier=true;
-  blocs.forEach(({st,res})=>{
-    const avecObj=!!st.colObj, avecSous=!!st.colSous;
-    const lignes=[];
-    grouperStrat(st,res).forEach(g=>{
-      g.sous.forEach((s,i)=>s.res.forEach((r,k)=>{
-        const tete=i===0&&k===0;
-        lignes.push({bordHaut:tete&&lignes.length>0,cellules:{
-          obj:{type:"texte",t:tete?(g.cle||"Sans objectif"):"",style:"bold"},
-          sous:{type:"texte",t:k===0?s.lib:"",couleur:PDFC.gris},
-          res:{type:"texte",t:resStrat(st,r)}
-        }});
-      }));
-    });
-    const cols=[];
-    if(avecObj) cols.push({cle:"obj",titre:"Objectif",w:avecSous?300:380});
-    if(avecSous) cols.push({cle:"sous",titre:"Sous-objectif",w:avecObj?300:380});
-    const pris=cols.reduce((n,co)=>n+co.w,0);
-    cols.push({cle:"res",titre:"Résultat attendu",w:lw-pris});
-    dessinerTableau(ctx,st.libelle||"Stratégie",cols,lignes,MX,lw,premier);
-    premier=false;
-  });
-}
-
-/* Instances : la liste complète, y compris celles à programmer sur une période */
-function dessinerInstancesPdf(ctx,p){
-  const c=S.cfg, xs=instancesDe(p);
-  if(!xs.length) return;
-  const lw=PW-2*MX, auj=aujourdHuiUTC();
-  const extra=[];
-  if(c.colInsType) extra.push({cle:"type",titre:"Type",w:130});
-  if(c.colInsRapporteur) extra.push({cle:"rap",titre:"Rapporteur",w:150});
-  if(c.colInsAction) extra.push({cle:"action",titre:"Action",w:230});
-  const pris=120+extra.reduce((n,co)=>n+co.w,0);
-  const cols=[{cle:"date",titre:"Date",w:120},{cle:"lib",titre:"Instance",w:lw-pris}].concat(extra);
-  const lignes=xs.map(j=>{
-    const passee=!!(j.date && j.date<auj);
-    const coul=passee?PDFC.gris:PDFC.encre;
-    return {cellules:{
-      date:{type:"texte",t:j.aProgrammer?(j.periode&&j.periode.libelle||""):(j.date?dateVersFR(j.date):""),
-            style:j.aProgrammer?"italic":undefined,couleur:coul},
-      lib:{type:"texte",t:j.libelleSaisi||(j.aProgrammer?"À programmer":"(sans libellé)"),couleur:coul},
-      type:{type:"texte",t:j.type||"",couleur:coul},
-      rap:{type:"texte",t:j.rapporteur||"",couleur:coul},
-      action:{type:"texte",t:j.action||"",couleur:coul}
+    const fort=ech&&!clos;
+    const a=avecAct?actionUtile(c.tblJournal,j,c.colJnlAction,p):"";
+    return {cel:{
+      date:{t:(rep?"» ":"")+nDateFR(j[c.colJnlDate]),c:rep?NC.gris:NC.encre},
+      nat:{t:c.colJnlNature?lire(c.tblJournal,j,c.colJnlNature):"",c:NC.gris},
+      act:{t:a?(decouperLibelleAction(a).texte||a):"",c:NC.gris},
+      txt:{t:lire(c.tblJournal,j,c.colJnlTexte),style:fort?"bold":undefined,c:fort?NC.rougeFonce:(rep?NC.gris:NC.encre)},
+      aut:{t:c.colJnlAuteur?lire(c.tblJournal,j,c.colJnlAuteur):"",c:NC.gris},
+      col:{t:c.colJnlCollab?lire(c.tblJournal,j,c.colJnlCollab):"",c:NC.gris},
+      del:{t:ech?nDateFR(j[c.colJnlDelai])+(clos?" (traité)":""):"",style:fort?"bold":undefined,c:fort?NC.rougeFonce:NC.gris}
     }};
-  });
-  dessinerTableau(ctx,"Instances",cols,lignes,MX,lw,true);
+  }));
 }
-
-/* Budget : le contenu de l'onglet (paragraphes, listes, tableaux), totaux recalculés */
-function dessinerBudgetPdf(ctx,p){
-  if(!budgetPret()) return;
-  const h=budgetDe(p);
+function nBudget(ctx){
+  if(typeof budgetPret!=="function" || !budgetPret()) return;
+  const h=budgetDe(ctx.p);
   if(budgetVide(h)) return;
   const racine=document.createElement("div");
   racine.innerHTML=h;
   bdgPreparer(racine,false);
-  const lw=PW-2*MX;
+  const W=PW-2*NP.m;
   const texteDe=el=>{
     const cl=el.cloneNode(true);
     if(cl.querySelectorAll) cl.querySelectorAll("br").forEach(b=>b.replaceWith("\n"));
-    return String(cl.textContent||"").replace(/[ \t  ]+/g," ")
-      .replace(/ *\n */g,"\n").trim();
+    return String(cl.textContent||"").replace(/[ \t  ]+/g," ").replace(/ *\n */g,"\n").trim();
   };
   const toutGras=el=>{
     const t=String(el.textContent||"").replace(/\s/g,"");
     if(!t||!el.querySelectorAll) return false;
-    let g=""; el.querySelectorAll("b").forEach(b=>g+=b.textContent);
+    let g=""; el.querySelectorAll("b,strong").forEach(b=>g+=b.textContent);
     return g.replace(/\s/g,"")===t;
   };
-  docPage(ctx);
-  let titrePose=false, nTab=0;
-  const titre=()=>{ if(!titrePose){ titreSectionPdf(ctx,"Budget"); titrePose=true; } };
+  nSection(ctx,"Budget","Budget",{min:150});
+  nTitre(ctx,"Budget");
   [...racine.childNodes].forEach(el=>{
     const tag=el.nodeType===1?el.tagName:"";
     if(tag==="TABLE"){
@@ -11647,365 +11628,144 @@ function dessinerBudgetPdf(ctx,p){
         return bdg?(Number(th&&th.dataset.w)||BDG_LARG[types[i]]||150):1;
       });
       const tot=larg.reduce((a,b)=>a+b,0)||1;
-      const cols=larg.map((w,i)=>({cle:"c"+i,
-        titre:rows[0].cells[i]?texteDe(rows[0].cells[i]).replace(/\n/g," "):"",w:w*lw/tot}));
+      const cols=larg.map((w,i)=>({k:"c"+i,t:rows[0].cells[i]?texteDe(rows[0].cells[i]).replace(/\n/g," "):"",w:w*W/tot}));
       const lignes=rows.slice(1).map(r=>{
-        const total=r.getAttribute("data-total")==="1";
-        const cel={};
-        [...r.cells].forEach((td,i)=>{
-          cel["c"+i]={type:"texte",t:texteDe(td),style:total?"bold":undefined};
-        });
-        return {fond:total?PDFC.fondBadge:undefined,bordHaut:total,cellules:cel};
-      }).filter(l=>Object.values(l.cellules).some(v=>v.t));
-      if(!lignes.length) return;
-      nTab++;
-      dessinerTableau(ctx,titrePose?("Tableau budgétaire"+(nTab>1?" "+nTab:"")):"Budget",
-        cols,lignes,MX,lw,false);
-      titrePose=true;
+        const total=r.getAttribute("data-total")==="1", cel={};
+        [...r.cells].forEach((td,i)=>{ cel["c"+i]={t:texteDe(td),style:total?"bold":undefined}; });
+        return {fond:total?NC.fond:undefined,bordHaut:total,cel};
+      }).filter(l=>Object.values(l.cel).some(v=>v.t));
+      nTable(ctx,null,cols,lignes,{apres:14});
     }else if(tag==="UL"||tag==="OL"){
-      titre();
       [...el.children].forEach((li,i)=>{
         const t=texteDe(li);
-        if(t) paragraphePdf(ctx,t,{puce:tag==="OL"?(i+1)+".":"•",retrait:12,style:toutGras(li)?"bold":undefined});
+        if(t) nPara(ctx,t,{puce:tag==="OL"?(i+1)+".":"•",retrait:12,style:toutGras(li)?"bold":undefined});
       });
-      ctx.y+=fz(6);
+      ctx.y+=6;
     }else{
       const t=texteDe(el);
-      if(!t){ if(titrePose) ctx.y+=fz(6); return; }
-      titre();
-      paragraphePdf(ctx,t,{style:toutGras(el)?"bold":undefined});
-      ctx.y+=fz(4);
+      if(!t){ ctx.y+=6; return; }
+      nPara(ctx,t,{style:toutGras(el)?"bold":undefined});
+      ctx.y+=4;
     }
   });
 }
-
-/* --- « En un coup d'œil » : les trois colonnes de la revue détaillée ------ */
-/* items : [{date, texte, type}] ; dessine une colonne encadrée et renvoie
-   la hauteur utile qu'elle occuperait (mesure seule si !dessin) */
-function pdfColonne(pdf,x,y,w,h,titre,items,vide,fond,dessin){
-  const hT=fz(22), wD=fz(46), hl=fz(13.5), pad=10;
-  const wTxt=w-2*pad-wD;
-  let yy=y+hT+8, n=0;
-  const lots=items.map(it=>{
-    const l=pDecoupe(pdf,String(it.texte||"").replace(/\s*\n\s*/g," ").trim()||"—",wTxt,10.5,"normal");
-    return {it,l,h:Math.max(l.length*hl,it.type?2*hl:hl)+8};
-  });
-  if(!dessin){
-    return hT+8+(lots.length?lots.reduce((s,o)=>s+o.h,0):hl+8)+8;
-  }
-  pAplat(pdf,x,y,w,h,fond||"#ffffff",5);
-  pdf.setDrawColor(PDFC.trait); pdf.setLineWidth(0.8); pdf.roundedRect(x,y,w,h,5,5,"S");
-  pAplat(pdf,x,y,w,hT,PDFC.fondBadge,5); pAplat(pdf,x,y+hT-5,w,5,PDFC.fondBadge,0);
-  pTexte(pdf,x+pad,y+hT/2,titre,{taille:11,style:"bold",couleur:PDFC.encre,baseline:"middle"});
-  pTexte(pdf,x+w-pad,y+hT/2,String(items.length),{taille:11,style:"bold",couleur:PDFC.gris,align:"right",baseline:"middle"});
-  if(!lots.length){
-    pDecoupe(pdf,vide,w-2*pad,10.5,"normal").forEach((l,k)=>
-      pTexte(pdf,x+pad,yy+fz(10)+k*hl,l,{taille:10.5,couleur:PDFC.gris}));
-    return;
-  }
-  const bas=y+h-8;
-  for(const o of lots){
-    const reste=lots.length-n;
-    if(yy+o.h>bas-(reste>1?hl:0)) break;
-    pTexte(pdf,x+pad,yy+fz(10),o.it.date||"",{taille:10.5,style:"bold",couleur:PDFC.encre});
-    if(o.it.type) pTexte(pdf,x+pad,yy+fz(10)+hl,o.it.type,{taille:9,couleur:PDFC.gris});
-    o.l.forEach((l,k)=>pTexte(pdf,x+pad+wD,yy+fz(10)+k*hl,l,{taille:10.5,couleur:PDFC.encre}));
-    yy+=o.h; n++;
-    if(n<lots.length) pFiletH(pdf,x+pad,x+w-pad,yy-4,PDFC.trait);
-  }
-  if(n<lots.length)
-    pTexte(pdf,x+pad,bas-2,"… et "+(lots.length-n)+" autre"+(lots.length-n>1?"s":""),
-      {taille:9.5,couleur:PDFC.gris});
-}
-/* Réalisé (30 jours) / Prochaines étapes / Points d'attention, sous le planning
-   de la synthèse — mêmes règles que le diaporama */
-function pdfColonnesApercu(ctx,p,y){
-  const pdf=ctx.pdf, lw=PW-2*MX, gap=14, wc=(lw-2*gap)/3;
-  let A, RA;
-  try{ A=analyseComplete(p); RA=odpRealiseAVenir(p,A); }
-  catch(e){ console.warn("Coup d'œil indisponible : "+e.message); return y; }
-  const auj=aujourdHuiUTC();
-  const faits=RA.faits.map(f=>({date:odpJM(f.ts),texte:f.lib,type:f.t}));
-  const suite=(RA.avenir.length?RA.avenir:A.frise.ev.filter(e=>e.ts>=auj))
-    .map(e=>({date:odpJM(e.ts),texte:e.lib,type:e.type}));
-  const att=odpDemandesJournal(A);
-  const cols=[["Réalisé (30 jours)",faits,"Rien de terminé sur la période.","#ffffff"],
-              ["Prochaines étapes",suite,"Aucune échéance à venir.",PDFC.fondCom],
-              ["Points d'attention",att,"Aucune demande d'arbitrage ou d'exécution en attente.","#ffffff"]];
-  /* titre + au moins trois éléments par colonne : sinon, page suivante */
-  const mini=fz(14)+6+fz(22)+8+3*fz(30);
-  if(y+mini>ctx.yBas){ docPage(ctx); y=ctx.y; }
-  pTexte(pdf,MX,y+fz(10),"En un coup d'œil",{taille:12,style:"bold",couleur:PDFC.bleu});
-  y+=fz(14)+6;
-  const voulu=Math.max(...cols.map(c=>pdfColonne(pdf,0,0,wc,0,c[0],c[1],c[2],c[3],false)));
-  const h=Math.min(voulu,ctx.yBas-y);
-  cols.forEach((c,k)=>pdfColonne(pdf,MX+k*(wc+gap),y,wc,h,c[0],c[1],c[2],c[3],true));
-  ctx.y=y+h+14;
-  return ctx.y;
-}
-
-/* Fiche d'une action MEO, sur le modèle de sa diapositive de revue détaillée :
-   titre, anneau d'avancement et badges (porteur, statut | début, échéance,
-   fin), planning de l'action et de ses tâches, tableau des tâches, puis le
-   commentaire de l'action. */
-function dessinerFicheActionPdf(ctx,p,a,acts,numeros){
-  const c=S.cfg, pdf=ctx.pdf, lw=PW-2*MX, t=c.tblMain;
-  docPage(ctx);
-  const n=numeros.get(a.id)||"";
-  const lib=lire(t,a,c.colLibelle)||"(action sans libellé)";
-  const lignesT=pDecoupe(pdf,(n?n+". ":"")+lib,lw,15,"bold");
-  lignesT.forEach((l,k)=>pTexte(pdf,MX,ctx.y+fz(14)+k*fz(18),l,{taille:15,style:"bold",couleur:PDFC.bleu}));
-  ctx.y+=fz(14)+(lignesT.length-1)*fz(18)+4;
-  const axe=axeDe(a);
-  if(axe){ pTexte(pdf,MX,ctx.y+fz(11),axe,{taille:11,couleur:PDFC.gris}); ctx.y+=fz(11)+4; }
-  ctx.y+=10;
-
-  /* anneau et badges */
-  const av=pct(a[c.colAvancement]), inter=interrompu(a), y0=ctx.y;
-  pDonut(pdf,MX+46,y0+46,40,13,av,bandesImpr(av,inter).fill);
-  const colonnes=[
-    [["Porteur",esc0(lire(t,a,c.colPorteur)),null],
-     ["Statut",null,txt(lire(t,a,c.colStatut)).trim()]],
-    [["Début",esc0(dateVersFR(a[c.colDebut])),null],
-     ["Échéance",inter?"Interrompu":esc0(dateVersFR(a[c.colEch])),null],
-     ["Fin",esc0(dateVersFR(a[c.colFin])),null]]
-  ];
-  const xb=MX+120, gap=12, wc=Math.min(380,(lw-120-gap)/2);
-  let bas=y0;
-  colonnes.forEach((col,k)=>{
-    const cx=xb+k*(wc+gap);
-    const lc=col.filter(b=>b[1]||b[2]).reduce((m,b)=>Math.max(m,pLargeur(pdf,b[0]+" ",12,"normal")),0)+6;
-    let cy=y0;
-    col.forEach(([cle,valeur,pastille])=>{
-      if(!valeur && !pastille) return;
-      const lignes=pastille?[""]:pDecoupe(pdf,valeur,wc-22-lc,12,"bold");
-      const h=7+7+Math.max(fz(18),lignes.length*fz(15));
-      pAplat(pdf,cx,cy,wc,h,PDFC.fondBadge,6);
-      pTexte(pdf,cx+11,cy+7+fz(11),cle,{taille:12,couleur:PDFC.gris});
-      if(pastille){
-        const pc=pastillePleineCouleurs(pastille,av,inter);
-        pPastille(pdf,cx+11+lc,cy+7+2,pastille,pc.fond,pc.coul,11);
-      }else lignes.forEach((l,i)=>pTexte(pdf,cx+11+lc,cy+7+fz(11)+i*fz(15),l,
-        {taille:12,style:"bold",couleur:PDFC.encre}));
-      cy+=h+7;
-    });
-    bas=Math.max(bas,cy-7);
-  });
-  ctx.y=Math.max(bas,y0+92)+16;
-
-  /* planning de l'action et de ses tâches */
-  const ts=(c.tblTache && c.colTacheLien)?tachesDe(a):[];
-  if(ts.length) ctx.y=dessinerGantt(ctx,p,acts,numeros,MX,ctx.y,lw,{action:a,titre:"Planning"})+4;
-
-  /* tableau des tâches */
-  if(ts.length){
-    const lignes=ts.map(k=>{
-      const at=pct(k[c.colTacheAvancement]), it=statutInterrompu(c.tblTache,k,c.colTacheStatut);
-      const co=bandesImpr(at,it);
-      return {cellules:{
-        lib:{type:"texte",t:lire(c.tblTache,k,c.colTacheLibelle)||"(tâche sans libellé)"},
-        avct:{type:"pastille",t:it?"Interrompu":(at==null?"–":at+"%"),fond:co.pale,coul:co.txt},
-        com:{type:"texte",t:c.colTacheCommentaire?lire(c.tblTache,k,c.colTacheCommentaire):"",couleur:PDFC.gris}
-      }};
-    });
-    dessinerTableau(ctx,"Tâches",
-      [{cle:"lib",titre:"Tâche",w:Math.round(lw*0.40)},{cle:"avct",titre:"Avancement",w:Math.round(lw*0.14)},
-       {cle:"com",titre:"Commentaire",w:lw-Math.round(lw*0.40)-Math.round(lw*0.14)}],lignes,MX,lw,false);
-  }
-
-  /* commentaire de l'action, en entier, à la suite */
-  const com=c.colCommentaire?lire(t,a,c.colCommentaire):"";
-  if(com && String(com).trim()){
-    titreSectionPdf(ctx,"Commentaire de l'action");
-    String(com).split(/\r?\n/).forEach(par=>{
-      if(!par.trim()){ ctx.y+=fz(6); return; }
-      paragraphePdf(ctx,par,{taille:11});
-    });
-  }
-}
-
-/* Inventaire des pièces jointes du projet, de ses actions, tâches, instances… */
-function dessinerRessourcesPdf(ctx,p){
-  const rs=ressourcesDe(p);
-  if(!rs.length) return;
-  const lw=PW-2*MX;
-  const lignes=rs.map(r=>({cellules:{
-    nom:{type:"texte",t:(S.pj&&S.pj[r.id]&&S.pj[r.id].nom)||("pièce "+r.id)},
-    type:{type:"texte",t:extensionPJ(r.id)||"—",couleur:PDFC.gris},
-    orig:{type:"texte",t:r.origine},
-    ligne:{type:"texte",t:r.origine==="Projet"?"—":(r.libelle||""),couleur:PDFC.gris}
-  }}));
-  dessinerTableau(ctx,"Inventaire des pièces jointes",
-    [{cle:"nom",titre:"Fichier",w:420},{cle:"type",titre:"Type",w:70},
-     {cle:"orig",titre:"Origine",w:110},{cle:"ligne",titre:"Élément rattaché",w:lw-600}],
-    lignes,MX,lw,true);
-}
-
-/* Sommaire : la page est réservée à sa place, puis remplie une fois toutes les
-   sections posées, quand leurs numéros de page sont connus. Les entrées sont
-   cliquables et reprises en signets dans le volet de navigation du PDF. */
-const SOMMAIRE_LIB={synthese:"Synthèse",strategie:"Stratégie SDACR / PE",
-  instances:"Instances",journal:"Journal de bord",budget:"Budget",
-  planActions:"Fiches des actions MEO",
-  analyse:"Analyse du projet",ressources:"Inventaire des pièces jointes",
-  sup:"Pages additionnelles"};
-function remplirSommaire(ctx,entrees){
-  const pdf=ctx.pdf, s=ctx.sommaire;
-  if(!s) return;
-  pdf.setPage(s.page);
-  let y=s.y;
-  pTexte(pdf,MX,y+fz(14),"Sommaire",{taille:16,style:"bold",couleur:PDFC.bleu});
-  y+=fz(20)+16;
-  const xg=MX+20, xd=PW-MX-20, taille=13, hl=fz(taille)*2.1;
-  entrees.forEach(e=>{
-    if(y+hl>s.yBas) return;
-    const yb=y+fz(taille);
-    const wl=pTexte(pdf,xg,yb,e.libelle,{taille,couleur:PDFC.encre});
-    const num=String(e.page);
-    const wn=pLargeur(pdf,num,taille,"bold");
-    pTexte(pdf,xd,yb,num,{taille,style:"bold",couleur:PDFC.bleu,align:"right"});
-    /* points de conduite entre le libellé et le numéro */
-    pdf.setLineDashPattern([1,3],0);
-    pFiletH(pdf,xg+wl+8,xd-wn-8,yb,PDFC.grisClair,0.8);
-    pdf.setLineDashPattern([],0);
-    pdf.link(xg,y,xd-xg,hl,{pageNumber:e.page});
-    y+=hl;
-  });
-  if(pdf.outline) entrees.forEach(e=>pdf.outline.add(null,pSafe(e.libelle),{pageNumber:e.page}));
-}
-/* « Page n / N » en bas à droite, posé seulement quand le sommaire est imprimé */
-function numeroterPages(ctx){
-  const pdf=ctx.pdf, n=pdf.getNumberOfPages();
-  for(let i=2;i<=n;i++){
-    pdf.setPage(i);
-    const t="Page "+i+" / "+n;
-    const w=pLargeur(pdf,t,10)+12, hh=fz(10)+6;
-    pAplat(pdf,PW-MX-w,PH-11-fz(10)-1,w,hh,"#ffffff",3);
-    pTexte(pdf,PW-MX-6,PH-11,t,{taille:10,couleur:PDFC.gris,align:"right"});
-  }
-}
-
-/* --- assemblage et export ------------------------------------------------- */
-
-function construireDoc(p){
-  const c=S.cfg;
-    const titre=lire(c.tblMain,p,c.colLibelle)||"(sans libellé)";
-    const acts=actionsImpression(p);
-    const numeros=new Map(); acts.forEach((a,i)=>numeros.set(a.id,i+1));
-    const ctx=docNouveau(titre);
-    if(IMPR.lisible){ PZ=16/9.5; PMIN=16; PMAX=Infinity; }
-    else            { PZ=Number(IMPR.zoom)||1; PMIN=0; PMAX=Infinity; }
-
-    pageGarde(ctx,p);
-
-    chargerPagesSup(p);
-
-    const dessiner={
-      synthese:()=>{
-        docPage(ctx);
-        /* Page 1 : identité en bandeau horizontal, puis descriptif, planning et
-           actions sur toute la largeur — même agencement que la première
-           diapositive du diaporama. */
-        const xg=MX, wg=PW-2*MX;
-        if(IMPR.sections.identite) ctx.y=bandeauIdentite(ctx,p,MX,ctx.y,wg);
-        if(IMPR.sections.descriptif) ctx.y=dessinerDescriptif(ctx,p,xg,ctx.y,wg);
-        /* le commentaire suivait la colonne d'identité : il passe en pleine
-           largeur, avec le même report en page dédiée s'il est trop long */
-        if(IMPR.sections.commentaire) ctx.y=commentaireIdentite(ctx,p,xg,ctx.y,wg);
-        if(IMPR.sections.planning) ctx.y=dessinerGantt(ctx,p,acts,numeros,xg,ctx.y,wg);
-        if(IMPR.sections.apercu) ctx.y=pdfColonnesApercu(ctx,p,ctx.y);
-        const xa=xg, wa=wg;
-        /* La liste des actions n'a plus de case à elle : elle découle du
-           réglage des tâches. Avec les tâches, les actions figurent déjà dans
-           le tableau « Actions & tâches » et la répéter ici n'apporterait rien ;
-           sans elles, la synthèse porte cette liste. */
-        if(IMPR.taches===false){
-          const lgA=lignesActionsSynthese(p,acts,numeros);
-          const colonnes=w=>[{cle:"num",titre:"#",w:26},
-                             {cle:"action",titre:"Action",w:w-26-130-80-92},
-                             {cle:"porteur",titre:"Porteur",w:130},
-                             {cle:"ech",titre:"Échéance",w:80},
-                             {cle:"avct",titre:"Avancement",w:92}];
-          const ici=colonnes(wa);
-          /* si le tableau ne tient pas en entier sous le planning, on le
-             repousse en bloc plutôt que d'en couper deux lignes en bas de page */
-          if(ctx.y+hauteurTableau(ctx,ici,lgA)<=ctx.yBas)
-            dessinerTableau(ctx,"Actions",ici,lgA,xa,wa,false);
-          else
-            dessinerTableau(ctx,"Actions",colonnes(PW-2*MX),lgA,MX,PW-2*MX,true);
+function nPagesSup(ctx){
+  if(!pagesSup.length) return;
+  const pdf=ctx.pdf;
+  pagesSup.forEach((pg,ip)=>{
+    ctx.sec="Pages additionnelles";
+    nPage(ctx);
+    if(ip===0) ctx.som.push({lib:"Pages additionnelles",page:ctx.pages});
+    const x0=NP.m, y0=ctx.y, lw=PW-2*NP.m, lh=ctx.yBas-ctx.y;
+    (pg.blocks||[]).forEach(b=>{
+      const bx=x0+b.x/MP_W*lw, by=y0+b.y/MP_H*lh, bw=b.w/MP_W*lw, bh=b.h/MP_H*lh;
+      if(b.type==="image"){
+        if(!b.imageDataUrl) return;
+        const r=b.naturalRatio||1.5;
+        let w=bw, h=bw/r;
+        if(h>bh){ h=bh; w=bh*r; }
+        try{ pdf.addImage(b.imageDataUrl,bx+(bw-w)/2,by+(bh-h)/2,w,h); }catch(e){}
+        return;
+      }
+      const px=b.fontSize||13;
+      const style=(b.bold&&b.italic)?"bolditalic":(b.bold?"bold":(b.italic?"italic":"normal"));
+      const coul=b.color||"#1a1a1a", inter=px*1.5;
+      let n=0;
+      const poser=(l,dx,marque)=>{
+        const yy=by+px+n*inter;
+        if(yy>by+bh+px*0.3) return false;
+        const al=marque!==null?"left":(b.align||"left");
+        const ax=marque!==null?bx+dx:(b.align==="center"?bx+bw/2:(b.align==="right"?bx+bw:bx));
+        if(marque) nT(pdf,bx,yy,marque,{px,style,c:coul});
+        nT(pdf,ax,yy,l,{px,style,c:coul,align:al});
+        if(b.underline && l){
+          const w2=nW(pdf,l,px,style);
+          const ux=al==="center"?ax-w2/2:(al==="right"?ax-w2:ax);
+          nL(pdf,ux,yy+2,ux+w2,yy+2,coul,0.6);
         }
-        if(ctx.comReporte){ dessinerCommentaireLong(ctx,ctx.comReporte); ctx.comReporte=null; }
-      },
-      detail:()=>{
-        const avecT=!!(c.tblTache && c.colTacheLien) && IMPR.taches!==false;
-        dessinerTableau(ctx,avecT?"Actions & tâches":"Actions",
-          [{cle:"num",titre:"#",w:34},
-           {cle:"lib",titre:avecT?"Action / Tâche":"Action",w:410},
-           {cle:"resp",titre:"Responsable",w:120},
-           {cle:"avct",titre:"Avancement",w:100},
-           {cle:"com",titre:"Commentaire",w:399}],
-          lignesActionsDetail(p,acts),MX,PW-2*MX,true);
-      },
-      journal:()=>{
-        /* les deux dernières colonnes n'apparaissent que si elles sont paramétrées */
-        const fixes=[["date","Date",100],["action","Action",140],
-                     ["nature","Nature",105],["auteur","Auteur",115]];
-        if(c.colJnlCollab) fixes.push(["collab","Collaborateur concerné",155]);
-        if(c.colJnlDelai)  fixes.push(["delai","Délai d'exécution",120]);
-        const pris=fixes.reduce((n,f)=>n+f[2],0);
-        const cols=[];
-        fixes.forEach(f=>{
-          cols.push({cle:f[0],titre:f[1],w:f[2]});
-          if(f[0]==="nature") cols.push({cle:"texte",titre:"Commentaire",w:PW-2*MX-pris});
+        n++; return true;
+      };
+      if(b.puce){
+        const dx=nW(pdf,b.puce+" ",px,style);
+        for(const brut of String(b.text||"").split("\n")){
+          if(!brut.trim()){ if(!poser("",0,null)) break; continue; }
+          const m=nCoupe(pdf,brut.replace(/^\s*[-–•*]\s*/,""),bw-dx,px,style);
+          let plein=false;
+          m.forEach((s,k)=>{ if(!plein && !poser(s,dx,k===0?b.puce:"")) plein=true; });
+          if(plein) break;
+        }
+      }else{
+        String(b.text||"").split("\n").forEach(brut=>{
+          if(!brut.trim()){ poser("",0,null); return; }
+          nCoupe(pdf,brut,bw,px,style).forEach(s=>poser(s,0,null));
         });
-        dessinerTableau(ctx,"Journal de bord",cols,lignesJournalPdf(p),MX,PW-2*MX,true);
-      },
-      analyse:()=>dessinerAnalysePdf(ctx,p),
-      sup:()=>dessinerPagesSup(ctx),
-      sommaire:()=>{
-        docPage(ctx);
-        ctx.sommaire={page:ctx.pages,y:ctx.y,yBas:ctx.yBas};
-      },
-      strategie:()=>dessinerStrategiePdf(ctx,p),
-      /* une fiche par action MEO, traitée comme un mini-projet : son état,
-         son planning, puis le tableau de ses tâches */
-      planActions:()=>acts.forEach(a=>dessinerFicheActionPdf(ctx,p,a,acts,numeros)),
-      instances:()=>dessinerInstancesPdf(ctx,p),
-      budget:()=>dessinerBudgetPdf(ctx,p),
-      ressources:()=>dessinerRessourcesPdf(ctx,p)
-    };
-
-    /* chaque section note sa page de départ ; une section vide (aucune
-       instance, pas de budget…) ne pose rien et n'entre pas au sommaire */
-    const entrees=[];
-    blocsRetenus().forEach(cle=>{
-      if(!dessiner[cle]) return;
-      ctx.marque={p0:ctx.pages,y0:ctx.y,page:null};
-      dessiner[cle]();
-      const m=ctx.marque; ctx.marque=null;
-      if(cle==="sommaire") return;
-      const page=m.page!=null ? m.page : (ctx.y!==m.y0 ? m.p0 : null);
-      if(page==null) return;
-      const lib=cle==="detail"
-        ? ((c.tblTache && c.colTacheLien && IMPR.taches!==false)?"Actions & tâches":"Actions")
-        : (SOMMAIRE_LIB[cle]||cle);
-      entrees.push({libelle:lib,page});
+      }
     });
-    if(ctx.sommaire){
-      remplirSommaire(ctx,entrees);
-      numeroterPages(ctx);
-    }
-
-
-
-    /* Plus de « Page n/N » : les repères sont conservés — ils servent à la
-       pagination interne — mais rien n'est écrit sur la page. */
-    const total=ctx.numeros.length;
-
-  return {pdf:ctx.pdf,
-          nom:titre.replace(/[^a-z0-9_\-]+/gi,"_").slice(0,60)+".pdf",
-          pages:total+1};
+  });
 }
+function nStrategie(ctx){
+  const p=ctx.p;
+  if(!estProjet(p)) return;
+  const blocs=strategies().map(st=>{
+    const ids=new Set(idsStrat(p,st));
+    return {st,res:lignesStrat(st).filter(r=>ids.has(r.id))};
+  }).filter(b=>b.res.length);
+  if(!blocs.length) return;
+  nSection(ctx,"Stratégie SDACR / PE","Stratégie",{min:150});
+  blocs.forEach(({st,res})=>{
+    const lignes=[];
+    grouperStrat(st,res).forEach(g=>{
+      g.sous.forEach((s,i)=>s.res.forEach((r,k)=>{
+        const tete=i===0&&k===0;
+        lignes.push({bordHaut:tete&&lignes.length>0,cel:{
+          obj:{t:tete?(g.cle||"Sans objectif"):"",style:"bold"},
+          sous:{t:k===0?s.lib:"",c:NC.gris},
+          res:{t:resStrat(st,r)}
+        }});
+      }));
+    });
+    const cols=[];
+    if(st.colObj) cols.push({k:"obj",t:"Objectif",w:st.colSous?300:380});
+    if(st.colSous) cols.push({k:"sous",t:"Sous-objectif",w:st.colObj?300:380});
+    cols.push({k:"res",t:"Résultat attendu"});
+    nTable(ctx,st.libelle||"Stratégie",cols,lignes,{});
+  });
+}
+
+/* --- assemblage ---------------------------------------------------------- */
+function construireDoc(p,o){
+  o=o||{};
+  const mode=(o.doc||IMPR.doc)==="complet"?"complet":"codir";
+  const ctx=nCtx(p,mode);
+  const acts=actionsDe(p);
+  const FX=nFeux(p);
+  chargerPagesSup(p);
+  if(mode==="complet"){
+    nGarde(ctx);
+    nSommaireIdentite(ctx);
+  }
+  nSituation(ctx,FX);
+  nPlanningActions(ctx,FX,acts);
+  if(mode==="complet"){
+    if(acts.length){
+      ctx.sec="Fiches des actions MEO";
+      nPage(ctx);
+      ctx.som.push({lib:"Fiches des actions MEO",page:ctx.pages});
+      acts.forEach((a,i)=>nFicheAction(ctx,FX,a,i));
+    }
+    const op=IMPR.optsPdf||{};
+    if(op.instances!==false) nInstances(ctx);
+    if(op.journal!==false) nJournal(ctx);
+    if(op.budget!==false) nBudget(ctx);
+    if(op.sup!==false) nPagesSup(ctx);
+    nStrategie(ctx);
+    nRemplirSommaire(ctx);
+  }
+  nFinaliser(ctx);
+  const base=ctx.titre.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9_\-]+/gi,"_").replace(/_+/g,"_").replace(/^_|_$/g,"").slice(0,60);
+  return {pdf:ctx.pdf, nom:(mode==="codir"?"Note_CODIR_":"Dossier_")+base+".pdf", pages:ctx.pages, mode};
+}
+
 
 /* dépose un PDF déjà construit dans la colonne « Pièces jointes » du projet */
 async function deposerPDF(p,blob,nom){
@@ -12693,15 +12453,6 @@ function rendreReglages(){
         '<div class="champ"><label>'+l+'</label><select data-cfg="'+k+'" data-pour="'+bloc.tableKey+'">'+
         optionsColonnes(tid,c[k])+'</select></div>').join("")+'</div></div>';
   }).join("") +
-  '<div class="bloc-reglage"><h3>Taille du texte du PDF</h3>'+
-  '<p>Sans effet sur le diaporama, dont les tailles sont fixées par le modèle.</p>'+
-  '<label class="impr-radio"><input type="checkbox" id="cfg-lisible"'+
-    (IMPR.lisible?" checked":"")+'> Corps du texte à 16&nbsp;pt, titres plus gros</label>'+
-  '<select id="cfg-zoom" class="impr-select">'+
-    ZOOMS_IMPR.map(([v,l])=>'<option value="'+v+'"'+
-      (String(IMPR.zoom)===v?" selected":"")+'>'+esc(l)+' ('+
-      Math.round(Number(v)*100)+'&nbsp;%)</option>').join("")+
-  '</select></div>'+
   '<div class="bloc-reglage"><h3>Analyse du projet</h3>'+
   '<p>Un retard correspond uniquement à une échéance dépassée (projet, action, tâche ou action à mener).</p>'+
   '<div class="grille">'+
@@ -12799,7 +12550,7 @@ function paquetOptions(){
                 lisible:IMPR.lisible,planningTaches:IMPR.planningTaches,
                 taches:IMPR.taches,
                 sectionsPptx:IMPR.sectionsPptx, ordrePptx:IMPR.ordrePptx, stylePptx:IMPR.stylePptx,
-                pieceJointe:IMPR.pieceJointe,portee:IMPR.portee},
+                pieceJointe:IMPR.pieceJointe,portee:IMPR.portee,doc:IMPR.doc,optsPdf:IMPR.optsPdf},
           pages:S.pagesParProjet||{},
           notifBase:S.notifBase||null};
 }
@@ -15101,7 +14852,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-01-e — auteur du commentaire général de la Synthèse";
+const VERSION="2026-10-14-a — refonte de l'impression PDF (note CODIR et dossier complet)";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -15134,6 +14885,7 @@ async function demarrer(){
       if(o.impr.pieceJointe!==undefined) IMPR.pieceJointe=!!o.impr.pieceJointe;
       if(o.impr.portee) IMPR.portee=o.impr.portee;
       if(o.impr.stylePptx) IMPR.stylePptx=o.impr.stylePptx;
+      reprendreReglagesPdf(o.impr);
     }
   }catch(e){}
   await chargerMeta();
@@ -15167,17 +14919,14 @@ $("#f-archives").onchange=e=>{
 };
 document.querySelectorAll(".mdp-oeil").forEach(majOeil);
 $("#btn-panneau").onclick=()=>basculerPanneau();
-$("#btn-imprimer").onclick=ouvrirApercu;
+$("#btn-imprimer").onclick=ouvrirImpression;
 $("#impr-annuler").onclick=()=>$("#voile-impr").classList.remove("ouvert");
 $("#impr-lancer").onclick=lancerImpression;
-$("#impr-pre-fiche").onclick=()=>appliquerPresetImpr("fiche");
-$("#impr-pre-complet").onclick=()=>appliquerPresetImpr("complet");
 $("#impr-apercu").onclick=()=>{
   retenirOptionsImpr();
   $("#voile-impr").classList.remove("ouvert");
   ouvrirApercu();
 };
-$("#impr-pages").onclick=ouvrirPagesSup;
 $("#ap-fermer").onclick=fermerApercu;
 $("#ap-plein").onclick=basculerPleinEcran;
 document.addEventListener("fullscreenchange",()=>{
@@ -15187,6 +14936,7 @@ document.addEventListener("fullscreenchange",()=>{
 });
 $("#ap-telecharger").onclick=()=>genererFichePDF(S.projetSel);
 $("#ap-options").onclick=()=>{ fermerApercu(); ouvrirImpression(); };
+$("#impr-pages").onclick=()=>{ retenirOptionsImpr(); $("#voile-impr").classList.remove("ouvert"); S.retourImpr=true; ouvrirPagesSup(); };
 $("#ap-pages").onclick=()=>{ S.retourApercu=true; fermerApercu(); ouvrirPagesSup(); };
 $("#pages-apercu").onclick=()=>{
   $("#voile-pages").classList.remove("ouvert");
@@ -15202,6 +14952,7 @@ $("#pages-fermer").onclick=()=>{
   $("#voile-pages").classList.remove("ouvert");
   majBoutonPages();
   if(S.retourApercu){ S.retourApercu=false; ouvrirApercu(); }
+  else if(S.retourImpr){ S.retourImpr=false; ouvrirImpression(); }
 };
 $("#voile-impr").onclick=e=>{ if(e.target===$("#voile-impr")) $("#voile-impr").classList.remove("ouvert"); };
 /* Bascule poste / téléphone. Le seuil est en largeur de fenêtre, donc testable

@@ -1291,7 +1291,16 @@ tbody tr.ligne-com:hover{background:transparent;}
 .cdo-tag{position:absolute;top:-22px;right:-12px;background:#1d6fd6;color:#fff;font:bold 11px Tahoma,sans-serif;padding:2px 8px;border-radius:4px;}
 .cdo-titre{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:bold;color:#C0504D;height:28px;}
 .cdo-titre:before{content:"";width:8px;height:8px;background:#C0504D;}
-.cdo-trois{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;height:calc(100% - 28px);}
+.cdo-edit{display:flex;flex-direction:column;}
+.cdo-trois{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;flex:1;min-height:0;}
+.cdo-com{font-size:11.5px;line-height:16.5px;color:#3d3833;background:#FBFAF8;border-left:3px solid #E2DDD6;padding:6px 12px;margin-bottom:12px;outline:none;white-space:pre-wrap;}
+.cdo-com:hover{background:#eef4ff;}
+.cdo-com:focus{background:#fff;box-shadow:0 0 0 2px #1d6fd6;}
+.cdo-com:empty{background:none;border:1px dashed #b9c3d6;border-left-width:1px;padding:3px 10px;margin-bottom:8px;}
+.cdo-com:empty:before{content:attr(data-vide);color:#1d6fd6;font:11px Tahoma,sans-serif;}
+.cdo-com:empty:focus:before{content:"";}
+.cdo-it .d:empty:before{content:"jj/mm";color:#b5bcc8;font-weight:normal;}
+.cdo-it .d:empty:focus:before{content:"";}
 .cdo-col{position:relative;display:flex;flex-direction:column;min-width:0;}
 .cdo-col h4{margin:0;font-size:12px;display:flex;justify-content:space-between;border-bottom:1.8px solid #7f6f6c;padding-bottom:5px;height:22px;box-sizing:border-box;text-transform:none;letter-spacing:0;color:#26221F;}
 .cdo-col h4 span{color:#9A948E;}
@@ -1833,7 +1842,6 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
     </header>
     <div class="ap-barre">
       <button type="button" class="btn-2" id="ap-options">Changer de document</button>
-      <button type="button" class="btn-2" id="ap-pages">Pages additionnelles</button>
       <label class="ap-coche" id="ap-pj-lab">
         <input type="checkbox" id="ap-pj"> Enregistrer aussi le PDF en pièce jointe du projet</label>
       <span class="ap-espace"></span>
@@ -1891,8 +1899,6 @@ tr.dans-axe>td:first-child{box-shadow:inset 3px 0 0 var(--axe);padding-left:14px
         <label><input type="checkbox" data-opt="instances"> Instances <span class="impr-n" id="impr-n-instances"></span></label>
         <label><input type="checkbox" data-opt="journal"> Journal de bord <span class="impr-n" id="impr-n-journal"></span></label>
         <label><input type="checkbox" data-opt="budget"> Budget <span class="impr-n" id="impr-n-budget"></span></label>
-        <label><input type="checkbox" data-opt="sup"> Pages additionnelles <span class="impr-n" id="impr-n-sup"></span>
-          <button type="button" class="impr-lien" id="impr-pages">ouvrir l'éditeur</button></label>
       </div>
     </div>
     <footer class="impr-pied">
@@ -10896,12 +10902,18 @@ function cdoColonnes(p,A){
   const nbMasques=calc.flat().filter(x=>masques.has(x.cle)).length;
   return {calc,cols,nbMod,nbNeuf,nbMasques,retouche:true};
 }
+/* commentaire général du coup d'œil, saisi dans l'éditeur */
+function cdoCommentaire(p){
+  const st=S.cdoParProjet && S.cdoParProjet[p.id];
+  return st && st.com ? String(st.com).trim() : "";
+}
 /* colonnes au format attendu par le PDF et le diaporama */
 function cdoItems(p,A){
   return cdoColonnes(p,A).cols.map(L=>L.map(x=>({date:x.d,texte:x.t,type:x.ty})));
 }
 /* enregistre l'état de l'éditeur ; un état identique au calcul efface les retouches */
-function cdoEnregistrer(p,cols,calc){
+function cdoEnregistrer(p,cols,calc,com){
+  com=String(com||"").replace(/\u00a0/g," ").replace(/[ \t]+\n/g,"\n").trim();
   const tous=calc.flat().map(x=>x.cle);
   const presents=new Set(cols.flat().map(x=>x.cle).filter(Boolean));
   const st={
@@ -10909,9 +10921,9 @@ function cdoEnregistrer(p,cols,calc){
       ? {manuel:true,d:String(x.d||"").trim(),t:String(x.t||"").trim()}
       : (x.mod?{cle:x.cle,d:x.d,t:x.t,mod:true}:{cle:x.cle}))),
     masques:tous.filter(c=>!presents.has(c)),
-    vus:tous, ts:Date.now()
+    vus:tous, ts:Date.now(), com
   };
-  const intact=!st.masques.length && st.cols.every((L,k)=>
+  const intact=!com && !st.masques.length && st.cols.every((L,k)=>
     L.length===calc[k].length && L.every((x,i)=>!x.manuel && !x.mod && x.cle===calc[k][i].cle));
   S.cdoParProjet=S.cdoParProjet||{};
   if(intact) delete S.cdoParProjet[p.id];
@@ -10958,7 +10970,7 @@ function ouvrirCdo(p,retour){
   catch(e){ toast("Coup d'œil indisponible : "+e.message,true); console.error(e); return; }
   if(!d.cdo){ toast("Coup d'œil indisponible pour ce projet.",true); return; }
   const C=cdoColonnes(p,A);
-  CDO={p,retour,calc:C.calc,cols:C.cols.map(L=>L.map(x=>Object.assign({},x))),supprimes:[],zone:d.cdo};
+  CDO={p,retour,calc:C.calc,cols:C.cols.map(L=>L.map(x=>Object.assign({},x))),supprimes:[],zone:d.cdo,com:cdoCommentaire(p)};
   const v=document.createElement("div");
   v.className="voile ouvert"; v.id="voile-cdo";
   v.innerHTML='<div class="modale cdo-modale">'+
@@ -10970,7 +10982,9 @@ function ouvrirCdo(p,retour){
       '<div class="cdo-feuille" id="cdo-feuille"><canvas id="cdo-canevas"></canvas>'+
       '<div class="cdo-edit" id="cdo-edit" style="top:'+d.cdo.y+'px;height:'+(d.cdo.bas-d.cdo.y)+'px">'+
         '<span class="cdo-tag">Zone modifiable</span>'+
-        '<div class="cdo-titre">En un coup d\'œil</div><div class="cdo-trois" id="cdo-trois"></div>'+
+        '<div class="cdo-titre">En un coup d\'œil</div>'+
+        '<div class="cdo-com" id="cdo-com" contenteditable="true" data-vide="Commentaire général (facultatif) : cliquez pour saisir…"></div>'+
+        '<div class="cdo-trois" id="cdo-trois"></div>'+
         '<div class="cdo-limite"><span>bas de page</span></div></div>'+
       '</div></div></div>'+
     '<footer><span class="cdo-note">Les modifications ne changent pas les données de Grist (journal, tâches, actions).</span>'+
@@ -10978,16 +10992,21 @@ function ouvrirCdo(p,retour){
       '<button type="button" class="btn" id="cdo-ok">Enregistrer</button></footer></div>';
   document.body.appendChild(v);
   cdoDessinerPage(v.querySelector("#cdo-canevas"),d.cdo.ops);
+  const zc=v.querySelector("#cdo-com");
+  zc.innerText=CDO.com;
+  zc.oninput=()=>{ CDO.com=zc.innerText; };
+  zc.onblur=()=>{ CDO.com=zc.innerText; if(!zc.innerText.trim()) zc.innerHTML=""; cdoRendre(); };
   const fermer=()=>{ window.removeEventListener("resize",cdoAjuster); v.remove(); CDO=null; if(retour) retour(); };
   v.querySelector("#cdo-annuler").onclick=fermer;
   v.querySelector("#cdo-ok").onclick=()=>{
-    cdoEnregistrer(p,CDO.cols,CDO.calc);
+    cdoEnregistrer(p,CDO.cols,CDO.calc,CDO.com);
     toast("Coup d'œil enregistré pour ce projet");
     fermer();
   };
   v.querySelector("#cdo-raz").onclick=()=>{
     CDO.cols=CDO.calc.map(L=>L.map(x=>Object.assign({},x)));
-    CDO.supprimes=[];
+    CDO.supprimes=[]; CDO.com="";
+    const zc2=$("#cdo-com"); if(zc2) zc2.innerHTML="";
     cdoRendre();
   };
   window.addEventListener("resize",cdoAjuster);
@@ -11200,6 +11219,12 @@ function nCoulAvct(av,inter){
 function nLibAction(r){
   const c=S.cfg, lib=lire(c.tblMain,r,c.colLibelle)||"(action sans libellé)";
   return decouperLibelleAction(lib).texte||lib;
+}
+/* durée lisible pour le PDF : en jours jusqu'à 60, en mois au-delà */
+function nDuree(n){
+  const j=Math.abs(Math.round(n));
+  if(j<=60) return anaPluriel(j,"jour");
+  return Math.round(j/30.44)+" mois";
 }
 function libelleColonneBrut(tableId,colId){
   const info=infoCol(tableId,colId);
@@ -11559,7 +11584,9 @@ function nFeuAction(f,a){
   const c=S.cfg;
   if(!f) return {t:"—",coul:NC.gris2,delai:"—",rouge:false};
   const coul=NC.feu[f.feu.n]||NC.gris2;
-  let delai=anaDelaiAction(f);
+  let delai="—";
+  if(f.jours!=null && f.feu.n!=="gris" && f.av<100)
+    delai=f.jours<0?"Dépassée de "+nDuree(-f.jours):(f.jours===0?"Aujourd'hui":"Dans "+nDuree(f.jours));
   if(f.feu.n==="vert" && f.av>=100){
     const fin=Number(a[c.colFin])||null;
     delai=fin?"Terminée le "+dateVersFR(fin):"Terminée";
@@ -11689,24 +11716,11 @@ function nSituation(ctx,FX){
   const x=NP.m, W=PW-2*NP.m, y0=ctx.y;
   const av=pct(p[c.colAvancement]), inter=interrompu(p);
 
-  /* météo, à droite */
-  const wm=260, xm=x+W-wm;
-  let hm=0;
-  if(A){
-    const cm=NC.meteo[A.meteo.n]||NC.meteo.gris;
-    const alertes=(A.alertes||[]).slice(0,2).map(a=>a.t);
-    const texte=alertes.length?alertes.join(". ")+".":"Aucun point d'alerte.";
-    const l=nCoupe(pdf,texte,wm-26,10.5,"normal",4);
-    hm=20+12+l.length*14.5+4;
-    nR(pdf,xm,y0,wm,hm,cm[1]);
-    nR(pdf,xm,y0,4,hm,cm[0]);
-    nRond(pdf,xm+17,y0+15.5,4.5,cm[0]);
-    nT(pdf,xm+26,y0+20,A.meteo.l,{px:13,style:"bold",c:cm[2]});
-    l.forEach((s,i)=>nT(pdf,xm+14,y0+38+i*14.5,s,{px:10.5,c:"#4a4541"}));
-  }
+  /* pas d'encart météo : le titre et la ligne d'identité prennent toute la largeur */
+  const hm=0;
 
   /* étiquettes, titre, ligne d'identité */
-  const wt=W-wm-28;
+  const wt=W;
   let xx=x;
   const etiquette=(texte,fond,coul,bord)=>{
     if(!texte) return;
@@ -11730,19 +11744,20 @@ function nSituation(ctx,FX){
   const spo=c.colSponsor?txt(lire(t,p,c.colSponsor)).trim():"";
   if(por) seg.push(["Porteur ",por]);
   if(grp) seg.push(["",grp]);
-  if(pri) seg.push(["Priorité ",pri]);
+  if(pri) seg.push(["Priorité ",pri,pastillePleineCouleurs(pri)]);
   if(spo) seg.push(["Sponsor CODIR ",spo]);
   let xs=x;
   const sep="  ·  ";
   seg.forEach((s,i)=>{
     const st=s[0]?"bold":"normal";
-    const wSeg=(i?nW(pdf,sep,12):0)+(s[0]?nW(pdf,s[0],12):0)+nW(pdf,s[1],12,st);
+    const wSeg=(i?nW(pdf,sep,12):0)+(s[0]?nW(pdf,s[0],12):0)+nW(pdf,s[1],12,st)+(s[2]?12:0);
     let debut=i===0;
     if(i && xs+wSeg>x+wt){ y+=18; xs=x; debut=true; }
     if(!debut) xs+=nT(pdf,xs,y+12,sep,{px:12,c:NC.gris});
     if(s[0]) xs+=nT(pdf,xs,y+12,s[0],{px:12,c:NC.gris});
     const v=nCoupe(pdf,s[1],Math.max(40,x+wt-xs),12,st,1)[0]||"";
-    xs+=nT(pdf,xs,y+12,v,{px:12,style:st,c:s[0]?NC.encre:NC.gris});
+    if(s[2]) xs+=nStatutPoint(pdf,xs,y+12,v,s[2],12);
+    else xs+=nT(pdf,xs,y+12,v,{px:12,style:st,c:s[0]?NC.encre:NC.gris});
   });
   y+=22;
   ctx.y=Math.max(y,y0+hm)+14;
@@ -11766,8 +11781,8 @@ function nSituation(ctx,FX){
     const cal=A.cal;
     let sous="", alerte=false;
     if(cal.fin) sous="clôturé le "+dateVersFR(cal.fin);
-    else if(cal.depasse){ sous="dépassée de "+anaJours(-cal.joursRestants); alerte=true; }
-    else if(cal.ech && cal.joursRestants!=null) sous=(cal.joursRestants>0?"dans "+anaJours(cal.joursRestants):"aujourd'hui");
+    else if(cal.depasse){ sous="dépassée de "+nDuree(-cal.joursRestants); alerte=true; }
+    else if(cal.ech && cal.joursRestants!=null) sous=(cal.joursRestants>0?"dans "+nDuree(cal.joursRestants):"aujourd'hui");
     if(cal.d0) sous+=(sous?" · ":"")+"début le "+dateVersFR(cal.d0);
     kpi(1,"Échéance",cal.ech?dateVersFR(cal.ech):"Non renseignée",sous,{alerte});
     const acts=A.acts||[];
@@ -11813,6 +11828,8 @@ function nCoupDoeil(ctx,A){
   if(ctx.y+28+30+3*34>ctx.yBas) nPage(ctx);
   if(N_ENREG){ ctx.cdo={y:ctx.y,bas:ctx.yBas,ops:N_ENREG.slice()}; N_ENREG=null; }
   nTitre(ctx,"En un coup d'œil",null,0);
+  const com=cdoCommentaire(p);
+  if(com){ nCartouche(ctx,com); ctx.y+=2; }
   const y0=ctx.y, bas=ctx.yBas, px=11, lh=15, wd=46;
   cols.forEach(([titre,items,vide,cTrait,cTitre],k)=>{
     const cx=x+k*(wc+gap);
@@ -11891,8 +11908,13 @@ function nPlanningActions(ctx,FX,acts){
       g.acts.forEach(a=>lignes.push(ligneTab(a)));
     });
     else acts.forEach(a=>lignes.push(ligneTab(a)));
+    /* statut et délai prennent la largeur de leur contenu : la place gagnée
+       revient au libellé de l'action */
+    const pdf=ctx.pdf, act=lignes.filter(l=>l.cel);
+    const wStat=Math.max(nW(pdf,"STATUT",9.5,"bold")+14,...act.map(l=>nW(pdf,l.cel.stat.t||"",10.5,"bold")+30));
+    const wDel=Math.max(nW(pdf,"DÉLAI",9.5,"bold")+14,...act.map(l=>nW(pdf,l.cel.del.t||"",11.5,l.cel.del.style)+16));
     nTable(ctx,"Actions MEO",[{k:"n",t:"",w:28},{k:"lib",t:"Action"},{k:"por",t:"Porteur",w:150},
-      {k:"ech",t:"Échéance",w:92},{k:"av",t:"Avancement",w:160},{k:"stat",t:"Statut",w:160},{k:"del",t:"Délai",w:150}],
+      {k:"ech",t:"Échéance",w:84},{k:"av",t:"Avancement",w:140},{k:"stat",t:"Statut",w:Math.ceil(wStat)},{k:"del",t:"Délai",w:Math.ceil(wDel)}],
       lignes,{});
   }else if(tachesP.length){
     nTable(ctx,"Tâches du projet",nColsTaches(),tachesP.map(nLigneTache),{});
@@ -12342,7 +12364,6 @@ function construireDocSuite(ctx,p,mode){
     if(op.instances!==false) nInstances(ctx);
     if(op.journal!==false) nJournal(ctx);
     if(op.budget!==false) nBudget(ctx);
-    if(op.sup!==false) nPagesSup(ctx);
     nStrategie(ctx);
     nRemplirSommaire(ctx);
   }
@@ -12415,8 +12436,7 @@ function rafraichirApercu(){
     if(urlApercu) URL.revokeObjectURL(urlApercu);
     urlApercu=URL.createObjectURL(d.pdf.output("blob"));
     cadre.src=urlApercu+"#toolbar=0&navpanes=0&view=FitH";
-    info.textContent=d.pages+" page"+(d.pages>1?"s":"")+
-      (pagesSup.length?" — dont "+pagesSup.length+" additionnelle"+(pagesSup.length>1?"s":""):"");
+    info.textContent=d.pages+" page"+(d.pages>1?"s":"");
     $("#apercu-titre").textContent=d.nom.replace(/\.pdf$/,"").replace(/_/g," ");
   }catch(e){
     info.textContent="Erreur : "+e.message;
@@ -15444,7 +15464,7 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-i — impression PDF, coup d'œil modifiable avant l'édition";
+const VERSION="2026-10-14-k — impression PDF, coup d'œil modifiable avant l'édition";
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -15534,8 +15554,7 @@ $("#impr-cdo-btn").onclick=()=>{
   $("#voile-impr").classList.remove("ouvert");
   ouvrirCdo(S.projetSel,()=>ouvrirImpression());
 };
-$("#impr-pages").onclick=()=>{ retenirOptionsImpr(); $("#voile-impr").classList.remove("ouvert"); S.retourImpr=true; ouvrirPagesSup(); };
-$("#ap-pages").onclick=()=>{ S.retourApercu=true; fermerApercu(); ouvrirPagesSup(); };
+
 $("#pages-apercu").onclick=()=>{
   $("#voile-pages").classList.remove("ouvert");
   ouvrirApercu();

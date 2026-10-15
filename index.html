@@ -15721,7 +15721,36 @@ function rechargerBientot(){ clearTimeout(minuteur); minuteur=setTimeout(tout,60
 /* Repère de version : affiché dans la console au démarrage. Il permet de
    vérifier d'un coup d'œil quelle build le navigateur exécute réellement,
    les widgets Grist étant mis en cache assez agressivement. */
-const VERSION="2026-10-14-p — PDF et diaporama issus du même gabarit, bouton unique";
+const VERSION="2026-10-15-a — la fiche suit la sélection du planning (curseur Grist)";
+
+/* Sélection venue d'un autre widget (planning) : la console est réglée dans
+   Grist sur « Sélectionner par : planning ». La ligne pointée ouvre la fiche
+   de son projet ; une action MEO ouvre son projet sur l'onglet Actions. */
+let dernierCurseur=null;
+function suivreCurseur(id){
+  if(!S.pret || id==null || id===dernierCurseur) return;
+  const r=S.data.main.find(x=>x.id===Number(id));
+  if(!r) return;
+  let p=null, onglet=null;
+  if(estProjet(r)) p=r;
+  else if(estAction(r)){
+    p=S.data.main.find(x=>estProjet(x) && actionsDe(x).some(a=>a.id===r.id)) || null;
+    onglet="actions";
+  }
+  if(!p) return;
+  if(nbModifs() && (!S.projetSel || S.projetSel.id!==p.id)){
+    toast("Enregistrez ou annulez vos saisies avant d'ouvrir un autre projet.",true);
+    return;
+  }
+  dernierCurseur=id;
+  if(estArchive(p) && !S.voirArchives){ S.voirArchives=true; const cb=$("#f-archives"); if(cb) cb.checked=true; }
+  const memeProjet=S.projetSel && S.projetSel.id===p.id;
+  if(memeProjet && (!onglet || S.onglet===onglet)) return;
+  S.projetSel=p;
+  if(onglet) S.onglet=onglet;
+  reverrouiller();
+  rendreListe(); rendreProjet();
+}
 
 async function demarrer(){
   console.info("Console Projets — version "+VERSION);
@@ -15764,6 +15793,7 @@ async function demarrer(){
   /* posé avant le premier chargement : même si celui-ci échoue, la console
      continue de se rafraîchir toute seule */
   try{ grist.onRecords(()=>{ if(S.pret && !nbModifs()) rechargerBientot(); }); }catch(e){}
+  try{ grist.onRecord(rec=>{ if(rec) suivreCurseur(rec.id); }); }catch(e){}
   /* la table d'historique n'est pas la table liée au widget : Grist ne signale
      pas ses changements. On la relit quand on revient dans le widget, et l'on
      ne redessine que si elle a changé, pour ne pas voler le focus d'un champ. */
